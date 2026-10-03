@@ -1,5 +1,5 @@
 {
-  "name": "music-teacher-studio",
+  "name": "lindon",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,9 +9,17 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@auth/supabase-adapter": "^1.11.3",
+    "@date-fns/tz": "^1.5.0",
+    "@supabase/supabase-js": "^2.117.2",
+    "date-fns": "^4.4.0",
     "next": "16.3.8",
+    "next-auth": "^5.0.0-beta.32",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "resend": "^6.32.0",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^20",

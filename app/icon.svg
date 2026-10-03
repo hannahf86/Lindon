@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- Lindon app icon: single quaver in a rounded square (teal ink, matches buttons) -->
+  <rect width="48" height="48" rx="13" fill="#1D7F7A"/>
+  <ellipse cx="19" cy="33" rx="6.2" ry="4.8" transform="rotate(-22 19 33)" fill="#fff"/>
+  <path d="M24.4 31.5V11" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M24.4 11c0 5 8 6.5 8 13.5" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/>
+</svg>
