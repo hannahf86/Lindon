@@ -5,13 +5,14 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { AuthError } from 'next-auth'
+import Link from 'next/link'
 import { auth, signIn } from '@/auth'
 import { LogoMark } from '@/components/logo'
 
 export const metadata: Metadata = { title: 'Sign in' }
 
 const ERRORS: Record<string, string> = {
-  AccessDenied: "That email address isn't allowed to sign in yet.",
+  AccessDenied: "There's no Lindon account for that email yet. New here? Create an account below — or check you've typed the address you signed up with.",
   Verification: 'That sign-in link has expired or was already used. Request a new one below.',
   EmailSignin: "We couldn't send the sign-in email. Please try again.",
 }
@@ -77,6 +78,10 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
               Email me a sign-in link
             </button>
           </form>
+          {/* ---- New teachers ---- */}
+          <p className="small muted" style={{ marginTop: 18 }}>
+            New to Lindon? <Link href="/signup">Create an account</Link>
+          </p>
         </div>
       </section>
     </div>

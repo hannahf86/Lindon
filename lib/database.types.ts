@@ -2,7 +2,8 @@
 // lib/database.types.ts — TypeScript shape of the Supabase `public` schema
 //
 // Hand-written to mirror supabase/migrations/ (0001_init, 0002_products,
-// 0003_family_access, 0004_slot_bookings, 0005_attendance_credits). If you change the
+// 0003_family_access, 0004_slot_bookings, 0005_attendance_credits,
+// 0006_access_requests). If you change the
 // schema, change this file too (or regenerate with `supabase gen types`).
 //
 // Gotcha: these MUST be `type` aliases, not `interface`s. An interface isn't
@@ -265,6 +266,19 @@ export type LessonCredit = {
   created_at: string
 }
 
+/** A teacher asking to join while sign-ups are invite-only. */
+export type AccessRequest = {
+  id: string
+  email: string
+  name: string
+  studio: string
+  teaches: string
+  status: 'pending' | 'approved' | 'declined'
+  created_at: string
+  decided_at: string | null
+  decided_by: string | null
+}
+
 export type FamilyAccess = {
   id: string
   teacher_id: string
@@ -346,6 +360,7 @@ export type Database = {
         ]
       }
       products: Table<Product, 'teacher_id' | 'name'>
+      access_requests: Table<AccessRequest, 'email'>
       lesson_credits: Table<
         LessonCredit,
         'teacher_id' | 'student_id' | 'amount' | 'reason',

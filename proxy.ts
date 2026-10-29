@@ -8,7 +8,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 
-const PUBLIC_PATHS = ['/login', '/api/auth', '/api/cron']
+const PUBLIC_PATHS = ['/login', '/signup', '/api/auth', '/api/cron']
 
 export default auth((req) => {
   const { pathname } = req.nextUrl

@@ -273,3 +273,30 @@ export function creditIssuedEmail(opts: {
     }),
   }
 }
+
+// ---- Access requests (invite-only sign-up) -----------------------------------
+export function accessRequestedEmail(opts: { name: string; email: string; studio: string; teaches: string; url: string }): Email {
+  const subject = `New teacher wants to join Lindon: ${opts.name || opts.email}`
+  const rows: [string, string][] = [['Name', opts.name || '—'], ['Email', opts.email], ['Studio', opts.studio || '—'], ['Teaches', opts.teaches || '—']]
+  return {
+    subject,
+    text: `${opts.name || opts.email} has asked for a Lindon account.\n\n${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\nReview it: ${opts.url}`,
+    html: layout({ studio: 'Lindon', heading: 'New access request', bodyHtml: detailTable(rows) + button(opts.url, 'Review request') }),
+  }
+}
+
+export function accessApprovedEmail(opts: { name: string; url: string }): Email {
+  const subject = "You're in — your Lindon account is ready"
+  return {
+    subject,
+    text: `Hi ${opts.name || 'there'},\n\nYour request to join Lindon has been approved. Sign in with this email address — there's no password, we'll email you a link:\n${opts.url}\n`,
+    html: layout({
+      studio: 'Lindon',
+      heading: "You're in",
+      bodyHtml:
+        `<p style="margin:0 0 14px;line-height:1.55">Hi ${esc(opts.name || 'there')},</p>` +
+        `<p style="margin:0 0 22px;line-height:1.55">Your request to join <strong>Lindon</strong> has been approved. Sign in with this email address — there&#39;s no password, we&#39;ll email you a link each time.</p>` +
+        button(opts.url, 'Sign in to Lindon'),
+    }),
+  }
+}

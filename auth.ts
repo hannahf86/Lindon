@@ -44,7 +44,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     // Teachers (subject to the allowlist), existing teachers, and invited families
     async signIn({ user }) {
-      if (canBeTeacher(user.email)) return true
+      if (await canBeTeacher(user.email)) return true
       return (await isExistingTeacher(user.email)) || (await hasFamilyAccess(user.email))
     },
     session({ session, token }) {

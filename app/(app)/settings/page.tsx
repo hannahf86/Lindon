@@ -4,7 +4,10 @@
 // =============================================================================
 import type { Metadata } from 'next'
 import { auth } from '@/auth'
+import Link from 'next/link'
 import { requireTeacher } from '@/lib/db'
+import { db } from '@/lib/admin'
+import { isAdmin } from '@/lib/access'
 import { ActionForm, SubmitButton } from '@/components/forms'
 import { Card, PageHeader, TextArea, TextField, Toggle } from '@/components/ui'
 import { updateSettings } from './actions'
@@ -16,6 +19,11 @@ export default async function SettingsPage() {
   const t = teacher
   const signedInAs = session?.user?.email ?? ''
   const nextNumberPreview = `${t.invoice_prefix}${String(t.next_invoice_number).padStart(4, '0')}`
+  // Admins approve new teachers while sign-up is invite-only
+  const admin = isAdmin(signedInAs)
+  const { count: pendingRequests } = admin
+    ? await db().from('access_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+    : { count: 0 }
 
   return (
     <>
@@ -27,6 +35,16 @@ export default async function SettingsPage() {
           </>
         }
       />
+
+      {/* ---- Admin: teachers waiting to join ---- */}
+      {admin && (
+        <div className={`alert ${pendingRequests ? 'alert-info' : 'alert-ok'} spread`} style={{ marginBottom: 20 }}>
+          <span>{pendingRequests ? `${pendingRequests} teacher${pendingRequests === 1 ? ' is' : 's are'} waiting to join Lindon.` : 'No teachers waiting to join.'}</span>
+          <Link className="btn btn-sm" href="/settings/access">
+            Access requests
+          </Link>
+        </div>
+      )}
 
       <ActionForm action={updateSettings}>
         {/* ---- Studio profile ---- */}

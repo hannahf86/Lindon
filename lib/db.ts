@@ -34,12 +34,14 @@ export const requireTeacher = cache(async (): Promise<Teacher> => {
   // their own area — they must never be turned into teacher accounts.
   const email = session.user?.email ?? ''
   if (await hasFamilyAccess(email)) redirect('/family')
-  if (!canBeTeacher(email)) redirect('/login?error=AccessDenied')
+  if (!(await canBeTeacher(email))) redirect('/login?error=AccessDenied')
 
-  // First sign-in as a teacher: create the studio profile
+  // First sign-in as a teacher: create the studio profile, pre-filled from
+  // their access request (name + studio) when they asked to join
+  const { data: request } = await db().from('access_requests').select('name, studio').eq('email', email.toLowerCase()).maybeSingle()
   const { data: created, error: insertError } = await db()
     .from('teachers')
-    .insert({ id: userId, email, display_name: session.user?.name ?? '' })
+    .insert({ id: userId, email, display_name: request?.name || session.user?.name || '', business_name: request?.studio ?? '' })
     .select('*')
     .single()
   if (insertError) throw insertError
