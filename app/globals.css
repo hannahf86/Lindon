@@ -333,8 +333,11 @@ form:has(input[name='student_id'][value='']:checked) .booking-only { display: no
 .day-head:hover { color: var(--teal-ink); }
 .event { display: block; border-radius: 12px; padding: 8px 10px; margin-bottom: 6px; text-decoration: none; color: var(--ink); background: var(--sky-wash); border-left: 5px solid var(--teal); font-size: 0.9rem; }
 .event:hover { color: var(--ink); filter: brightness(0.97); }
-.event.completed { background: var(--teal-wash); border-left-color: var(--teal-ink); }
-.event.cancelled, .event.no_show { background: var(--coral-wash); border-left-color: var(--coral); text-decoration: line-through; }
+/* Attendance colours (match the Calendar event component in the Lindon Figma library) */
+.event.present { background: var(--teal-wash); border-left-color: var(--teal-ink); }
+.event.absent { background: var(--butter-wash); border-left-color: var(--butter); }
+.event.notice_given { background: var(--coral-wash); border-left-color: var(--coral); text-decoration: line-through; }
+.event.teacher_cancelled { background: var(--purple-wash); border-left-color: var(--purple); text-decoration: line-through; }
 .event.slot { background: #fff; border: 2px dashed var(--line); border-left: 5px dashed var(--sky); }
 .event.exam { background: var(--purple-wash); border-left-color: var(--purple); }
 .event-time { font-weight: 900; }
@@ -348,9 +351,11 @@ form:has(input[name='student_id'][value='']:checked) .booking-only { display: no
 /* ---- Day view: roomy timeline ---- */
 .dayview { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .dv-row { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 14px 16px; border-radius: 14px; background: var(--sky-wash); border-left: 6px solid var(--teal); }
-.dv-row.completed { background: var(--teal-wash); border-left-color: var(--teal-ink); }
-.dv-row.cancelled, .dv-row.no_show { background: var(--coral-wash); border-left-color: var(--coral); }
-.dv-row.cancelled .dv-title, .dv-row.no_show .dv-title { text-decoration: line-through; }
+.dv-row.present { background: var(--teal-wash); border-left-color: var(--teal-ink); }
+.dv-row.absent { background: var(--butter-wash); border-left-color: var(--butter); }
+.dv-row.notice_given { background: var(--coral-wash); border-left-color: var(--coral); }
+.dv-row.teacher_cancelled { background: var(--purple-wash); border-left-color: var(--purple); }
+.dv-row.notice_given .dv-title, .dv-row.teacher_cancelled .dv-title { text-decoration: line-through; }
 .dv-row.exam { background: var(--purple-wash); border-left-color: var(--purple); }
 .dv-row.slot { background: #fff; border: 2px dashed var(--line); border-left: 6px dashed var(--sky); }
 .dv-time { font-weight: 900; font-size: 1.15rem; line-height: 1.1; }
@@ -369,8 +374,8 @@ a.dv-title:hover { color: var(--teal-ink); text-decoration: underline; }
 .month-cell.today { outline: 3px solid var(--teal); }
 .month-date { font-weight: 900; font-size: 0.95rem; }
 .month-chip { font-size: 0.78rem; padding: 2px 6px; border-radius: 6px; background: var(--sky-wash); border-left: 3px solid var(--teal); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.month-chip.completed { background: var(--teal-wash); border-left-color: var(--teal-ink); }
-.month-chip.no_show { background: var(--coral-wash); border-left-color: var(--coral); }
+.month-chip.present { background: var(--teal-wash); border-left-color: var(--teal-ink); }
+.month-chip.absent { background: var(--butter-wash); border-left-color: var(--butter); }
 .month-chip.exam { background: var(--purple-wash); border-left-color: var(--purple); font-weight: 800; }
 .month-more { font-size: 0.75rem; font-weight: 800; color: var(--teal-ink); }
 .month-count { display: none; }
