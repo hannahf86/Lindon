@@ -314,6 +314,12 @@ form:has(input[name='student_id'][value='']:checked) .booking-only { display: no
 /* Lesson notes history (pupil page) */
 .note-text { margin: 6px 0 0; white-space: pre-line; }
 
+/* Tip of the day (dashboard + family home) */
+.tip { display: flex; gap: 14px; align-items: flex-start; padding: 16px 20px; border-radius: var(--radius-lg); background: var(--butter-wash); border-left: 6px solid var(--butter); margin-bottom: 20px; }
+.tip-mark { flex: none; width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: var(--surface); color: var(--teal-ink); }
+.tip-eyebrow { color: #6b5a12; }
+.tip-text { margin: 4px 0 0; font-size: 1.05rem; font-weight: 700; color: var(--ink); line-height: 1.45; }
+
 /* Empty state */
 .empty { text-align: center; padding: 32px 16px; color: var(--muted); }
 .empty h3 { color: var(--ink); margin-bottom: 6px; }

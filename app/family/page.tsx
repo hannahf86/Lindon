@@ -10,6 +10,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { db, must } from '@/lib/db'
 import { requireFamily, type FamilyLink } from '@/lib/family'
+import { TipOfTheDay } from '@/components/tip-of-the-day'
 import { duration, hhmm, money } from '@/lib/format'
 import { fmtDate, fmtTz, todayISO } from '@/lib/dates'
 import { displayStatus } from '@/lib/invoices'
@@ -92,6 +93,9 @@ export default async function FamilyHome() {
           <p>Here’s what’s coming up with your music lessons.</p>
         </div>
       </header>
+
+      {/* ---- Tip of the day (same for everyone, changes daily) ---- */}
+      <TipOfTheDay date={todayISO(ctx.links[0].teacher.timezone)} />
 
       {/* ---- Unread messages ---- */}
       {unread > 0 && (

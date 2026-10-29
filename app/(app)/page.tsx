@@ -9,6 +9,7 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { requireTeacher } from '@/lib/db'
 import { loadDashboard } from '@/lib/dashboard'
+import { TipOfTheDay } from '@/components/tip-of-the-day'
 import { fmtDate, fmtTz } from '@/lib/dates'
 import { dayName, duration, fullName, hhmm, money } from '@/lib/format'
 import { Badge, Card, Stat, StatusBadge } from '@/components/ui'
@@ -52,6 +53,9 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </header>
+
+      {/* ---- Tip of the day (same for everyone, changes daily) ---- */}
+      <TipOfTheDay date={fmtTz(now, tz, 'yyyy-MM-dd')} />
 
       {/* ---- New messages from families ---- */}
       {unreadConversations.length > 0 && (
