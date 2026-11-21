@@ -4,7 +4,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { db, requireTeacher } from '@/lib/db'
+import { db } from '@/lib/db'
 import { fullName, hhmm, money } from '@/lib/format'
 import { fmtDate, todayISO } from '@/lib/dates'
 import { studentOptions } from '@/lib/queries'
@@ -15,13 +15,14 @@ import { ExamForm } from '../exam-form'
 import { addExamFeeToDraft, deleteExam, updateExam } from '../actions'
 import { DeadlineBadge, examSuggestions, examTitle } from '../helpers'
 import { currencySymbol } from '../../library/helpers'
+import { requireFeature } from '@/lib/require-feature'
 
 export const metadata: Metadata = { title: 'Exam' }
 
 export default async function ExamPage({ params, searchParams }: PageProps<'/exams/[id]'>) {
   const { id } = await params
   const sp = await searchParams
-  const teacher = await requireTeacher()
+  const teacher = await requireFeature('exams')
   const today = todayISO(teacher.timezone)
 
   const { data: exam } = await db()

@@ -12,6 +12,7 @@ import { displayStatus, isEditable } from '@/lib/invoices'
 import { productOptions } from '@/lib/products'
 import { availableCredits } from '@/lib/credits'
 import { pendingExamFees, pendingHire } from '@/lib/addons'
+import { has, usesCredits } from '@/lib/features'
 import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
 import { Card, PageHeader, StatusBadge, TextArea, TextField } from '@/components/ui'
 import { InvoiceItems } from './invoice-items'
@@ -50,7 +51,7 @@ export default async function InvoicePage({ params, searchParams }: PageProps<'/
   const status = displayStatus(inv, today)
   const editable = isEditable(inv)
   // Unused make-up credits (offered while the invoice can still be edited)
-  const waitingCredits = editable && inv.student_id ? await availableCredits(teacher.id, inv.student_id) : []
+  const waitingCredits = editable && inv.student_id && usesCredits(teacher) ? await availableCredits(teacher.id, inv.student_id) : []
   const student = inv.students
 
   return (
@@ -79,8 +80,7 @@ export default async function InvoicePage({ params, searchParams }: PageProps<'/
 
       {sp.new === '1' && (
         <div className="alert alert-info" style={{ marginBottom: 20 }}>
-          Invoice created as a draft{items.length ? ` with ${items.length} item${items.length === 1 ? '' : 's'}` : ''}. Check it over, add any
-          equipment, exam fees or hire, then email it or print it.
+          Invoice created as a draft{items.length ? ` with ${items.length} item${items.length === 1 ? '' : 's'}` : ''}. Check it over, add anything else, then email it or print it.
         </div>
       )}
 
@@ -110,9 +110,9 @@ export default async function InvoicePage({ params, searchParams }: PageProps<'/
             editable={editable}
             hasStudent={!!inv.student_id}
             lessonPeriod={monthBounds(inv.issue_date)}
-            products={editable ? await productOptions(teacher) : undefined}
-            examFees={editable && inv.student_id ? await pendingExamFees(teacher.id, inv.student_id) : undefined}
-            hire={editable && inv.student_id ? await pendingHire(teacher, inv.student_id, inv.issue_date) : undefined}
+            products={editable && has(teacher, 'equipment') ? await productOptions(teacher) : undefined}
+            examFees={editable && inv.student_id && has(teacher, 'exams') ? await pendingExamFees(teacher.id, inv.student_id) : undefined}
+            hire={editable && inv.student_id && has(teacher, 'library') ? await pendingHire(teacher, inv.student_id, inv.issue_date) : undefined}
           />
 
           {/* ---- Bill-to, dates and notes ---- */}

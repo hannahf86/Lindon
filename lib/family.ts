@@ -9,6 +9,7 @@
 //   • an adult pupil      → themselves only (while they're 18+).
 // Every family query must filter by link.teacherId AND link.studentIds.
 // Teachers' private notes (students.notes, guardians.notes) are never shown.
+// A teacher who has switched family logins off (lib/features.ts) gives no access.
 // =============================================================================
 import 'server-only'
 import { cache } from 'react'
@@ -17,8 +18,12 @@ import { auth } from '@/auth'
 import { db } from './admin'
 import { fullName, isMinor } from './format'
 import type { Teacher } from './database.types'
+import { has } from './features'
 
-export type FamilyTeacher = Pick<Teacher, 'id' | 'display_name' | 'business_name' | 'email' | 'phone' | 'currency' | 'timezone' | 'payment_details'>
+export type FamilyTeacher = Pick<
+  Teacher,
+  'id' | 'display_name' | 'business_name' | 'email' | 'phone' | 'currency' | 'timezone' | 'payment_details' | 'features' | 'billing_mode'
+>
 
 export type FamilyPupil = { id: string; first_name: string; last_name: string; instruments: string[] }
 
@@ -48,7 +53,7 @@ export const requireFamily = cache(async (): Promise<FamilyContext> => {
     .from('family_access')
     .select(
       `id, teacher_id, guardian_id, student_id,
-       teachers(id, display_name, business_name, email, phone, currency, timezone, payment_details),
+       teachers(id, display_name, business_name, email, phone, currency, timezone, payment_details, features, billing_mode),
        guardians(first_name, last_name, student_guardians(students(id, first_name, last_name, instruments, date_of_birth, is_minor, status))),
        students(id, first_name, last_name, instruments, date_of_birth, is_minor, status)`,
     )
@@ -59,7 +64,7 @@ export const requireFamily = cache(async (): Promise<FamilyContext> => {
   const links: FamilyLink[] = []
   for (const row of data ?? []) {
     const teacher = (row as unknown as { teachers: FamilyTeacher | null }).teachers
-    if (!teacher) continue
+    if (!teacher || !has(teacher, 'family_logins')) continue
     let pupils: (FamilyPupil & { date_of_birth: string | null; is_minor: boolean; status: string })[] = []
     let contactName = ''
     if (row.guardian_id && row.guardians) {

@@ -1,10 +1,11 @@
 // =============================================================================
 // lib/monthly-invoices.ts — "Create next month's invoices" for every pupil
 //
-// Lessons are billed monthly in advance. For each active pupil this makes a
-// DRAFT invoice holding their not-yet-invoiced lessons and any instrument hire
-// for the chosen month, then takes off any make-up credits waiting
-// (lib/credits.ts). If the pupil already has a draft holding only add-ons
+// For each active pupil this makes a DRAFT invoice holding their
+// not-yet-invoiced lessons (lib/invoices.ts decides which, by billing mode) and
+// any instrument hire (when the library feature is on) for the chosen month,
+// then — for teachers billing in advance — takes off any make-up credits
+// waiting (lib/credits.ts). If the pupil already has a draft holding only add-ons
 // (equipment or an exam fee), the month's lines join that draft, so the family
 // gets one invoice. Pupils with nothing to bill are skipped. Nothing is sent —
 // the teacher checks the drafts, then emails them.
@@ -16,6 +17,7 @@ import { addLessonLines, billToFor, uninvoicedLessons } from './invoices'
 import { addHireLines, pendingHire } from './addons'
 import { applyCredits } from './credits'
 import { fullName } from './format'
+import { has, usesCredits } from './features'
 import type { Teacher } from './database.types'
 
 export type MonthlyRunResult = {
@@ -80,16 +82,19 @@ export async function createMonthlyInvoices(teacher: Teacher, monthISO: string, 
   )
   const result: MonthlyRunResult = { created: [], skipped: [] }
   for (const p of pupils) {
-    const [lessons, hire] = await Promise.all([uninvoicedLessons(teacher, p.id, from, to), pendingHire(teacher, p.id, from)])
+    const [lessons, hire] = await Promise.all([
+      uninvoicedLessons(teacher, p.id, from, to),
+      has(teacher, 'library') ? pendingHire(teacher, p.id, from) : Promise.resolve([]),
+    ])
     if (lessons.length === 0 && hire.length === 0) {
       result.skipped.push(fullName(p))
       continue
     }
     const inv = (await addOnDraft(teacher, p.id, issueDate)) ?? (await newDraftInvoice(teacher, p.id, issueDate))
     const added = await addLessonLines(teacher, inv.id, p.id, from, to)
-    const hired = await addHireLines(teacher, inv.id, p.id, from)
-    const credits = await applyCredits(teacher, inv.id, p.id)
-    result.created.push({ invoiceId: inv.id, number: inv.number, name: fullName(p), lessons: added, hire: hired, credits: credits.count })
+    const hired = hire.length ? await addHireLines(teacher, inv.id, p.id, from) : 0
+    const credits = usesCredits(teacher) ? (await applyCredits(teacher, inv.id, p.id)).count : 0
+    result.created.push({ invoiceId: inv.id, number: inv.number, name: fullName(p), lessons: added, hire: hired, credits })
   }
   return result
 }

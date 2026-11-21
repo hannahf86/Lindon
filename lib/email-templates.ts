@@ -134,6 +134,8 @@ export function invoiceEmail(opts: {
   notes: string
   footer: string
   signature: string
+  /** A gentle "this is still unpaid" version */
+  reminder?: boolean
 }): Email {
   const lineRows = opts.lines
     .map(
@@ -141,18 +143,23 @@ export function invoiceEmail(opts: {
         `<tr><td style="padding:8px 0;border-bottom:1px solid #E6EEEE">${esc(l.description)}</td><td align="right" style="padding:8px 0;border-bottom:1px solid #E6EEEE;white-space:nowrap">${esc(l.amount)}</td></tr>`,
     )
     .join('')
-  const subject = `Invoice ${opts.number} from ${opts.studio}`
+  const subject = opts.reminder ? `Reminder: invoice ${opts.number} from ${opts.studio}` : `Invoice ${opts.number} from ${opts.studio}`
+  const intro = opts.reminder
+    ? `Just a friendly reminder that this invoice hasn't been paid yet${opts.dueDate ? ` — it was due on ${opts.dueDate}` : ''}. If you've already paid, thank you, and please ignore this.`
+    : ''
   return {
     subject,
     text:
+      (intro ? `${intro}\n\n` : '') +
       `Invoice ${opts.number}\nFor: ${opts.billTo}\nIssued: ${opts.issueDate}${opts.dueDate ? `\nDue: ${opts.dueDate}` : ''}\n\n` +
       opts.lines.map((l) => `${l.description} — ${l.amount}`).join('\n') +
       `\n\nTotal: ${opts.total}\n\n${opts.paymentDetails ? 'How to pay:\n' + opts.paymentDetails + '\n\n' : ''}${opts.notes ? opts.notes + '\n\n' : ''}${opts.signature}`,
     html: layout({
       studio: opts.studio,
-      heading: `Invoice ${opts.number}`,
+      heading: opts.reminder ? `Reminder: invoice ${opts.number}` : `Invoice ${opts.number}`,
       footer: opts.footer,
       bodyHtml:
+        (intro ? `<p style="margin:0 0 16px;line-height:1.55">${esc(intro)}</p>` : '') +
         detailTable([
           ['For', opts.billTo],
           ['Issued', opts.issueDate],
@@ -189,6 +196,23 @@ export function familyInviteEmail(opts: {
         `<p style="margin:0 0 14px;line-height:1.55">${esc(opts.teacherName)} uses <strong>Lindon</strong> to organise music lessons. You can now sign in to see ${esc(who)}&#39;s upcoming lessons and invoices.</p>` +
         `<p style="margin:0 0 22px;line-height:1.55">Sign in with this email address. There&#39;s no password: we&#39;ll email you a link each time.</p>` +
         button(opts.url, 'Open Lindon'),
+    }),
+  }
+}
+
+// ---- "You have a new message" alert -------------------------------------------
+export function newMessageEmail(opts: { studio: string; fromName: string; body: string; url: string }): Email {
+  const subject = `New message from ${opts.fromName}`
+  return {
+    subject,
+    text: `${opts.fromName} sent you a message:\n\n${opts.body}\n\nReply in Lindon: ${opts.url}`,
+    html: layout({
+      studio: opts.studio,
+      heading: 'New message',
+      bodyHtml:
+        `<p style="margin:0 0 12px;color:#5C6B75">From <strong style="color:#23303A">${esc(opts.fromName)}</strong></p>` +
+        `<div style="background:#F2F7F7;border-radius:14px;padding:16px 18px;margin:0 0 20px">${paragraphs(opts.body)}</div>` +
+        button(opts.url, 'Reply in Lindon'),
     }),
   }
 }

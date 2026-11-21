@@ -1,8 +1,8 @@
 'use server'
 // =============================================================================
-// lessons/actions.ts — one-off lessons, editing lesson details, one-tap
-// attendance, "send reminder now" and delete. Every query is scoped to the
-// signed-in teacher.
+// lessons/actions.ts — one-off lessons, editing lesson details, lesson notes
+// (optionally emailed to parents), quick "mark completed", "send reminder
+// now" and delete. Every query is scoped to the signed-in teacher.
 // =============================================================================
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
@@ -12,6 +12,7 @@ import { zonedToUtc } from '@/lib/dates'
 import { sendLessonReminder } from '@/lib/reminders'
 import { CREDIT_STATUSES, LESSON_STATUSES } from '@/lib/lessons'
 import { notifyCreditIssued } from '@/lib/credits'
+import { usesCredits } from '@/lib/features'
 import type { LessonStatus } from '@/lib/database.types'
 
 /** Date / time / length / price / instrument / location (shared by create + update). */
@@ -102,6 +103,8 @@ const ATTENDANCE_WORDS: Record<LessonStatus, string> = {
  * family and say so; if it took a credit away, say that too.
  */
 async function creditNote(teacher: Awaited<ReturnType<typeof requireTeacher>>, lessonId: string, from: LessonStatus, to: LessonStatus): Promise<string> {
+  // Billing in arrears: no credits — a cancelled lesson just isn't charged
+  if (!usesCredits(teacher)) return (CREDIT_STATUSES as readonly string[]).includes(to) ? ' It won’t be charged.' : ''
   const was = (CREDIT_STATUSES as readonly string[]).includes(from)
   const now = (CREDIT_STATUSES as readonly string[]).includes(to)
   if (now && !was) {
@@ -142,5 +145,5 @@ export async function deleteLesson(id: string): Promise<ActionState> {
   const teacher = await requireTeacher()
   const rows = must(await db().from('lessons').delete().eq('id', id).eq('teacher_id', teacher.id).select('student_id'))
   revalidateLesson(id, rows[0]?.student_id)
-  redirect('/lessons')
+  redirect('/schedule')
 }

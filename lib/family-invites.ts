@@ -16,11 +16,11 @@ import { fullName, isMinor } from './format'
 import { fmtTz } from './dates'
 import { sendEmail, studioName } from './email'
 import { familyInviteEmail } from './email-templates'
-import { appUrl } from './app-url'
+import { appUrl, type ConversationTarget } from './messages'
 import { FormError } from './forms'
 import type { FamilyAccess, Teacher } from './database.types'
 
-export type FamilyTarget = { guardianId: string } | { studentId: string }
+export type FamilyTarget = ConversationTarget
 
 // ---- Status --------------------------------------------------------------------------
 export type AccessState = 'none' | 'invited' | 'active' | 'removed'
@@ -52,7 +52,7 @@ export function accessText(s: AccessStatus, timeZone: string, hasEmail: boolean)
     case 'removed':
       return `Access removed ${fmtTz(s.latest!.revoked_at!, timeZone, 'd MMM')}`
     default:
-      return hasEmail ? 'Hasn’t been invited — they’ll still get your emails' : 'Hasn’t been invited, and has no email address'
+      return hasEmail ? 'Hasn’t been invited — they’ll get your messages by email' : 'Hasn’t been invited, and has no email address'
   }
 }
 
@@ -157,7 +157,7 @@ export async function resendFamilyInvite(teacher: Teacher, target: FamilyTarget)
 }
 
 // ---- Remove access ----------------------------------------------------------------------------
-/** Revoke the live invitation. Their history is kept. */
+/** Revoke the live invitation. Messages and history are kept. */
 export async function removeFamilyAccess(teacher: Teacher, target: FamilyTarget): Promise<string> {
   const q = db().from('family_access').update({ revoked_at: new Date().toISOString() }).eq('teacher_id', teacher.id).is('revoked_at', null)
   const { error } = await ('guardianId' in target ? q.eq('guardian_id', target.guardianId) : q.eq('student_id', target.studentId))

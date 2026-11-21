@@ -2,8 +2,7 @@
 // app/family/lessons/page.tsx — a family's lessons: Upcoming / Past
 //
 // ?view=past switches tabs; ?pupil=<id> narrows to one child (only accepted
-// if canSeePupil() says so). Only the teacher can move a lesson, so families
-// see how to contact them. Prices are never shown here.
+// if canSeePupil() says so). Prices are never shown here.
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -12,7 +11,6 @@ import { canSeePupil, requireFamily, type FamilyLink } from '@/lib/family'
 import { duration } from '@/lib/format'
 import { fmtTz } from '@/lib/dates'
 import { Badge, Card, EmptyState, PageHeader } from '@/components/ui'
-import { TeacherContact } from '@/components/teacher-contact'
 import { lessonBadge, pupilNames, studioLine } from '../_lib/family-data'
 
 export const metadata: Metadata = { title: 'Lessons' }
@@ -93,30 +91,19 @@ export default async function FamilyLessonsPage({ searchParams }: PageProps<'/fa
         </nav>
       )}
 
-      {/* ---- Changing a lesson goes through the teacher ---- */}
-      <div className="alert alert-info" style={{ marginBottom: 20 }}>
-        {ctx.links.map((link) => (
-          <TeacherContact
-            key={link.accessId}
-            teacher={link.teacher}
-            label={manyTeachers ? `To change a lesson with ${studioLine(link.teacher)}:` : 'Need to change a lesson?'}
-          />
-        ))}
-      </div>
-
       {/* ---- Lesson list ---- */}
       <Card>
         {lessons.length === 0 ? (
           <EmptyState title={view === 'past' ? 'No past lessons yet' : 'No lessons booked'}>
             {view === 'past'
               ? 'Lessons will show here once they’ve taken place.'
-              : 'Your teacher hasn’t booked any upcoming lessons yet.'}
+              : 'Your teacher hasn’t booked any upcoming lessons yet. Send them a message if you have a question.'}
           </EmptyState>
         ) : (
           <ul className="list">
             {lessons.map((l) => {
               const tz = l.link.teacher.timezone
-              const b = lessonBadge(l.status)
+              const b = lessonBadge(l.status, l.link.teacher.billing_mode)
               const cancelled = l.status === 'notice_given' || l.status === 'teacher_cancelled'
               const name = allPupils.length > 1 ? nameOf(l.link, l.student_id) : ''
               return (

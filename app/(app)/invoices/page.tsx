@@ -1,213 +1,189 @@
 // =============================================================================
-// invoices/page.tsx — invoice list: money owed at a glance, status filter
-// tabs (All / Draft / Sent / Overdue / Paid / Void) and search.
+// invoices/page.tsx — Invoices (Hannah's wireframe)
+//
+// Tiles: Amount due this month · Outstanding. Buttons: New invoice and the
+// auto-invoicing switch, plus "Create invoices now" for a manual monthly run.
+// A month dropdown (?month=YYYY-MM, default this month) picks which invoices
+// are listed: student, amount, status and the next action — send a draft, or
+// send a payment reminder for a sent, unpaid one. Drafts can all be sent at once.
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { db, must, requireTeacher } from '@/lib/db'
-import { money } from '@/lib/format'
-import { addDaysISO, fmtDate, monthBounds, todayISO } from '@/lib/dates'
-import { displayStatus } from '@/lib/invoices'
+import { fullName, money } from '@/lib/format'
+import { fmtDate, monthBounds, monthOptions, todayISO } from '@/lib/dates'
+import { billingMonth, displayStatus } from '@/lib/invoices'
+import { has } from '@/lib/features'
 import { Card, EmptyState, PageHeader, Stat, StatusBadge, TextField } from '@/components/ui'
-import { ActionForm, SubmitButton } from '@/components/forms'
+import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
 import { ModalButton } from '@/components/modal'
-import { runMonthlyInvoices } from './actions'
+import { MonthPicker } from '@/components/month-picker'
+import { emailInvoice, runMonthlyInvoices, sendInvoiceReminder, sendMonthDrafts, setAutoInvoice } from './actions'
 
 export const metadata: Metadata = { title: 'Invoices' }
-
-const FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'draft', label: 'Draft' },
-  { key: 'sent', label: 'Sent (unpaid)' },
-  { key: 'overdue', label: 'Overdue' },
-  { key: 'paid', label: 'Paid' },
-  { key: 'void', label: 'Void' },
-] as const
-type FilterKey = (typeof FILTERS)[number]['key']
-
-const LIMIT = 300
 
 export default async function InvoicesPage({ searchParams }: PageProps<'/invoices'>) {
   const teacher = await requireTeacher()
   const sp = await searchParams
-  const q = typeof sp.q === 'string' ? sp.q.trim() : ''
-  const status: FilterKey = FILTERS.find((f) => f.key === sp.status)?.key ?? 'all'
   const today = todayISO(teacher.timezone)
-  // Default month for the monthly run: next month (billed in advance)
-  const nextMonth = addDaysISO(monthBounds(today)[1], 1).slice(0, 7)
+  const month = typeof sp.month === 'string' && /^\d{4}-\d{2}$/.test(sp.month) ? sp.month : today.slice(0, 7)
+  const [from, to] = monthBounds(`${month}-01`)
   const c = teacher.currency
+  const arrears = teacher.billing_mode === 'arrears'
 
-  // ---- The list (filtered) ----
-  let query = db()
-    .from('invoices')
-    .select('id, number, bill_to_name, bill_to_email, issue_date, due_date, status, total, paid_on')
-    .eq('teacher_id', teacher.id)
-    .order('issue_date', { ascending: false })
-    .order('number', { ascending: false })
-    .limit(LIMIT)
-  if (status === 'overdue') query = query.eq('status', 'sent').lt('due_date', today)
-  else if (status !== 'all') query = query.eq('status', status)
-  if (q) {
-    // Escape PostgREST filter syntax characters in the search term
-    const term = q.replace(/[%,()]/g, ' ')
-    query = query.or(`number.ilike.%${term}%,bill_to_name.ilike.%${term}%,bill_to_email.ilike.%${term}%`)
-  }
-
-  // ---- Totals for the tiles (unfiltered) ----
-  const [invoices, unpaid, drafts] = await Promise.all([
-    query.then(must),
-    db().from('invoices').select('total, due_date').eq('teacher_id', teacher.id).eq('status', 'sent').then(must),
-    db().from('invoices').select('total').eq('teacher_id', teacher.id).eq('status', 'draft').then(must),
+  const [invoices, dueThisMonth, unpaid] = await Promise.all([
+    // Invoices issued in the chosen month
+    db()
+      .from('invoices')
+      .select('id, number, bill_to_name, bill_to_email, issue_date, due_date, status, total, paid_on, students(first_name, last_name)')
+      .eq('teacher_id', teacher.id)
+      .gte('issue_date', from)
+      .lte('issue_date', to)
+      .order('bill_to_name')
+      .then(must),
+    // Everything (not void) falling due in the chosen month
+    db().from('invoices').select('total').eq('teacher_id', teacher.id).neq('status', 'void').gte('due_date', from).lte('due_date', to).then(must),
+    db().from('invoices').select('total').eq('teacher_id', teacher.id).eq('status', 'sent').then(must),
   ])
-  const outstanding = unpaid.reduce((sum, i) => sum + Number(i.total), 0)
-  const overdueList = unpaid.filter((i) => i.due_date && i.due_date < today)
-  const overdue = overdueList.reduce((sum, i) => sum + Number(i.total), 0)
-  const draftTotal = drafts.reduce((sum, i) => sum + Number(i.total), 0)
-
-  const href = (s: string) => `/invoices?status=${s}${q ? `&q=${encodeURIComponent(q)}` : ''}`
+  const sum = (rows: { total: number }[]) => rows.reduce((n, r) => n + Number(r.total), 0)
+  const drafts = invoices.filter((i) => i.status === 'draft')
+  const isThisMonth = month === today.slice(0, 7)
 
   return (
     <>
       <PageHeader
         title="Invoices"
-        subtitle="Bill for lessons and anything you’ve supplied — strings, books, reeds and so on."
         actions={
           <>
-            <Link href="/reports" className="btn btn-secondary">
-              Income reports
-            </Link>
-            {/* ---- Bill everyone for next month in one go ---- */}
-            <ModalButton label="Create next month's invoices" title="Create next month's invoices" className="btn btn-purple">
+            {has(teacher, 'reports') && (
+              <Link href="/reports" className="btn btn-ghost">
+                Income reports
+              </Link>
+            )}
+            {/* ---- Manual monthly run (the 1st-of-the-month job does this automatically) ---- */}
+            <ModalButton label="Create invoices now" title="Create this month’s invoices" className="btn btn-secondary">
               <ActionForm action={runMonthlyInvoices}>
                 <p className="small muted" style={{ margin: 0 }}>
-                  Makes a draft invoice for every active pupil with lessons booked that month that aren’t invoiced yet, and takes off any
-                  make-up credits they have waiting. Nothing is sent — check the drafts, then email them.
+                  {arrears
+                    ? 'Makes a draft invoice for every active pupil’s lessons in that month that went ahead and aren’t invoiced yet.'
+                    : 'Makes a draft invoice for every active pupil’s lessons in that month that aren’t invoiced yet, and takes off any make-up credits waiting.'}{' '}
+                  Nothing is sent — check the drafts, then send them. Lindon also does this for you on the 1st of each month.
                 </p>
                 <div className="form-grid">
-                  <TextField label="Month to bill" name="month" type="month" defaultValue={nextMonth} required />
+                  <TextField label="Month to bill" name="month" type="month" defaultValue={billingMonth(teacher, today).slice(0, 7)} required />
                   <TextField label="Invoice date" name="issue_date" type="date" defaultValue={today} />
                 </div>
                 <SubmitButton pendingText="Creating invoices…">Create draft invoices</SubmitButton>
               </ActionForm>
             </ModalButton>
+            {/* ---- Auto-invoicing switch ---- */}
+            {teacher.auto_invoice ? (
+              <ConfirmButton
+                action={setAutoInvoice.bind(null, false)}
+                confirm="Turn off auto-invoicing? Invoices will still be drafted on the 1st, but you'll check and send them yourself."
+                className="btn btn-secondary"
+              >
+                ✓ Auto-invoicing on
+              </ConfirmButton>
+            ) : (
+              <ConfirmButton
+                action={setAutoInvoice.bind(null, true)}
+                confirm="Turn on auto-invoicing? On the 1st of each month, invoices will be made and emailed to families automatically."
+                className="btn btn-secondary"
+              >
+                Enable auto-invoicing
+              </ConfirmButton>
+            )}
             <Link href="/invoices/new" className="btn">
-              + New invoice
+              New invoice
             </Link>
           </>
         }
       />
 
-      {/* ---- Money owed at a glance ---- */}
-      <div className="grid grid-3" style={{ marginBottom: 20 }}>
-        <Stat
-          label="Outstanding"
-          value={money(outstanding, c)}
-          note={`${unpaid.length} sent invoice${unpaid.length === 1 ? '' : 's'} waiting for payment`}
-          tone="teal"
-          href="/invoices?status=sent"
-        />
-        <Stat
-          label="Overdue"
-          value={money(overdue, c)}
-          note={overdueList.length ? `${overdueList.length} past the due date` : 'Nothing overdue'}
-          tone={overdueList.length ? 'coral' : undefined}
-          href="/invoices?status=overdue"
-        />
-        <Stat
-          label="Drafts"
-          value={money(draftTotal, c)}
-          note={`${drafts.length} not sent yet`}
-          tone="butter"
-          href="/invoices?status=draft"
-        />
+      {/* ---- Tiles ---- */}
+      <div className="grid grid-2" style={{ marginBottom: 20 }}>
+        <Stat label={isThisMonth ? 'Amount due this month' : `Amount due in ${fmtDate(from, 'MMMM')}`} value={money(sum(dueThisMonth), c)} tone="teal" />
+        <Stat label="Outstanding" value={money(sum(unpaid), c)} note={`${unpaid.length} sent invoice${unpaid.length === 1 ? '' : 's'} not paid yet`} tone="butter" />
       </div>
 
-      {/* ---- Filters + search ---- */}
-      <div className="spread" style={{ marginBottom: 16 }}>
-        <nav className="tabs" style={{ margin: 0 }} aria-label="Filter by status">
-          {FILTERS.map((f) => (
-            <Link key={f.key} href={href(f.key)} aria-current={f.key === status ? 'page' : undefined}>
-              {f.label}
-            </Link>
-          ))}
-        </nav>
-        <form className="row" action="/invoices">
-          <input type="hidden" name="status" value={status} />
-          <input className="input" type="search" name="q" defaultValue={q} placeholder="Search number or name" style={{ width: 240 }} />
-          <button className="btn btn-secondary" type="submit">
-            Search
-          </button>
-        </form>
+      {/* ---- Month + send drafts ---- */}
+      <div className="cal-bar">
+        <MonthPicker basePath="/invoices" name="month" label="Invoices issued in" value={month} options={monthOptions(today)} />
+        {drafts.length > 0 && (
+          <ConfirmButton
+            action={sendMonthDrafts.bind(null, month)}
+            confirm={`Email all ${drafts.length} draft invoice${drafts.length === 1 ? '' : 's'} for ${fmtDate(from, 'MMMM yyyy')} to families now?`}
+            className="btn btn-purple"
+          >
+            Send all drafts ({drafts.length})
+          </ConfirmButton>
+        )}
       </div>
 
-      {/* ---- Table ---- */}
+      {/* ---- The month's invoices ---- */}
       <Card>
         {invoices.length === 0 ? (
-          <EmptyState
-            title={q ? 'No matches' : status === 'all' ? 'No invoices yet' : 'Nothing here'}
-            action={
-              !q &&
-              status === 'all' && (
-                <Link href="/invoices/new" className="btn">
-                  Create your first invoice
-                </Link>
-              )
-            }
-          >
-            {q
-              ? `No invoice matches “${q}”.`
-              : status === 'all'
-                ? 'Create an invoice and your lessons for the month are added for you.'
-                : 'No invoices with this status.'}
+          <EmptyState title="No invoices this month">
+            {teacher.auto_invoice
+              ? 'Invoices are made and sent automatically on the 1st of each month.'
+              : 'On the 1st of each month, invoices are drafted here for you to check and send. You can also make one yourself with “New invoice”.'}
           </EmptyState>
         ) : (
           <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr>
-                  <th>Number</th>
-                  <th>Bill to</th>
-                  <th>Issued</th>
-                  <th>Due</th>
-                  <th className="right">Total</th>
-                  <th>Status</th>
+                  <th>Student name</th>
+                  <th className="right">Amount</th>
+                  <th>Invoice status</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
-                {invoices.map((inv) => (
-                  <tr key={inv.id}>
-                    <td className="nowrap">
-                      <Link className="rowlink" href={`/invoices/${inv.id}`}>
-                        {inv.number}
-                      </Link>
-                    </td>
-                    <td>
-                      {inv.bill_to_name || <span className="muted">No name</span>}
-                      {inv.bill_to_email && <div className="small muted">{inv.bill_to_email}</div>}
-                    </td>
-                    <td className="nowrap">{fmtDate(inv.issue_date, 'd MMM yyyy')}</td>
-                    <td className="nowrap">
-                      {inv.status === 'paid' && inv.paid_on ? (
-                        <span className="muted">Paid {fmtDate(inv.paid_on, 'd MMM')}</span>
-                      ) : inv.due_date ? (
-                        fmtDate(inv.due_date, 'd MMM yyyy')
-                      ) : (
-                        <span className="muted">—</span>
-                      )}
-                    </td>
-                    <td className="right nowrap">{money(inv.total, c)}</td>
-                    <td>
-                      <StatusBadge status={displayStatus(inv, today)} />
-                    </td>
-                  </tr>
-                ))}
+                {invoices.map((inv) => {
+                  const status = displayStatus(inv, today)
+                  return (
+                    <tr key={inv.id}>
+                      <td>
+                        <Link className="rowlink" href={`/invoices/${inv.id}`}>
+                          {inv.students ? fullName(inv.students) : inv.bill_to_name || 'No name'}
+                        </Link>
+                        <div className="small muted">
+                          {inv.number}
+                          {inv.students && inv.bill_to_name && inv.bill_to_name !== fullName(inv.students) ? ` · billed to ${inv.bill_to_name}` : ''}
+                        </div>
+                      </td>
+                      <td className="right nowrap">{money(inv.total, c)}</td>
+                      <td>
+                        <StatusBadge status={status} />
+                        {inv.status === 'paid' && inv.paid_on && <div className="small muted">{fmtDate(inv.paid_on, 'd MMM')}</div>}
+                        {inv.status === 'sent' && inv.due_date && <div className="small muted">Due {fmtDate(inv.due_date, 'd MMM')}</div>}
+                      </td>
+                      <td className="right">
+                        {inv.status === 'draft' ? (
+                          <ConfirmButton
+                            action={emailInvoice.bind(null, inv.id)}
+                            confirm={`Email invoice ${inv.number} to ${inv.bill_to_email || 'the family'}?`}
+                            className="btn btn-sm"
+                          >
+                            Send invoice
+                          </ConfirmButton>
+                        ) : inv.status === 'sent' ? (
+                          <ConfirmButton
+                            action={sendInvoiceReminder.bind(null, inv.id)}
+                            confirm={`Email a payment reminder for ${inv.number} to ${inv.bill_to_email || 'the family'}?`}
+                            className="btn btn-secondary btn-sm"
+                          >
+                            Send reminder
+                          </ConfirmButton>
+                        ) : null}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
-            {invoices.length === LIMIT && (
-              <p className="small muted" style={{ marginTop: 12 }}>
-                Showing the latest {LIMIT}. Use the search or the status tabs to find older invoices.
-              </p>
-            )}
           </div>
         )}
       </Card>

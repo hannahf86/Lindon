@@ -5,13 +5,14 @@
 // or a Self Assessment spreadsheet). Scoped to the signed-in teacher.
 // =============================================================================
 import type { NextRequest } from 'next/server'
-import { requireTeacher } from '@/lib/db'
+
 import { todayISO } from '@/lib/dates'
 import { linesToCsv, paidLines, resolvePeriod } from '@/lib/reports'
+import { requireFeature } from '@/lib/require-feature'
 
 export async function GET(request: NextRequest) {
-  // requireTeacher() redirects to /login when signed out
-  const teacher = await requireTeacher()
+  // requireFeature('reports') redirects to /login when signed out
+  const teacher = await requireFeature('reports')
   const sp = Object.fromEntries(request.nextUrl.searchParams.entries())
   const period = resolvePeriod(sp, todayISO(teacher.timezone))
 

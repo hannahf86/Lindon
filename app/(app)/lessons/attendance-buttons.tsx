@@ -1,8 +1,9 @@
 // =============================================================================
 // lessons/attendance-buttons.tsx — one-tap attendance for a lesson
 //
-// Present · Absent · Notice given · Teacher cancelled. The two that earn a
-// make-up credit ask first, because they also email the family about it.
+// Present · Absent · Notice given · Teacher cancelled. When the teacher bills
+// in advance, the two that earn a make-up credit ask first, because they also
+// email the family about it. Billing in arrears, they just mark it uncharged.
 // The current attendance is shown highlighted. Used on the lesson page and
 // in the Schedule's day view.
 // =============================================================================
@@ -17,7 +18,8 @@ const BUTTONS: { status: LessonStatus; label: string; credit: boolean }[] = [
   { status: 'teacher_cancelled', label: 'I cancelled', credit: true },
 ]
 
-export function AttendanceButtons(props: { lessonId: string; status: LessonStatus; pupil: string; small?: boolean }) {
+export function AttendanceButtons(props: { lessonId: string; status: LessonStatus; pupil: string; small?: boolean; credits?: boolean }) {
+  const credits = props.credits ?? true
   const size = props.small ? ' btn-sm' : ''
   return (
     <div className="attendance">
@@ -31,7 +33,7 @@ export function AttendanceButtons(props: { lessonId: string; status: LessonStatu
             </span>
           )
         }
-        return b.credit ? (
+        return b.credit && credits ? (
           <ConfirmButton
             key={b.status}
             action={setAttendance.bind(null, props.lessonId, b.status)}

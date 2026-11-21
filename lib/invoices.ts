@@ -29,6 +29,14 @@ export const KIND_OPTIONS = [
   { value: 'other', label: 'Other' },
 ] as const
 
+// ---- Which month the monthly run bills ------------------------------------------------
+/** First day of the month a run on `todayISO` bills: this month (advance) or last month (arrears). */
+export function billingMonth(teacher: Pick<Teacher, 'billing_mode'>, todayISO: string): string {
+  const [y, m] = todayISO.split('-').map(Number)
+  const offset = teacher.billing_mode === 'arrears' ? -1 : 0
+  return new Date(Date.UTC(y, m - 1 + offset, 1)).toISOString().slice(0, 10)
+}
+
 // ---- Status shown to the teacher -----------------------------------------------------
 /** "overdue" is not stored — it's a sent invoice past its due date (teacher's today). */
 export function displayStatus(inv: Pick<Invoice, 'status' | 'due_date'>, today: string): string {
@@ -71,13 +79,15 @@ type LessonRow = Pick<Lesson, 'id' | 'starts_at' | 'duration_minutes' | 'price' 
 /**
  * Chargeable lessons for one student between two dates (inclusive, in the
  * teacher's timezone) that aren't already on a non-void invoice.
- * Lessons are billed monthly in advance, so every chargeable lesson is billed
- * whatever its attendance; a cancelled one earns a make-up credit, which comes
- * off a later invoice (lib/credits.ts) instead of being left off this one.
+ * · Billing in advance: every chargeable lesson is billed whatever its
+ *   attendance; a cancelled one earns a make-up credit, which comes off a
+ *   later invoice (lib/credits.ts) instead of being left off this one.
+ * · Billing in arrears: lessons cancelled with notice or by the teacher are
+ *   left off. Unmarked lessons are treated as having happened.
  */
 export async function uninvoicedLessons(teacher: Teacher, studentId: string, from: string, to: string): Promise<LessonRow[]> {
   const [start, end] = rangeBoundsUtc(from, to, teacher.timezone)
-  const lessons = must(
+  const rows = must(
     await db()
       .from('lessons')
       .select('id, starts_at, duration_minutes, price, instrument, status')
@@ -88,6 +98,7 @@ export async function uninvoicedLessons(teacher: Teacher, studentId: string, fro
       .lt('starts_at', end)
       .order('starts_at'),
   )
+  const lessons = teacher.billing_mode === 'arrears' ? rows.filter((l) => l.status !== 'notice_given' && l.status !== 'teacher_cancelled') : rows
   if (lessons.length === 0) return []
 
   // Which of these are already billed on an invoice that hasn't been voided?

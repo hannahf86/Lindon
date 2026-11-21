@@ -11,7 +11,7 @@ import { db } from '@/lib/admin'
 import { adminEmails, canBeTeacher } from '@/lib/access'
 import { FormError, handle, required, str, type ActionState } from '@/lib/forms'
 import { accessRequestedEmail } from '@/lib/email-templates'
-import { appUrl } from '@/lib/app-url'
+import { appUrl } from '@/lib/messages'
 import { sendSystemEmail } from '@/lib/system-email'
 
 export async function requestAccess(_: ActionState, fd: FormData): Promise<ActionState> {

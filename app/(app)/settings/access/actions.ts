@@ -9,7 +9,7 @@ import { db } from '@/lib/admin'
 import { isAdmin } from '@/lib/access'
 import { FormError, handle, type ActionState } from '@/lib/forms'
 import { accessApprovedEmail } from '@/lib/email-templates'
-import { appUrl } from '@/lib/app-url'
+import { appUrl } from '@/lib/messages'
 import { sendSystemEmail } from '@/lib/system-email'
 
 async function requireAdmin(): Promise<string> {

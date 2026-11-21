@@ -82,3 +82,14 @@ export function fmtDate(dateISO: string | null | undefined, pattern = 'EEE d MMM
 export function isDateISO(v: unknown): v is string {
   return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v))
 }
+
+/** Months around a date for a month dropdown: [{ value: '2026-11', label: 'November 2026' }, …] (oldest first). */
+export function monthOptions(aroundISO: string, before = 12, after = 12): { value: string; label: string }[] {
+  const [y, m] = aroundISO.split('-').map(Number)
+  const out: { value: string; label: string }[] = []
+  for (let i = -before; i <= after; i++) {
+    const d = new Date(Date.UTC(y, m - 1 + i, 1)).toISOString().slice(0, 10)
+    out.push({ value: d.slice(0, 7), label: fmtDate(d, 'MMMM yyyy') })
+  }
+  return out
+}

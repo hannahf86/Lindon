@@ -5,7 +5,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { db, must, requireTeacher } from '@/lib/db'
+import { db, must } from '@/lib/db'
 import { fullName, money } from '@/lib/format'
 import { fmtDate, todayISO } from '@/lib/dates'
 import { distinctValues, studentOptions } from '@/lib/queries'
@@ -15,13 +15,14 @@ import { deleteItem, returnLoan, updateHireFee, updateItem } from '../actions'
 import { ItemForm } from '../item-form'
 import { LendForm } from '../lend-form'
 import { currencySymbol, loanState } from '../helpers'
+import { requireFeature } from '@/lib/require-feature'
 
 export const metadata: Metadata = { title: 'Library item' }
 
 export default async function LibraryItemPage({ params, searchParams }: PageProps<'/library/[id]'>) {
   const { id } = await params
   const sp = await searchParams
-  const teacher = await requireTeacher()
+  const teacher = await requireFeature('library')
   const today = todayISO(teacher.timezone)
 
   const { data: item } = await db().from('library_items').select('*').eq('id', id).eq('teacher_id', teacher.id).maybeSingle()

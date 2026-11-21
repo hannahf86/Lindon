@@ -5,7 +5,8 @@
 // =============================================================================
 import { revalidatePath } from 'next/cache'
 import { db, must, requireTeacher } from '@/lib/db'
-import { bool, handle, int, str, FormError, type ActionState } from '@/lib/forms'
+import { handle, int, str, FormError, type ActionState } from '@/lib/forms'
+import { readFeatureFields } from '@/lib/feature-form'
 
 /** Typed IANA timezone, e.g. "Europe/London" — checked against the runtime's list. */
 function readTimezone(fd: FormData): string {
@@ -50,8 +51,9 @@ export async function updateSettings(_: ActionState, fd: FormData): Promise<Acti
           invoice_terms_days: int(fd, 'invoice_terms_days', 'Payment terms', { min: 0, max: 365, fallback: 14 }),
           payment_details: str(fd, 'payment_details'),
           invoice_footer: str(fd, 'invoice_footer'),
-          // Reminders
-          reminders_enabled: bool(fd, 'reminders_enabled'),
+          // How you charge, auto-invoicing, reminders on/off, feature switches
+          ...readFeatureFields(fd),
+          // Reminder details
           reminder_hours_before: int(fd, 'reminder_hours_before', 'Hours before', { min: 1, max: 168, fallback: 24 }),
           reminder_message: str(fd, 'reminder_message'),
         })

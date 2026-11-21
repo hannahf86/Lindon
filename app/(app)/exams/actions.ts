@@ -7,10 +7,11 @@
 // =============================================================================
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { db, must, requireTeacher } from '@/lib/db'
+import { db, must } from '@/lib/db'
 import { date, handle, oneOf, optionalNum, ref, str, time, FormError, type ActionState } from '@/lib/forms'
 import { addExamFeeLine } from '@/lib/addons'
 import { draftInvoiceFor } from '@/lib/products'
+import { requireFeature } from '@/lib/require-feature'
 
 const STATUSES = ['planned', 'entered', 'taken', 'withdrawn'] as const
 
@@ -45,7 +46,7 @@ export async function createExam(_: ActionState, fd: FormData): Promise<ActionSt
   let id = ''
   let studentId = ''
   const result = await handle(async () => {
-    const teacher = await requireTeacher()
+    const teacher = await requireFeature('exams')
     const row = must(await db().from('exams').insert({ ...readExam(fd), teacher_id: teacher.id }).select('id, student_id').single())
     id = row.id
     studentId = row.student_id
@@ -58,7 +59,7 @@ export async function createExam(_: ActionState, fd: FormData): Promise<ActionSt
 // ---- Update ------------------------------------------------------------------------
 export async function updateExam(id: string, _: ActionState, fd: FormData): Promise<ActionState> {
   return handle(async () => {
-    const teacher = await requireTeacher()
+    const teacher = await requireFeature('exams')
     const row = must(await db().from('exams').update(readExam(fd)).eq('id', id).eq('teacher_id', teacher.id).select('student_id').single())
     revalidateExams(row.student_id)
     revalidatePath(`/exams/${id}`)
@@ -69,7 +70,7 @@ export async function updateExam(id: string, _: ActionState, fd: FormData): Prom
 // ---- Add the fee to the pupil's draft invoice (creating one if needed) ---------------------
 export async function addExamFeeToDraft(id: string): Promise<ActionState> {
   return handle(async () => {
-    const teacher = await requireTeacher()
+    const teacher = await requireFeature('exams')
     const { data: exam } = await db().from('exams').select('student_id').eq('id', id).eq('teacher_id', teacher.id).maybeSingle()
     if (!exam) throw new FormError('That exam no longer exists — refresh and try again.')
     const inv = await draftInvoiceFor(teacher, exam.student_id)
@@ -83,7 +84,7 @@ export async function addExamFeeToDraft(id: string): Promise<ActionState> {
 
 // ---- Delete ------------------------------------------------------------------------
 export async function deleteExam(id: string): Promise<ActionState> {
-  const teacher = await requireTeacher()
+  const teacher = await requireFeature('exams')
   const rows = must(await db().from('exams').delete().eq('id', id).eq('teacher_id', teacher.id).select('student_id'))
   revalidateExams(rows[0]?.student_id)
   redirect('/exams')

@@ -5,11 +5,12 @@
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { db, must, requireTeacher } from '@/lib/db'
+import { db, must } from '@/lib/db'
 import { fullName, hhmm, money } from '@/lib/format'
 import { fmtDate, todayISO } from '@/lib/dates'
 import { Card, EmptyState, PageHeader, StatusBadge } from '@/components/ui'
 import { DeadlineBadge, examTitle, isUpcoming } from './helpers'
+import { requireFeature } from '@/lib/require-feature'
 
 export const metadata: Metadata = { title: 'Exams' }
 
@@ -21,7 +22,7 @@ const TABS = [
 type TabKey = (typeof TABS)[number]['key']
 
 export default async function ExamsPage({ searchParams }: PageProps<'/exams'>) {
-  const teacher = await requireTeacher()
+  const teacher = await requireFeature('exams')
   const sp = await searchParams
   const tab: TabKey = TABS.find((t) => t.key === sp.tab)?.key ?? 'upcoming'
   const today = todayISO(teacher.timezone)

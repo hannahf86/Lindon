@@ -1,10 +1,10 @@
 'use server'
 // =============================================================================
-// contacts/actions.ts — create / update / delete parents & guardians, and
-// link them to (or unlink them from) students. Every query is scoped to the
+// contacts/actions.ts — update / delete parents & guardians, and link them to
+// (or unlink them from) students. Parents are managed from each student's page
+// (students/[id]); adding a new one lives in students/actions.ts. Every query is scoped to the
 // signed-in teacher; composite foreign keys stop cross-teacher links.
 // =============================================================================
-import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { db, must, requireTeacher } from '@/lib/db'
 import { all, bool, handle, required, str, FormError, type ActionState } from '@/lib/forms'
@@ -52,29 +52,12 @@ async function writeLinks(teacherId: string, guardianId: string, ids: string[], 
   )
 }
 
-// ---- Create ------------------------------------------------------------------------
-export async function createGuardian(_: ActionState, fd: FormData): Promise<ActionState> {
-  let id = ''
-  const result = await handle(async () => {
-    const teacher = await requireTeacher()
-    const ids = studentIds(fd)
-    const row = must(await db().from('guardians').insert({ ...readGuardian(fd), teacher_id: teacher.id }).select('id').single())
-    id = row.id
-    await writeLinks(teacher.id, id, ids, fd)
-  })
-  if (result?.error) return result
-  revalidatePath('/contacts')
-  revalidatePath('/students', 'layout')
-  redirect(`/contacts/${id}`)
-}
-
 // ---- Update ------------------------------------------------------------------------
 export async function updateGuardian(id: string, _: ActionState, fd: FormData): Promise<ActionState> {
   return handle(async () => {
     const teacher = await requireTeacher()
     must(await db().from('guardians').update(readGuardian(fd)).eq('id', id).eq('teacher_id', teacher.id).select('id').single())
-    revalidatePath('/contacts')
-    revalidatePath(`/contacts/${id}`)
+    revalidatePath('/students', 'layout')
     return { ok: 'Contact saved.' }
   })
 }
@@ -84,9 +67,8 @@ export async function updateGuardian(id: string, _: ActionState, fd: FormData): 
 export async function deleteGuardian(id: string): Promise<ActionState> {
   const teacher = await requireTeacher()
   must(await db().from('guardians').delete().eq('id', id).eq('teacher_id', teacher.id).select('id'))
-  revalidatePath('/contacts')
   revalidatePath('/students', 'layout')
-  redirect('/contacts')
+  return { ok: 'Contact deleted.' }
 }
 
 // ---- Link to more students ---------------------------------------------------------
@@ -96,8 +78,6 @@ export async function linkStudents(guardianId: string, _: ActionState, fd: FormD
     const ids = studentIds(fd)
     if (ids.length === 0) throw new FormError('Tick at least one student to link.')
     await writeLinks(teacher.id, guardianId, ids, fd)
-    revalidatePath(`/contacts/${guardianId}`)
-    revalidatePath('/contacts')
     revalidatePath('/students', 'layout')
     return { ok: ids.length === 1 ? 'Student linked.' : `${ids.length} students linked.` }
   })
@@ -115,8 +95,6 @@ export async function unlinkStudent(guardianId: string, studentId: string): Prom
       .eq('student_id', studentId)
       .select('student_id'),
   )
-  revalidatePath(`/contacts/${guardianId}`)
-  revalidatePath('/contacts')
   revalidatePath(`/students/${studentId}`)
   return { ok: 'Unlinked.' }
 }

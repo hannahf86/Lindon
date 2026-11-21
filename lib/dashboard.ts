@@ -1,73 +1,43 @@
 // =============================================================================
 // lib/dashboard.ts — everything the dashboard (app/(app)/page.tsx) shows,
 // fetched in parallel. All queries are scoped to the signed-in teacher and
-// all "today / this week" maths happens in the teacher's own timezone.
+// all "today / this month" maths happens in the teacher's own timezone.
+//
+// Core: income this month, free slots coming up, and things needing attention
+// (attendance to mark, overdue invoices, bookings ending, children with no
+// parent). Extras only load when their feature is on: exam deadlines and
+// overdue loans.
 // =============================================================================
 import 'server-only'
 import { db, must } from './db'
 import type { Teacher } from './database.types'
-import { addDaysISO, dayBoundsUtc, rangeBoundsUtc, todayISO, weekStartISO } from './dates'
-import { isMinor } from './format'
+import { addDaysISO, dayBoundsUtc, fmtTz, isoWeekday, monthBounds, rangeBoundsUtc, todayISO } from './dates'
+import { hhmm, isMinor } from './format'
+import { isBookingDate } from './lessons'
+import { has } from './features'
+
+const FREE_DAYS = 14 // how far ahead to look for free slots
+const FREE_SHOWN = 5
 
 export async function loadDashboard(teacher: Teacher) {
   const t = teacher.id
   const tz = teacher.timezone
   const today = todayISO(tz)
   const nowIso = new Date().toISOString()
-  const [dayStart, dayEnd] = dayBoundsUtc(today, tz)
-  const weekStart = weekStartISO(today)
-  const [weekFrom, weekTo] = rangeBoundsUtc(weekStart, addDaysISO(weekStart, 6), tz)
-  const [attendanceFrom] = dayBoundsUtc(addDaysISO(today, -14), tz)
+  const [monthFrom, monthTo] = monthBounds(today)
+  const [recentFrom] = dayBoundsUtc(addDaysISO(today, -14), tz)
+  const [aheadFrom, aheadTo] = rangeBoundsUtc(today, addDaysISO(today, FREE_DAYS - 1), tz)
   const horizon = addDaysISO(today, 60)
+  const none = Promise.resolve([])
 
-  const [
-    studentCount,
-    activeCount,
-    todaysLessons,
-    weekCount,
-    needAttendance,
-    unpaid,
-    exams,
-    overdueLoans,
-    minors,
-    endingBookings,
-  ] = await Promise.all([
+  const [studentCount, paidThisMonth, unpaid, slots, upcoming, needAttendance, minors, endingBookings, exams, overdueLoans] = await Promise.all([
     // ---- Any students at all? (first-run guidance) ----
     db().from('students').select('id', { count: 'exact', head: true }).eq('teacher_id', t),
-    db().from('students').select('id', { count: 'exact', head: true }).eq('teacher_id', t).eq('status', 'active'),
 
-    // ---- Today's lessons ----
-    db()
-      .from('lessons')
-      .select('id, starts_at, duration_minutes, instrument, location, status, students(id, first_name, last_name)')
-      .eq('teacher_id', t)
-      .gte('starts_at', dayStart)
-      .lt('starts_at', dayEnd)
-      .order('starts_at')
-      .then(must),
+    // ---- Income: invoices paid this month ----
+    db().from('invoices').select('total').eq('teacher_id', t).eq('status', 'paid').gte('paid_on', monthFrom).lte('paid_on', monthTo).then(must),
 
-    // ---- Lessons this week (Mon–Sun), not counting cancellations ----
-    db()
-      .from('lessons')
-      .select('id', { count: 'exact', head: true })
-      .eq('teacher_id', t)
-      .gte('starts_at', weekFrom)
-      .lt('starts_at', weekTo)
-      .not('status', 'in', '(notice_given,teacher_cancelled)'),
-
-    // ---- Past 14 days' lessons with attendance not marked yet ----
-    db()
-      .from('lessons')
-      .select('id, starts_at, instrument, status, students(id, first_name, last_name)')
-      .eq('teacher_id', t)
-      .gte('starts_at', attendanceFrom)
-      .lt('starts_at', nowIso)
-      .eq('status', 'scheduled')
-      .order('starts_at', { ascending: false })
-      .limit(20)
-      .then(must),
-
-    // ---- Sent-but-unpaid invoices (outstanding total + overdue list) ----
+    // ---- Sent-but-unpaid invoices (outstanding + overdue) ----
     db()
       .from('invoices')
       .select('id, number, bill_to_name, due_date, total, students(first_name, last_name)')
@@ -76,22 +46,26 @@ export async function loadDashboard(teacher: Teacher) {
       .order('due_date', { ascending: true, nullsFirst: false })
       .then(must),
 
-    // ---- Exams still to happen ----
+    // ---- Running time slots + lessons in the next fortnight (for free slots) ----
     db()
-      .from('exams')
-      .select('id, board, instrument, grade, exam_date, exam_time, entry_deadline, status, students(id, first_name, last_name)')
+      .from('time_slots')
+      .select('id, day_of_week, start_time, label, student_id, starts_on, ends_on, repeat_weeks, skip_dates')
       .eq('teacher_id', t)
-      .in('status', ['planned', 'entered'])
+      .eq('active', true)
+      .order('start_time')
       .then(must),
+    db().from('lessons').select('starts_at').eq('teacher_id', t).gte('starts_at', aheadFrom).lt('starts_at', aheadTo).then(must),
 
-    // ---- Loans past their due date ----
+    // ---- Past 14 days' lessons with attendance not marked ----
     db()
-      .from('loans')
-      .select('id, item_id, lent_on, due_on, library_items(title), students(id, first_name, last_name)')
+      .from('lessons')
+      .select('id, starts_at, instrument, students(id, first_name, last_name)')
       .eq('teacher_id', t)
-      .is('returned_on', null)
-      .lt('due_on', today)
-      .order('due_on')
+      .gte('starts_at', recentFrom)
+      .lt('starts_at', nowIso)
+      .eq('status', 'scheduled')
+      .order('starts_at', { ascending: false })
+      .limit(10)
       .then(must),
 
     // ---- Active students + whether anyone is linked as a parent ----
@@ -106,7 +80,7 @@ export async function loadDashboard(teacher: Teacher) {
     // ---- Bookings ending in the next 14 days, or ended in the last 14 (time to rebook) ----
     db()
       .from('time_slots')
-      .select('id, day_of_week, start_time, ends_on, repeat_weeks, students(id, first_name, last_name, status)')
+      .select('id, day_of_week, start_time, ends_on, students(id, first_name, last_name, status)')
       .eq('teacher_id', t)
       .eq('active', true)
       .not('student_id', 'is', null)
@@ -115,33 +89,57 @@ export async function loadDashboard(teacher: Teacher) {
       .order('ends_on')
       .then(must)
       .then((rows) => rows.filter((r) => r.students?.status === 'active')),
+
+    // ---- Extras ----
+    has(teacher, 'exams')
+      ? db()
+          .from('exams')
+          .select('id, board, grade, exam_date, entry_deadline, status, students(first_name, last_name)')
+          .eq('teacher_id', t)
+          .in('status', ['planned', 'entered'])
+          .then(must)
+      : none,
+    has(teacher, 'library')
+      ? db()
+          .from('loans')
+          .select('id, item_id, due_on, library_items(title), students(first_name, last_name)')
+          .eq('teacher_id', t)
+          .is('returned_on', null)
+          .lt('due_on', today)
+          .order('due_on')
+          .then(must)
+      : none,
   ])
 
-  // ---- Upcoming exams & deadlines in the next 60 days ----
+  // ---- Free slots: a running slot with nobody booked that date, and no lesson at that time ----
+  const busy = new Set(upcoming.map((l) => fmtTz(l.starts_at, tz, 'yyyy-MM-dd HH:mm')))
+  const freeSlots: { slotId: string; date: string; time: string; label: string }[] = []
+  for (let i = 0; i < FREE_DAYS; i++) {
+    const d = addDaysISO(today, i)
+    for (const s of slots) {
+      if (s.day_of_week !== isoWeekday(d) || busy.has(`${d} ${hhmm(s.start_time)}`)) continue
+      if (s.student_id && isBookingDate(s, d)) continue
+      freeSlots.push({ slotId: s.id, date: d, time: hhmm(s.start_time), label: s.label })
+    }
+  }
+
+  // ---- Exams with a date or entry deadline in the next 60 days ----
   const inWindow = (d: string | null) => !!d && d >= today && d <= horizon
-  const upcomingExams = exams
-    .filter((e) => inWindow(e.exam_date) || (e.status === 'planned' && inWindow(e.entry_deadline)))
-    .map((e) => {
-      // Sort by whichever date matters first: a planned exam's entry deadline, else the exam itself
-      const key = e.status === 'planned' && inWindow(e.entry_deadline) ? e.entry_deadline! : e.exam_date!
-      return { ...e, sortKey: key }
-    })
-    .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+  const upcomingExams = exams.filter((e) => inWindow(e.exam_date) || (e.status === 'planned' && inWindow(e.entry_deadline)))
 
   return {
-    endingBookings,
     today,
-    weekStart,
     hasStudents: (studentCount.count ?? 0) > 0,
-    activeStudents: activeCount.count ?? 0,
-    todaysLessons,
-    weekLessonCount: weekCount.count ?? 0,
-    needAttendance,
+    income: paidThisMonth.reduce((sum, inv) => sum + Number(inv.total), 0),
+    paidCount: paidThisMonth.length,
     outstandingTotal: unpaid.reduce((sum, inv) => sum + Number(inv.total), 0),
-    outstandingCount: unpaid.length,
     overdueInvoices: unpaid.filter((inv) => inv.due_date && inv.due_date < today),
+    freeSlots: freeSlots.slice(0, FREE_SHOWN),
+    freeCount: freeSlots.length,
+    needAttendance,
+    endingBookings,
+    minorsWithoutParent: minors.filter((s) => isMinor(s) && s.student_guardians.length === 0),
     upcomingExams,
     overdueLoans,
-    minorsWithoutParent: minors.filter((s) => isMinor(s) && s.student_guardians.length === 0),
   }
 }

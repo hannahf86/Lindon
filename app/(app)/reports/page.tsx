@@ -6,11 +6,12 @@
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { requireTeacher } from '@/lib/db'
+
 import { money } from '@/lib/format'
 import { todayISO } from '@/lib/dates'
 import { incomeReport, periodLabel, presets, resolvePeriod } from '@/lib/reports'
 import { Card, EmptyState, PageHeader, Stat } from '@/components/ui'
+import { requireFeature } from '@/lib/require-feature'
 
 export const metadata: Metadata = { title: 'Income reports' }
 
@@ -34,7 +35,7 @@ const KIND_COLOURS = {
 } as const
 
 export default async function ReportsPage({ searchParams }: PageProps<'/reports'>) {
-  const teacher = await requireTeacher()
+  const teacher = await requireFeature('reports')
   const sp = await searchParams
   const c = teacher.currency
   const today = todayISO(teacher.timezone)

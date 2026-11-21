@@ -2,8 +2,8 @@
 // app/family/page.tsx — family home: everything coming up at a glance
 //
 // For each teacher they're linked to: how to contact them, the pupils, next
-// lessons, invoices waiting to be paid, upcoming exams and anything on loan.
-// Every query is scoped to the link's teacher AND its pupil ids
+// lessons, invoices waiting to be paid and — when that teacher has them
+// switched on — upcoming exams and anything on loan. Every query is scoped to the link's teacher AND its pupil ids
 // (from requireFamily) — never to ids from the URL.
 // =============================================================================
 import type { Metadata } from 'next'
@@ -15,8 +15,9 @@ import { duration, hhmm, money } from '@/lib/format'
 import { fmtDate, fmtTz, todayISO } from '@/lib/dates'
 import { displayStatus } from '@/lib/invoices'
 import { Badge, Card, EmptyState, StatusBadge } from '@/components/ui'
+import { familyUnread, pupilNames, studioLine } from './_lib/family-data'
 import { TeacherContact } from '@/components/teacher-contact'
-import { pupilNames, studioLine } from './_lib/family-data'
+import { has } from '@/lib/features'
 
 export const metadata: Metadata = { title: 'Home' }
 
@@ -27,6 +28,8 @@ async function loadLink(link: FamilyLink) {
   const t = link.teacher.id
   const now = new Date().toISOString()
   const today = todayISO(link.teacher.timezone)
+  const examsOn = has(link.teacher, 'exams')
+  const libraryOn = has(link.teacher, 'library')
 
   const [upcoming, invoices, exams, loans] = await Promise.all([
     db()
@@ -47,7 +50,7 @@ async function loadLink(link: FamilyLink) {
       .eq('status', 'sent')
       .order('issue_date', { ascending: false })
       .then(must),
-    db()
+    !examsOn ? Promise.resolve([]) : db()
       .from('exams')
       .select('id, student_id, instrument, board, grade, exam_date, exam_time, venue, status')
       .eq('teacher_id', t)
@@ -56,7 +59,7 @@ async function loadLink(link: FamilyLink) {
       .neq('status', 'withdrawn')
       .order('exam_date')
       .then(must),
-    db()
+    !libraryOn ? Promise.resolve([]) : db()
       .from('loans')
       .select('id, student_id, lent_on, due_on, hire_fee, library_items(title, kind)')
       .eq('teacher_id', t)
@@ -66,12 +69,12 @@ async function loadLink(link: FamilyLink) {
       .then(must),
   ])
 
-  return { upcoming, invoices, exams, loans, today }
+  return { upcoming, invoices, exams, loans, today, examsOn, libraryOn }
 }
 
 export default async function FamilyHome() {
   const ctx = await requireFamily()
-  const data = await Promise.all(ctx.links.map(loadLink))
+  const [unread, data] = await Promise.all([familyUnread(ctx), Promise.all(ctx.links.map(loadLink))])
   const firstName = ctx.name.split(' ')[0] || 'there'
 
   return (
@@ -86,6 +89,18 @@ export default async function FamilyHome() {
 
       {/* ---- Tip of the day (same for everyone, changes daily) ---- */}
       <TipOfTheDay date={todayISO(ctx.links[0].teacher.timezone)} />
+
+      {/* ---- Unread messages ---- */}
+      {unread > 0 && (
+        <div className="alert alert-ok spread" style={{ marginBottom: 20 }}>
+          <span>
+            You have {unread} new {unread === 1 ? 'message' : 'messages'} from your teacher.
+          </span>
+          <Link href="/family/messages" className="btn btn-sm">
+            Read {unread === 1 ? 'it' : 'them'}
+          </Link>
+        </div>
+      )}
 
       <div className="stack">
         {ctx.links.map((link, i) => (
@@ -126,7 +141,7 @@ function TeacherSection({ link, data }: { link: FamilyLink; data: Awaited<Return
       {!data ? (
         <Card>
           <EmptyState title="Nothing to show just yet">
-            There aren’t any pupils linked to your account with this teacher at the moment. If you think that’s a mistake, please contact them.
+            There aren’t any pupils linked to your account with this teacher at the moment. If you think that’s a mistake, send them a message.
           </EmptyState>
         </Card>
       ) : (
@@ -179,7 +194,8 @@ function TeacherSection({ link, data }: { link: FamilyLink; data: Awaited<Return
             )}
           </Card>
 
-          {/* ---- Upcoming exams ---- */}
+          {/* ---- Upcoming exams (feature: exams) ---- */}
+          {data.examsOn && (
           <Card title="Upcoming exams">
             {data.exams.length === 0 ? (
               <p className="muted">No exams coming up.</p>
@@ -201,8 +217,10 @@ function TeacherSection({ link, data }: { link: FamilyLink; data: Awaited<Return
               </ul>
             )}
           </Card>
+          )}
 
-          {/* ---- Items on loan ---- */}
+          {/* ---- Items on loan (feature: library) ---- */}
+          {data.libraryOn && (
           <Card title="On loan from your teacher">
             {data.loans.length === 0 ? (
               <p className="muted">Nothing borrowed at the moment.</p>
@@ -233,6 +251,7 @@ function TeacherSection({ link, data }: { link: FamilyLink; data: Awaited<Return
               </ul>
             )}
           </Card>
+          )}
         </div>
       )}
     </section>

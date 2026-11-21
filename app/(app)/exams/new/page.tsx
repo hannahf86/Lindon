@@ -3,18 +3,19 @@
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { requireTeacher } from '@/lib/db'
+
 import { studentOptions } from '@/lib/queries'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { ExamForm } from '../exam-form'
 import { createExam } from '../actions'
 import { examSuggestions } from '../helpers'
 import { currencySymbol } from '../../library/helpers'
+import { requireFeature } from '@/lib/require-feature'
 
 export const metadata: Metadata = { title: 'Add exam' }
 
 export default async function NewExamPage({ searchParams }: PageProps<'/exams/new'>) {
-  const teacher = await requireTeacher()
+  const teacher = await requireFeature('exams')
   const sp = await searchParams
   const [students, suggestions] = await Promise.all([studentOptions(teacher.id), examSuggestions(teacher.id)])
   const preselect = typeof sp.student === 'string' && students.some((s) => s.id === sp.student) ? sp.student : undefined

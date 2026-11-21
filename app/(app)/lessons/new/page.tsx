@@ -53,7 +53,7 @@ export default async function NewLessonPage({ searchParams }: PageProps<'/lesson
     instrument: slot?.instrument || student?.instruments[0] || '',
     location: slot?.location ?? '',
   }
-  const back = student ? { href: `/students/${student.id}`, label: fullName(student) } : { href: '/lessons', label: 'Lessons' }
+  const back = student ? { href: `/students/${student.id}`, label: fullName(student) } : { href: '/schedule', label: 'Schedule' }
 
   return (
     <>

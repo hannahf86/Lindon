@@ -204,7 +204,7 @@ export function InvoiceItems(props: {
 
           {/* ---- Add from the equipment you sell (stock updates automatically) ---- */}
           {props.products && props.products.length > 0 && (
-            <Card title="Add equipment you sell">
+            <Card title="Add from your items">
               <ActionForm action={addProductToInvoice.bind(null, invoiceId)} resetOnSuccess>
                 <Picker name="product_id" label="Item" options={props.products} />
                 <TextField label="How many" name="quantity" id="product-quantity" defaultValue="1" inputMode="numeric" />

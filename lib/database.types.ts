@@ -65,7 +65,19 @@ export type Teacher = Timestamps & {
   reminders_enabled: boolean
   reminder_hours_before: number
   reminder_message: string
+  /** Optional parts of Lindon this teacher has switched on (lib/features.ts) */
+  features: string[]
+  /** advance = bill the month ahead, with make-up credits; arrears = bill last month's lessons */
+  billing_mode: BillingMode
+  /** Email the monthly invoices automatically (off = drafts to check first) */
+  auto_invoice: boolean
+  /** Month (YYYY-MM) the automatic invoices were last made for */
+  last_invoice_run: string
+  /** When they finished the welcome steps; null shows onboarding */
+  onboarded_at: string | null
 }
+
+export type BillingMode = 'advance' | 'arrears'
 
 export type Guardian = Timestamps & {
   id: string

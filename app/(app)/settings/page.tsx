@@ -1,5 +1,6 @@
 // =============================================================================
-// settings/page.tsx — studio profile, region, invoicing and reminder settings
+// settings/page.tsx — studio profile, how you charge, features, region,
+// invoicing and reminder settings
 // Currency and timezone are typed (validated on save) — no dropdowns.
 // =============================================================================
 import type { Metadata } from 'next'
@@ -9,7 +10,8 @@ import { requireTeacher } from '@/lib/db'
 import { db } from '@/lib/admin'
 import { isAdmin } from '@/lib/access'
 import { ActionForm, SubmitButton } from '@/components/forms'
-import { Card, PageHeader, TextArea, TextField, Toggle } from '@/components/ui'
+import { Card, PageHeader, TextArea, TextField } from '@/components/ui'
+import { FeatureFields } from '@/components/feature-fields'
 import { updateSettings } from './actions'
 
 export const metadata: Metadata = { title: 'Settings' }
@@ -63,6 +65,9 @@ export default async function SettingsPage() {
             <TextArea label="Address" name="address" defaultValue={t.address} wrapClass="full" rows={3} style={{ minHeight: 80 }} hint="Printed on your invoices." />
           </div>
         </Card>
+
+        {/* ---- How you charge + feature switches (same fields as onboarding) ---- */}
+        <FeatureFields teacher={t} />
 
         {/* ---- Region ---- */}
         <Card title="Money & time">
@@ -122,12 +127,9 @@ export default async function SettingsPage() {
         {/* ---- Lesson reminders ---- */}
         <Card title="Lesson reminders">
           <div className="form">
-            <Toggle
-              name="reminders_enabled"
-              label="Email a reminder before each lesson"
-              defaultChecked={t.reminders_enabled}
-              hint="Goes to parents for under-18s, and to the student for adults. You can switch it off for individual students on their page."
-            />
+            <p className="small muted" style={{ margin: 0 }}>
+              Switch reminders on or off under “How you charge” above. You can also switch them off for individual students on their page.
+            </p>
             <div className="form-grid">
               <TextField
                 label="How many hours before?"

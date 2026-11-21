@@ -120,7 +120,6 @@ export async function addGuardian(studentId: string, _: ActionState, fd: FormDat
         .select('student_id'),
     )
     revalidatePath(`/students/${studentId}`)
-    revalidatePath('/contacts')
     return { ok: 'Contact added and linked.' }
   })
 }

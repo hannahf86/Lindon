@@ -7,7 +7,7 @@
 import type { Lesson } from '@/lib/database.types'
 import { utcToZonedParts } from '@/lib/dates'
 import { MoneyField, Segmented, SelectField, TextField, Toggle } from '@/components/ui'
-import { ATTENDANCE_OPTIONS, lengthOptions } from '@/lib/lessons'
+import { attendanceOptions, lengthOptions } from '@/lib/lessons'
 import { SuggestField } from '@/components/pickers'
 
 export type LessonDefaults = { date?: string; time?: string; duration_minutes?: number; price?: number; instrument?: string; location?: string }
@@ -19,6 +19,8 @@ export function LessonFields(props: {
   currencySymbol: string
   instrumentSuggestions: string[]
   locationSuggestions: string[]
+  /** Teacher bills in advance, so cancellations earn make-up credits */
+  credits?: boolean
 }) {
   const l = props.lesson
   const d = props.defaults ?? {}
@@ -52,7 +54,17 @@ export function LessonFields(props: {
       {/* ---- Status (edit only) ---- */}
       {l && (
         <>
-          <Segmented label="Attendance" name="status" options={ATTENDANCE_OPTIONS} defaultValue={l.status} hint="Notice given and teacher cancelled each add a make-up credit, which comes off the next invoice automatically." />
+          <Segmented
+            label="Attendance"
+            name="status"
+            options={attendanceOptions(props.credits ?? true)}
+            defaultValue={l.status}
+            hint={
+              (props.credits ?? true)
+                ? 'Notice given and teacher cancelled each add a make-up credit, which comes off the next invoice automatically.'
+                : 'Notice given and teacher cancelled lessons aren’t charged.'
+            }
+          />
           <Toggle
             name="chargeable"
             label="Chargeable"

@@ -18,6 +18,19 @@ export const ATTENDANCE_OPTIONS = [
   { value: 'teacher_cancelled', label: 'Teacher cancelled (credit)' },
 ] as const
 
+/** Attendance choices worded for how the teacher charges (credits only when billing in advance). */
+export function attendanceOptions(credits: boolean): { value: string; label: string }[] {
+  return credits
+    ? [...ATTENDANCE_OPTIONS]
+    : [
+        { value: 'scheduled', label: 'Not yet' },
+        { value: 'present', label: 'Present' },
+        { value: 'absent', label: 'Absent (charged)' },
+        { value: 'notice_given', label: 'Notice given (not charged)' },
+        { value: 'teacher_cancelled', label: 'Teacher cancelled (not charged)' },
+      ]
+}
+
 /** Statuses where the lesson didn't happen and a make-up credit is issued. */
 export const CREDIT_STATUSES = ['notice_given', 'teacher_cancelled'] as const
 

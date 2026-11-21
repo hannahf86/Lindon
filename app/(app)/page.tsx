@@ -1,7 +1,12 @@
 // =============================================================================
-// app/(app)/page.tsx — the dashboard: today at a glance
-// Greeting · stat tiles · today's lessons · things needing attention (attendance
-// to mark, overdue invoices, exam deadlines, overdue loans, under-18s with no parent).
+// app/(app)/page.tsx — the dashboard (Hannah's wireframe)
+//
+// Top row: Income this month · Free slots · quick actions (Add a new student,
+// Edit schedule). Then the calendar with a month dropdown and Day · Week ·
+// Month pills (month view by default), a "Connect to calendar" button (Google
+// Calendar is coming later), and a short "Needs attention" list underneath —
+// extras such as exams and loans only appear when switched on.
+// New messages from families show above the calendar when there are some.
 // Brand-new teachers see a short "getting started" checklist instead.
 // =============================================================================
 import type { Metadata } from 'next'
@@ -9,56 +14,44 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { requireTeacher } from '@/lib/db'
 import { loadDashboard } from '@/lib/dashboard'
+import { has } from '@/lib/features'
 import { TipOfTheDay } from '@/components/tip-of-the-day'
-import { fmtDate, fmtTz } from '@/lib/dates'
-import { dayName, duration, fullName, hhmm, money } from '@/lib/format'
-import { Badge, Card, Stat, StatusBadge } from '@/components/ui'
-import { DeadlineBadge, examTitle } from './exams/helpers'
+import { MonthPicker } from '@/components/month-picker'
+import { fmtDate, fmtTz, monthOptions, todayISO } from '@/lib/dates'
+import { dayName, fullName, hhmm, money } from '@/lib/format'
+import { Badge, Card } from '@/components/ui'
+import { loadInbox } from './messages/data'
+import { CalendarSwitch, LessonCalendar, calendarPeriod } from './schedule/calendar'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
-function greeting(hour: number): string {
-  if (hour < 12) return 'Good morning'
-  if (hour < 18) return 'Good afternoon'
-  return 'Good evening'
-}
-
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: PageProps<'/'>) {
   const teacher = await requireTeacher()
   const tz = teacher.timezone
-  const d = await loadDashboard(teacher)
-  const now = new Date().toISOString()
-  const firstName = (teacher.display_name || '').split(' ')[0]
-  const settingsDone = !!(teacher.display_name && teacher.email)
+  const today = todayISO(tz)
+  const period = calendarPeriod(await searchParams, today, 'month')
+  const [d, unreadConversations] = await Promise.all([
+    loadDashboard(teacher),
+    // A side panel — never let a messages hiccup take the whole dashboard down
+    has(teacher, 'messaging') ? loadInbox(teacher.id, { unreadOnly: true, limit: 5 }).catch(() => []) : Promise.resolve([]),
+  ])
+  const c = teacher.currency
 
-  return (
-    <>
-      {/* ---- Greeting ---- */}
-      <header className="page-head">
-        <div>
-          <div className="eyebrow">{fmtTz(now, tz, 'EEEE d MMMM yyyy')}</div>
-          <h1>
-            {greeting(Number(fmtTz(now, tz, 'H')))}
-            {firstName && `, ${firstName}`}
-          </h1>
-        </div>
-        <div className="page-actions">
-          <Link href="/schedule" className="btn btn-secondary">
-            Open schedule
-          </Link>
-        </div>
-      </header>
-
-      {/* ---- Tip of the day (same for everyone, changes daily) ---- */}
-      <TipOfTheDay date={fmtTz(now, tz, 'yyyy-MM-dd')} />
-
-      {/* ---- First-run guidance ---- */}
-      {!d.hasStudents ? (
-        <Card title="Welcome! Let’s get your studio set up">
-          <p className="muted">Four quick steps and your lessons, reminders and invoices will look after themselves.</p>
+  // ---- First run: nothing set up yet ----
+  if (!d.hasStudents) {
+    const settingsDone = !!(teacher.display_name && teacher.email)
+    return (
+      <>
+        <header className="page-head">
+          <div>
+            <h1>Welcome to Lindon</h1>
+            <p>Four quick steps and your lessons, reminders and invoices will look after themselves.</p>
+          </div>
+        </header>
+        <Card title="Let’s get your studio set up">
           <ol className="list" style={{ listStyle: 'none' }}>
-            <SetupStep n={1} done={settingsDone} href="/settings" title="Add your details">
-              Your name, studio name and the email parents can reply to. Check your currency and timezone too.
+            <SetupStep n={1} done={settingsDone} href="/settings" title="Check your details">
+              Your name, studio name, the email parents can reply to, and how you’d like to be paid.
             </SetupStep>
             <SetupStep n={2} done={false} href="/students/new" title="Add your students">
               For under-18s, add a parent or guardian so reminders and invoices reach them.
@@ -67,215 +60,157 @@ export default async function DashboardPage() {
               Your timetable — day, time, length and price.
             </SetupStep>
             <SetupStep n={4} done={false} href="/schedule/slots" title="Book pupils in">
-              Choose a pupil, how often, and the first and last lesson (e.g. this half term). Their lessons appear on your schedule.
+              Choose a pupil, how often, and the first and last lesson (e.g. this half term).
             </SetupStep>
           </ol>
         </Card>
-      ) : (
-        <>
-          {/* ---- Stat tiles ---- */}
-          <div className="grid grid-4" style={{ marginBottom: 20 }}>
-            <Stat label="Lessons today" value={d.todaysLessons.filter((l) => l.status !== 'notice_given' && l.status !== 'teacher_cancelled').length} tone="teal" href="/schedule" />
-            <Stat label="This week" value={d.weekLessonCount} note={`w/c ${fmtDate(d.weekStart, 'd MMM')}`} href="/schedule" />
-            <Stat label="Active students" value={d.activeStudents} href="/students" />
-            <Stat
-              label="Outstanding"
-              value={money(d.outstandingTotal, teacher.currency)}
-              note={`${d.outstandingCount} unpaid invoice${d.outstandingCount === 1 ? '' : 's'}${d.overdueInvoices.length ? ` · ${d.overdueInvoices.length} overdue` : ''}`}
-              tone={d.overdueInvoices.length ? 'coral' : 'butter'}
-              href="/invoices"
-            />
+      </>
+    )
+  }
+
+  // ---- Things needing attention (only what's switched on) ----
+  const attention: { key: string; text: ReactNode; href: string; tone: 'coral' | 'butter' }[] = [
+    ...d.needAttendance.map((l) => ({
+      key: `att-${l.id}`,
+      text: <>Mark attendance · {fullName(l.students)} · {fmtTz(l.starts_at, tz, 'EEE d MMM, HH:mm')}</>,
+      href: `/lessons/${l.id}`,
+      tone: 'butter' as const,
+    })),
+    ...d.overdueInvoices.map((inv) => ({
+      key: `inv-${inv.id}`,
+      text: <>Overdue · {inv.number} · {inv.bill_to_name || fullName(inv.students)} · {money(inv.total, c)}</>,
+      href: `/invoices/${inv.id}`,
+      tone: 'coral' as const,
+    })),
+    ...d.endingBookings.map((b) => ({
+      key: `book-${b.id}`,
+      text: <>Booking {b.ends_on! < d.today ? 'ended' : 'ends'} {fmtDate(b.ends_on, 'd MMM')} · {fullName(b.students)} · {dayName(b.day_of_week, true)} {hhmm(b.start_time)}</>,
+      href: `/schedule/slots/${b.id}`,
+      tone: 'butter' as const,
+    })),
+    ...d.minorsWithoutParent.map((s) => ({ key: `min-${s.id}`, text: <>No parent linked · {fullName(s)}</>, href: `/students/${s.id}`, tone: 'coral' as const })),
+    ...d.upcomingExams.map((e) => ({
+      key: `exam-${e.id}`,
+      text: <>Exam · {fullName(e.students)} · {e.status === 'planned' && e.entry_deadline ? `enter by ${fmtDate(e.entry_deadline, 'd MMM')}` : e.exam_date ? fmtDate(e.exam_date, 'd MMM') : 'date TBC'}</>,
+      href: `/exams/${e.id}`,
+      tone: 'butter' as const,
+    })),
+    ...d.overdueLoans.map((l) => ({ key: `loan-${l.id}`, text: <>Overdue return · {l.library_items?.title ?? 'Item'} · {fullName(l.students)}</>, href: `/library/${l.item_id}`, tone: 'coral' as const })),
+  ]
+
+  return (
+    <>
+      {/* ---- Top row: income, free slots, quick actions ---- */}
+      <div className="dash-top">
+        <section className="dash-tile">
+          <h2>Income this month</h2>
+          <div className="big">{money(d.income, c)}</div>
+          <div className="small muted">
+            {d.paidCount} invoice{d.paidCount === 1 ? '' : 's'} paid · {money(d.outstandingTotal, c)} still outstanding
           </div>
+          <Link href="/invoices" className="small" style={{ marginTop: 'auto', fontWeight: 800 }}>
+            Invoices →
+          </Link>
+        </section>
 
-          <div className="split">
-            <div className="stack">
-              {/* ---- Today's lessons ---- */}
-              <Card title="Today’s lessons" actions={<Link href="/schedule" className="btn btn-ghost btn-sm">Schedule →</Link>}>
-                {d.todaysLessons.length === 0 ? (
-                  <p className="muted">No lessons today.</p>
-                ) : (
-                  <div className="table-wrap">
-                    <table className="table">
-                      <tbody>
-                        {d.todaysLessons.map((l) => (
-                          <tr key={l.id}>
-                            <td className="nowrap">
-                              <Link className="rowlink" href={`/lessons/${l.id}`}>
-                                {fmtTz(l.starts_at, tz, 'HH:mm')}
-                              </Link>
-                              <div className="small muted">{duration(l.duration_minutes)}</div>
-                            </td>
-                            <td>
-                              <strong>{l.students ? fullName(l.students) : 'Student'}</strong>
-                              <div className="small muted">{[l.instrument, l.location].filter(Boolean).join(' · ')}</div>
-                            </td>
-                            <td className="right">
-                              <StatusBadge status={l.status} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Card>
+        <section className="dash-tile">
+          <h2>Free slots</h2>
+          {d.freeCount === 0 ? (
+            <p className="muted" style={{ margin: 0 }}>Fully booked for the next two weeks.</p>
+          ) : (
+            <>
+              <div className="small muted">{d.freeCount} in the next two weeks</div>
+              <ul className="free-list">
+                {d.freeSlots.map((f) => (
+                  <li key={`${f.slotId}-${f.date}`}>
+                    <Link href={`/schedule/slots/${f.slotId}`}>
+                      {fmtDate(f.date, 'EEE d MMM')} · {f.time}
+                    </Link>
+                    {f.label && <span className="small muted"> · {f.label}</span>}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
 
-              {/* ---- Bookings ending soon (time to rebook for next half term) ---- */}
-              {d.endingBookings.length > 0 && (
-                <Card title="Bookings ending soon" actions={<span className="small muted">Time to rebook?</span>}>
-                  <ul className="list">
-                    {d.endingBookings.map((b) => (
-                      <li key={b.id} className="spread">
-                        <span>
-                          <strong>{b.students ? fullName(b.students) : 'Pupil'}</strong>
-                          <span className="muted small">
-                            {' '}
-                            · {dayName(b.day_of_week, true)} {hhmm(b.start_time)} ·{' '}
-                            {b.ends_on! < d.today ? `ended ${fmtDate(b.ends_on, 'd MMM')}` : `last lesson ${fmtDate(b.ends_on, 'd MMM')}`}
-                          </span>
-                        </span>
-                        <Link href={`/schedule/slots/${b.id}`} className="btn btn-secondary btn-sm">
-                          Extend
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </Card>
-              )}
+        <div className="dash-actions">
+          <Link href="/students/new" className="btn">
+            Add a new student
+          </Link>
+          <Link href="/schedule/slots" className="btn btn-secondary">
+            Edit schedule
+          </Link>
+        </div>
+      </div>
 
-              {/* ---- Past lessons with attendance not marked yet ---- */}
-              <Card title="Attendance to mark" actions={<span className="small muted">Last 14 days</span>}>
-                {d.needAttendance.length === 0 ? (
-                  <p className="muted">All caught up — every recent lesson is marked.</p>
-                ) : (
-                  <ul className="list">
-                    {d.needAttendance.map((l) => (
-                      <li key={l.id} className="spread">
-                        <span>
-                          <Link href={`/lessons/${l.id}`} style={{ fontWeight: 800 }}>
-                            {l.students ? fullName(l.students) : 'Student'}
-                          </Link>
-                          <span className="muted small">
-                            {' '}
-                            · {fmtTz(l.starts_at, tz, 'EEE d MMM, HH:mm')}
-                            {l.instrument && ` · ${l.instrument}`}
-                          </span>
-                        </span>
-                        <Link href={`/lessons/${l.id}`} className="btn btn-secondary btn-sm">
-                          Mark
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Card>
-
-              {/* ---- Upcoming exams & entry deadlines ---- */}
-              <Card title="Exams & entry deadlines" actions={<span className="small muted">Next 60 days</span>}>
-                {d.upcomingExams.length === 0 ? (
-                  <p className="muted">
-                    Nothing in the next 60 days. <Link href="/exams">See all exams</Link>
-                  </p>
-                ) : (
-                  <ul className="list">
-                    {d.upcomingExams.map((e) => (
-                      <li key={e.id} className="spread">
-                        <span>
-                          <Link href={`/exams/${e.id}`} style={{ fontWeight: 800 }}>
-                            {e.students ? fullName(e.students) : 'Student'}
-                          </Link>
-                          <span className="small"> · {examTitle(e)}</span>
-                          <div className="small muted">
-                            {e.exam_date ? `Exam ${fmtDate(e.exam_date)}${e.exam_time ? ` at ${hhmm(e.exam_time)}` : ''}` : 'Exam date TBC'}
-                            {e.status === 'planned' && e.entry_deadline && ` · enter by ${fmtDate(e.entry_deadline, 'd MMM')}`}
-                          </div>
-                        </span>
-                        <span className="row" style={{ gap: 4 }}>
-                          <DeadlineBadge exam={e} today={d.today} />
-                          <StatusBadge status={e.status} />
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Card>
-            </div>
-
-            <div className="stack">
-              {/* ---- Overdue invoices ---- */}
-              <Card title="Overdue invoices">
-                {d.overdueInvoices.length === 0 ? (
-                  <p className="muted">Nothing overdue.</p>
-                ) : (
-                  <ul className="list">
-                    {d.overdueInvoices.map((inv) => (
-                      <li key={inv.id} className="spread">
-                        <span>
-                          <Link href={`/invoices/${inv.id}`} style={{ fontWeight: 800 }}>
-                            {inv.number}
-                          </Link>
-                          <span className="small"> · {inv.bill_to_name || (inv.students ? fullName(inv.students) : '')}</span>
-                          <div className="small" style={{ color: 'var(--coral-ink)' }}>
-                            Due {fmtDate(inv.due_date, 'd MMM yyyy')}
-                          </div>
-                        </span>
-                        <strong>{money(inv.total, teacher.currency)}</strong>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Card>
-
-              {/* ---- Items overdue for return ---- */}
-              <Card title="Items overdue for return">
-                {d.overdueLoans.length === 0 ? (
-                  <p className="muted">Everything lent out is within its due date.</p>
-                ) : (
-                  <ul className="list">
-                    {d.overdueLoans.map((l) => (
-                      <li key={l.id}>
-                        <Link href={`/library/${l.item_id}`} style={{ fontWeight: 800 }}>
-                          {l.library_items?.title ?? 'Item'}
-                        </Link>
-                        <div className="small">
-                          {l.students ? <Link href={`/students/${l.students.id}`}>{fullName(l.students)}</Link> : 'A student'}
-                          <span style={{ color: 'var(--coral-ink)' }}> · due {fmtDate(l.due_on, 'd MMM')}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Card>
-
-              {/* ---- Under-18s with no parent linked ---- */}
-              {d.minorsWithoutParent.length > 0 && (
-                <Card title="No parent linked">
-                  <p className="small muted">These under-18s won’t get reminders or invoices until you add a parent or guardian.</p>
-                  <ul className="list">
-                    {d.minorsWithoutParent.map((s) => (
-                      <li key={s.id} className="spread">
-                        <Link href={`/students/${s.id}`} style={{ fontWeight: 800 }}>
-                          {fullName(s)}
-                        </Link>
-                        <Badge tone="butter">Child</Badge>
-                      </li>
-                    ))}
-                  </ul>
-                </Card>
-              )}
-
-              {/* ---- Profile nudge ---- */}
-              {!settingsDone && (
-                <Card>
-                  <p style={{ margin: 0 }}>
-                    <strong>Finish your profile:</strong> add your name and reply-to email in <Link href="/settings">Settings</Link> so emails come from you.
-                  </p>
-                </Card>
-              )}
-            </div>
-          </div>
-        </>
+      {/* ---- New messages from families (in-app messages switched on) ---- */}
+      {unreadConversations.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <Card title="New messages" actions={<Link href="/messages" className="btn btn-ghost btn-sm">Inbox →</Link>}>
+            <ul className="list">
+              {unreadConversations.map((conv) => (
+                <li key={conv.id} className="spread" style={{ flexWrap: 'nowrap' }}>
+                  <span style={{ minWidth: 0 }}>
+                    <Link href={`/messages/${conv.id}`} style={{ fontWeight: 800 }}>
+                      {conv.name}
+                    </Link>
+                    {conv.latest && (
+                      <div className="small" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {conv.latest.body}
+                      </div>
+                    )}
+                  </span>
+                  <Badge tone="coral">{conv.unread} new</Badge>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
       )}
+
+      {/* ---- Calendar: month dropdown + Day · Week · Month ---- */}
+      <div className="cal-bar">
+        <MonthPicker
+          basePath="/"
+          name="date"
+          label="Calendar month"
+          value={`${period.monthStart.slice(0, 7)}-01`}
+          options={monthOptions(today).map((o) => ({ value: `${o.value}-01`, label: o.label }))}
+          keep={{ view: 'month' }}
+        />
+        <CalendarSwitch basePath="/" period={period} />
+      </div>
+      <LessonCalendar teacher={teacher} period={period} today={today} basePath="/" />
+
+      {/* ---- Connect to calendar (Google Calendar push comes later) ---- */}
+      <div style={{ margin: '16px 0 24px' }}>
+        <button type="button" className="btn btn-secondary" disabled title="Coming soon">
+          Connect to calendar <Badge>Coming soon</Badge>
+        </button>
+      </div>
+
+      {/* ---- Needs attention ---- */}
+      {attention.length > 0 && (
+        <Card title="Needs attention">
+          <ul className="list">
+            {attention.slice(0, 12).map((a) => (
+              <li key={a.key} className="spread">
+                <Link href={a.href} style={{ fontWeight: 700 }}>
+                  {a.text}
+                </Link>
+                <Badge tone={a.tone}>{a.tone === 'coral' ? 'Urgent' : 'To do'}</Badge>
+              </li>
+            ))}
+          </ul>
+          {attention.length > 12 && <p className="small muted">…and {attention.length - 12} more.</p>}
+        </Card>
+      )}
+
+      {/* ---- Tip of the day (same for everyone, changes daily) ---- */}
+      <div style={{ marginTop: 20 }}>
+        <TipOfTheDay date={today} />
+      </div>
     </>
   )
 }

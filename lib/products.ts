@@ -39,7 +39,7 @@ export async function productOptions(teacher: Teacher): Promise<PickerOption[]> 
   return rows.map((p) => ({
     id: p.id,
     label: p.name,
-    sub: [money(p.price, teacher.currency), p.category, p.track_stock ? stockText(p) : ''].filter(Boolean).join(' · '),
+    sub: money(p.price, teacher.currency),
   }))
 }
 

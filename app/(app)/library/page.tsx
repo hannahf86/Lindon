@@ -6,7 +6,7 @@
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { db, must, requireTeacher } from '@/lib/db'
+import { db, must } from '@/lib/db'
 import { fullName } from '@/lib/format'
 import { fmtDate, todayISO } from '@/lib/dates'
 import { studentOptions } from '@/lib/queries'
@@ -15,6 +15,7 @@ import { Badge, Card, EmptyState, PageHeader } from '@/components/ui'
 import { returnLoan } from './actions'
 import { LendForm } from './lend-form'
 import { currencySymbol, loanState } from './helpers'
+import { requireFeature } from '@/lib/require-feature'
 
 export const metadata: Metadata = { title: 'Library & loans' }
 
@@ -28,7 +29,7 @@ const TABS = [
 type TabKey = (typeof TABS)[number]['key']
 
 export default async function LibraryPage({ searchParams }: PageProps<'/library'>) {
-  const teacher = await requireTeacher()
+  const teacher = await requireFeature('library')
   const sp = await searchParams
   const tab: TabKey = TABS.find((t) => t.key === sp.tab)?.key ?? 'all'
   const lendTo = typeof sp.lend_to === 'string' ? sp.lend_to : undefined

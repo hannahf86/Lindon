@@ -29,9 +29,10 @@ function run(kind: FamilyKind, id: string, fn: (teacher: Teacher, t: FamilyTarge
     const ok = await fn(teacher, t)
     // Only refresh on success: on an error the button (and its message) must
     // stay on screen so the teacher can read what went wrong
-    revalidatePath(kind === 'guardian' ? `/contacts/${id}` : `/students/${id}`)
+    if (kind === 'student') revalidatePath(`/students/${id}`)
     // Parents can also be invited from their child's page
     if (kind === 'guardian') revalidatePath('/students', 'layout')
+    revalidatePath('/messages', 'layout')
     return { ok }
   })
 }

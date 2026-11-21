@@ -7,9 +7,10 @@
 // =============================================================================
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { db, must, requireTeacher } from '@/lib/db'
+import { db, must } from '@/lib/db'
 import { bool, date, handle, optionalNum, ref, required, str, FormError, type ActionState } from '@/lib/forms'
 import { todayISO } from '@/lib/dates'
+import { requireFeature } from '@/lib/require-feature'
 
 /** Read the item form into a row (shared by create + update). */
 function readItem(fd: FormData) {
@@ -35,7 +36,7 @@ function revalidateLibrary(itemId?: string) {
 export async function createItem(_: ActionState, fd: FormData): Promise<ActionState> {
   let id = ''
   const result = await handle(async () => {
-    const teacher = await requireTeacher()
+    const teacher = await requireFeature('library')
     const row = must(await db().from('library_items').insert({ ...readItem(fd), teacher_id: teacher.id }).select('id').single())
     id = row.id
   })
@@ -47,7 +48,7 @@ export async function createItem(_: ActionState, fd: FormData): Promise<ActionSt
 // ---- Update ------------------------------------------------------------------------
 export async function updateItem(id: string, _: ActionState, fd: FormData): Promise<ActionState> {
   return handle(async () => {
-    const teacher = await requireTeacher()
+    const teacher = await requireFeature('library')
     must(await db().from('library_items').update(readItem(fd)).eq('id', id).eq('teacher_id', teacher.id).select('id').single())
     revalidateLibrary(id)
     return { ok: 'Item saved.' }
@@ -57,7 +58,7 @@ export async function updateItem(id: string, _: ActionState, fd: FormData): Prom
 // ---- Delete ------------------------------------------------------------------------
 // Also deletes its loan history (cascade). Archiving keeps the history.
 export async function deleteItem(id: string): Promise<ActionState> {
-  const teacher = await requireTeacher()
+  const teacher = await requireFeature('library')
   must(await db().from('library_items').delete().eq('id', id).eq('teacher_id', teacher.id).select('id'))
   revalidateLibrary()
   redirect('/library')
@@ -66,7 +67,7 @@ export async function deleteItem(id: string): Promise<ActionState> {
 // ---- Lend ------------------------------------------------------------------------------
 export async function lendItem(_: ActionState, fd: FormData): Promise<ActionState> {
   return handle(async () => {
-    const teacher = await requireTeacher()
+    const teacher = await requireFeature('library')
     const itemId = ref(fd, 'item_id')
     const studentId = ref(fd, 'student_id')
     if (!itemId) throw new FormError('Choose the item you are lending.')
@@ -107,7 +108,7 @@ export async function lendItem(_: ActionState, fd: FormData): Promise<ActionStat
 // Only affects months not billed yet; lines already on an invoice keep their price.
 export async function updateHireFee(loanId: string, _: ActionState, fd: FormData): Promise<ActionState> {
   return handle(async () => {
-    const teacher = await requireTeacher()
+    const teacher = await requireFeature('library')
     const row = must(
       await db()
         .from('loans')
@@ -125,7 +126,7 @@ export async function updateHireFee(loanId: string, _: ActionState, fd: FormData
 
 // ---- Return ----------------------------------------------------------------------------
 export async function returnLoan(loanId: string): Promise<ActionState> {
-  const teacher = await requireTeacher()
+  const teacher = await requireFeature('library')
   const row = must(
     await db()
       .from('loans')

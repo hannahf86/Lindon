@@ -8,7 +8,6 @@
 // ChildLoginNote is the version for a child's student page: children never
 // get their own login — their parents are invited instead.
 // =============================================================================
-import Link from 'next/link'
 import { fullName } from '@/lib/format'
 import { accessRows, accessStatus, accessText, type AccessState } from '@/lib/family-invites'
 import { ConfirmButton } from '@/components/forms'
@@ -97,7 +96,7 @@ export async function FamilyAccessCard(props: {
             </ConfirmButton>
             <ConfirmButton
               action={removeAccessAction.bind(null, kind, id)}
-              confirm={`Remove ${props.name}’s access to Lindon? They won’t be able to sign in.`}
+              confirm={`Remove ${props.name}’s access to Lindon? They won’t be able to sign in. Your messages with them are kept.`}
               className="btn btn-danger btn-sm"
             >
               Remove access
@@ -124,9 +123,7 @@ export function ChildLoginNote(props: { guardians: { id: string; first_name: str
         <ul className="list">
           {props.guardians.map((g) => (
             <li key={g.id}>
-              <Link href={`/contacts/${g.id}`} style={{ fontWeight: 800 }}>
-                {fullName(g)}
-              </Link>
+              <strong>{fullName(g)}</strong>
             </li>
           ))}
         </ul>

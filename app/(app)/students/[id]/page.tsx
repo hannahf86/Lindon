@@ -1,7 +1,8 @@
 // =============================================================================
 // students/[id]/page.tsx — one student: details, parents, slots, lessons,
-// invoices, loans and exams, with quick actions for each. Adults get a
-// family-login card; for children it points to their parents instead.
+// invoices, and (when those features are on) notes, exams, loans and credits,
+// with quick actions for each. Parents are edited in a pop-up right here.
+// Adults get a family-login card; for children it points to their parents.
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -19,6 +20,10 @@ import { addGuardian, addManualCredit, deleteStudent, linkGuardian, removeCredit
 import { REASON_TEXT } from '@/lib/credits'
 import { endBooking } from '../../schedule/slots/actions'
 import { inviteFamilyAction } from '../../contacts/family-actions'
+import { deleteGuardian, unlinkStudent, updateGuardian } from '../../contacts/actions'
+import { GuardianForm } from '../../contacts/guardian-form'
+import { ModalButton } from '@/components/modal'
+import { has, usesCredits } from '@/lib/features'
 
 export const metadata: Metadata = { title: 'Student' }
 
@@ -58,6 +63,13 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
   ])
   const creditBalance = credits.filter((c) => !c.invoice_item_id).reduce((n, c) => n + Number(c.amount), 0)
 
+  // Optional features (lib/features.ts)
+  const examsOn = has(teacher, 'exams')
+  const libraryOn = has(teacher, 'library')
+  const loginsOn = has(teacher, 'family_logins')
+  const messagingOn = has(teacher, 'messaging')
+  const creditsOn = usesCredits(teacher)
+
   const minor = isMinor(s)
   const age = ageFrom(s.date_of_birth)
   const linkedIds = new Set(s.student_guardians.map((l) => l.guardians?.id))
@@ -89,9 +101,12 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
             <Link className="btn btn-secondary" href={`/students/${id}/edit`}>
               Edit
             </Link>
-            <Link className="btn btn-secondary" href={`/messages?to=${id}`}>
-              Email
-            </Link>
+            {/* In-app message: adults directly, children via their parents (feature: messaging) */}
+            {messagingOn && (
+              <Link className="btn btn-secondary" href={minor ? `/messages/new?pick=${id}` : `/messages/new?student=${id}`}>
+                Message
+              </Link>
+            )}
             <Link className="btn" href={`/invoices/new?student=${id}`}>
               New invoice
             </Link>
@@ -202,23 +217,23 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
             )}
           </Card>
 
-          {/* ---- Past lessons and their attendance, newest first ---- */}
-          <Card title="Past lessons">
-            {recent.length === 0 ? (
-              <p className="muted">No lessons have happened yet.</p>
-            ) : (
-              <ul className="list">
-                {recent.map((l) => (
-                  <li key={l.id} className="spread">
-                    <Link href={`/lessons/${l.id}`} style={{ fontWeight: 800 }}>
-                      {fmtTz(l.starts_at, tz, 'EEEE d MMMM yyyy')}
-                    </Link>
-                    <StatusBadge status={l.status} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
+          {/* ---- Past lessons and their attendance ---- */}
+            <Card title="Past lessons">
+              {recent.length === 0 ? (
+                <p className="muted">No lessons have happened yet.</p>
+              ) : (
+                <ul className="list">
+                  {recent.slice(0, 20).map((l) => (
+                    <li key={l.id} className="spread">
+                      <Link href={`/lessons/${l.id}`} style={{ fontWeight: 800 }}>
+                        {fmtTz(l.starts_at, tz, 'EEEE d MMMM yyyy')}
+                      </Link>
+                      <StatusBadge status={l.status} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
 
           {/* ---- Invoices ---- */}
           <Card title="Invoices">
@@ -248,7 +263,8 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
             )}
           </Card>
 
-          {/* ---- Exams ---- */}
+          {/* ---- Exams (feature: exams) ---- */}
+          {examsOn && (
           <Card
             title="Exams"
             actions={
@@ -276,6 +292,7 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
               </ul>
             )}
           </Card>
+          )}
         </div>
 
         <div className="stack">
@@ -299,9 +316,7 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
                     <li key={link.guardians.id} className="contact-lines">
                       {/* Name, with "Main contact" on the right; then email, phone, actions */}
                       <div className="spread" style={{ width: '100%' }}>
-                        <Link href={`/contacts/${link.guardians.id}`} className="contact-name">
-                          {fullName(link.guardians)}
-                        </Link>
+                        <span className="contact-name">{fullName(link.guardians)}</span>
                         {link.is_primary && <Badge tone="teal">Main contact</Badge>}
                       </div>
                       {link.guardians.email && (
@@ -322,8 +337,38 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
                         >
                           {link.receives_emails ? 'Emails: on' : 'Emails: off'}
                         </ConfirmButton>
-                        {/* Portal invite — only while they don't have a login (unlinking lives on the contact page) */}
-                        {!invitedIds.has(link.guardians.id) && link.guardians.email && (
+                        {/* Edit everything about this parent in a pop-up: details, login, unlink, delete */}
+                        <ModalButton label="Edit" title={fullName(link.guardians)} className="link-btn">
+                          <GuardianForm action={updateGuardian.bind(null, link.guardians.id)} guardian={link.guardians} cancelHref={`/students/${id}`} />
+                          {loginsOn && (
+                            <FamilyAccessCard
+                              teacher={teacher}
+                              kind="guardian"
+                              id={link.guardians.id}
+                              name={fullName(link.guardians)}
+                              email={link.guardians.email}
+                              pupilNames={minor ? [s.first_name] : []}
+                            />
+                          )}
+                          <div className="row" style={{ gap: 10, marginTop: 12 }}>
+                            <ConfirmButton
+                              action={unlinkStudent.bind(null, link.guardians.id, id)}
+                              confirm={`Unlink ${fullName(link.guardians)} from ${s.first_name}? Both records are kept.`}
+                              className="btn btn-ghost btn-sm"
+                            >
+                              Unlink from {s.first_name}
+                            </ConfirmButton>
+                            <ConfirmButton
+                              action={deleteGuardian.bind(null, link.guardians.id)}
+                              confirm={`Delete ${fullName(link.guardians)}? They'll be unlinked from all their children. The children themselves are kept. This can't be undone.`}
+                              className="btn btn-ghost btn-sm"
+                            >
+                              Delete contact
+                            </ConfirmButton>
+                          </div>
+                        </ModalButton>
+                        {/* Portal invite — only while they don't have a login (feature: family_logins) */}
+                        {loginsOn && !invitedIds.has(link.guardians.id) && link.guardians.email && (
                           <ConfirmButton
                             action={inviteFamilyAction.bind(null, 'guardian', link.guardians.id)}
                             confirm={`Invite ${fullName(link.guardians)} to Lindon? We'll email ${link.guardians.email} a sign-in link so they can see ${s.first_name}'s lessons and invoices.`}
@@ -370,14 +415,15 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
             )}
           </Card>
 
-          {/* ---- Family login ---- */}
-          {minor ? (
+          {/* ---- Family login (feature: family_logins) ---- */}
+          {!loginsOn ? null : minor ? (
             <ChildLoginNote guardians={s.student_guardians.flatMap((l) => (l.guardians ? [l.guardians] : []))} />
           ) : (
             <FamilyAccessCard teacher={teacher} kind="student" id={id} name={fullName(s)} email={s.email} />
           )}
 
-          {/* ---- Make-up credits ---- */}
+          {/* ---- Make-up credits (billing in advance only) ---- */}
+          {creditsOn && (
           <Card title="Make-up credits" actions={<strong>{money(creditBalance, teacher.currency)} waiting</strong>}>
             <p className="small muted" style={{ marginTop: 0 }}>
               Added automatically when a lesson is marked “notice given” or “teacher cancelled”. Waiting credits come off the next invoice.
@@ -427,8 +473,10 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
               </div>
             </details>
           </Card>
+          )}
 
-          {/* ---- Loans ---- */}
+          {/* ---- Loans (feature: library) ---- */}
+          {libraryOn && (
           <Card
             title="Borrowed items"
             actions={
@@ -463,6 +511,7 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
               </ul>
             )}
           </Card>
+          )}
 
           {/* ---- Notes ---- */}
           {(s.notes || s.start_date) && (

@@ -15,6 +15,7 @@ import { Badge, Card, PageHeader, StatusBadge } from '@/components/ui'
 import { LessonFields } from '../lesson-fields'
 import { deleteLesson, sendReminderNow, updateLesson } from '../actions'
 import { AttendanceButtons } from '../attendance-buttons'
+import { usesCredits } from '@/lib/features'
 
 export const metadata: Metadata = { title: 'Lesson' }
 
@@ -39,6 +40,7 @@ export default async function LessonPage({ params }: PageProps<'/lessons/[id]'>)
     db().from('lesson_credits').select('amount, invoice_item_id').eq('teacher_id', t).eq('lesson_id', id).maybeSingle().then((r) => r.data),
   ])
 
+  const credits = usesCredits(teacher)
   const student = lesson.students
   const studentName = fullName(student) || 'Student'
   const isPast = new Date(lesson.starts_at) < new Date()
@@ -47,7 +49,7 @@ export default async function LessonPage({ params }: PageProps<'/lessons/[id]'>)
     <>
       <PageHeader
         title={`${studentName} — ${fmtTz(lesson.starts_at, tz, 'EEE d MMM, HH:mm')}`}
-        back={{ href: '/lessons', label: 'Lessons' }}
+        back={{ href: '/schedule', label: 'Schedule' }}
         subtitle={
           <span className="row" style={{ gap: 6 }}>
             <StatusBadge status={lesson.status} />
@@ -84,6 +86,7 @@ export default async function LessonPage({ params }: PageProps<'/lessons/[id]'>)
                 currencySymbol={currencySymbol(teacher.currency)}
                 instrumentSuggestions={instruments}
                 locationSuggestions={locations}
+                credits={credits}
               />
               <div className="form-actions">
                 <SubmitButton>Save details</SubmitButton>
@@ -93,10 +96,10 @@ export default async function LessonPage({ params }: PageProps<'/lessons/[id]'>)
         </div>
 
         <div className="stack">
-          {/* ---- Attendance (credits are issued for notice given / teacher cancelled) ---- */}
+          {/* ---- Attendance (billing in advance: credits for notice given / teacher cancelled) ---- */}
           <Card title="Attendance">
-            <AttendanceButtons lessonId={id} status={lesson.status} pupil={student?.first_name ?? 'The pupil'} />
-            {credit && (
+            <AttendanceButtons lessonId={id} status={lesson.status} pupil={student?.first_name ?? 'The pupil'} credits={credits} />
+            {credits && credit && (
               <p className="small" style={{ margin: '12px 0 0' }}>
                 <Badge tone={credit.invoice_item_id ? 'plain' : 'teal'}>{credit.invoice_item_id ? 'Credit used' : 'Make-up credit'}</Badge>{' '}
                 {money(credit.amount, teacher.currency)}{' '}
@@ -135,7 +138,7 @@ export default async function LessonPage({ params }: PageProps<'/lessons/[id]'>)
           <Card>
             <ConfirmButton
               action={deleteLesson.bind(null, id)}
-              confirm={`Delete this lesson? This can't be undone — to keep a record, mark its attendance instead.`}
+              confirm={`Delete this lesson and its notes? This can't be undone — to keep a record, set its status to "Cancelled" instead.`}
             >
               Delete lesson
             </ConfirmButton>
