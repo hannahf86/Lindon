@@ -446,3 +446,7 @@ a.dv-title:hover { color: var(--teal-ink); text-decoration: underline; }
 .free-list a { font-weight: 800; text-decoration: none; }
 .cal-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
 @media (max-width: 900px) { .dash-top { grid-template-columns: 1fr; } }
+
+/* Sign-in page: magic-link fallback */
+.auth-link-option { margin-top: 18px; }
+.auth-link-option summary { cursor: pointer; font-weight: 800; color: var(--teal-ink); font-size: 0.95rem; }

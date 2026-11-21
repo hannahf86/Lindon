@@ -48,6 +48,14 @@ export default async function SettingsPage() {
         </div>
       )}
 
+      {/* ---- Password & sign-in (its own page, shared with families) ---- */}
+      <div className="alert alert-info spread" style={{ marginBottom: 20 }}>
+        <span>Set a password so you can sign in without an emailed link.</span>
+        <Link className="btn btn-sm" href="/account">
+          Password &amp; sign-in
+        </Link>
+      </div>
+
       <ActionForm action={updateSettings}>
         {/* ---- Studio profile ---- */}
         <Card title="Your studio">

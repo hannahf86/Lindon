@@ -2,7 +2,7 @@
 // app/family/layout.tsx — the family area shell (parents & adult pupils)
 //
 // Teal top bar: Lindon logo, nav pills (Home · Lessons · Messages · Invoices),
-// the signed-in email and Sign out. Deliberately NOT inside the (app) group,
+// the signed-in email, Password (sign-in settings) and Sign out. Deliberately NOT inside the (app) group,
 // so families never see the teacher sidebar. requireFamily() redirects anyone
 // without a live invitation.
 // =============================================================================
@@ -29,6 +29,8 @@ const FAMILY_CSS = `
 .fam-nav a[aria-current='page'] { background: #fff; color: var(--teal-ink); }
 .fam-count { background: var(--coral); color: var(--ink); border-radius: 999px; font-size: 0.75rem; font-weight: 900; padding: 1px 7px; line-height: 1.4; }
 .fam-who { display: flex; align-items: center; gap: 12px; font-size: 0.85rem; margin-left: auto; min-width: 0; }
+.fam-account { color: #fff; font-weight: 800; }
+.fam-account:hover { color: #fff; }
 .fam-who span { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
 .fam-main { max-width: 960px; margin: 0 auto; padding: 28px 16px 64px; }
 .bubble-list { display: flex; flex-direction: column; gap: 12px; }
@@ -67,6 +69,9 @@ export default async function FamilyLayout({ children }: LayoutProps<'/family'>)
           <FamilyNav unread={unread} showMessages={messagingLinks(ctx).length > 0} />
           <div className="fam-who">
             <span title={ctx.email}>{ctx.email}</span>
+            <Link href="/account" className="fam-account">
+              Password
+            </Link>
             <form action={doSignOut}>
               <button className="linkish" type="submit">
                 Sign out

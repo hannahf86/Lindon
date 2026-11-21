@@ -286,6 +286,14 @@ export type LessonCredit = {
 }
 
 /** A teacher asking to join while sign-ups are invite-only. */
+export type UserPassword = {
+  user_id: string
+  hash: string
+  failed_attempts: number
+  locked_until: string | null
+  updated_at: string
+}
+
 export type AccessRequest = {
   id: string
   email: string
@@ -382,6 +390,7 @@ export type Database = {
       }
       products: Table<Product, 'teacher_id' | 'name'>
       access_requests: Table<AccessRequest, 'email'>
+      user_passwords: Table<UserPassword, 'user_id' | 'hash'>
       lesson_credits: Table<
         LessonCredit,
         'teacher_id' | 'student_id' | 'amount' | 'reason',

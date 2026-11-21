@@ -1,6 +1,8 @@
 // =============================================================================
-// app/login/page.tsx — sign-in (magic link by email)
-// Left: teal brand panel echoing the brand sheet. Right: email form.
+// app/login/page.tsx — sign in
+// Left: teal brand panel echoing the brand sheet. Right: the sign-in card —
+// email + password, and "email me a link" as the fallback (which is also how
+// to get in if you forget your password).
 // =============================================================================
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
@@ -13,6 +15,8 @@ export const metadata: Metadata = { title: 'Sign in' }
 
 const ERRORS: Record<string, string> = {
   AccessDenied: "There's no Lindon account for that email yet. New here? Create an account below — or check you've typed the address you signed up with.",
+  CredentialsSignin:
+    "That email and password don't match. Check them and try again — or use “Email me a sign-in link” below, then set a new password. (After 10 wrong tries, password sign-in pauses for 15 minutes.)",
   Verification: 'That sign-in link has expired or was already used. Request a new one below.',
   EmailSignin: "We couldn't send the sign-in email. Please try again.",
 }
@@ -24,6 +28,21 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
   const sp = await searchParams
   const error = typeof sp.error === 'string' ? (ERRORS[sp.error] ?? 'Something went wrong signing in. Please try again.') : null
   const callbackUrl = typeof sp.callbackUrl === 'string' && sp.callbackUrl.startsWith('/') ? sp.callbackUrl : '/'
+
+  // ---- The two ways in (each runs on the server) ----
+  async function withPassword(formData: FormData) {
+    'use server'
+    try {
+      await signIn('credentials', {
+        email: String(formData.get('email') ?? '').trim(),
+        password: String(formData.get('password') ?? ''),
+        redirectTo: callbackUrl,
+      })
+    } catch (e) {
+      if (e instanceof AuthError) redirect(`/login?error=${e.type === 'AccessDenied' ? 'AccessDenied' : 'CredentialsSignin'}`)
+      throw e // a successful sign-in redirects by throwing — let Next.js handle it
+    }
+  }
 
   async function sendLink(formData: FormData) {
     'use server'
@@ -44,10 +63,8 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
         </div>
         <div>
           <LogoMark size={64} />
-          <h1>
-            Lindon
-          </h1>
-          <p>Students, lessons, invoices and reminders — everything a music teacher juggles, in one friendly place.</p>
+          <h1>Lindon</h1>
+          <p>Lessons and invoices for music teachers — and their families — in one friendly place.</p>
         </div>
         <div className="auth-stripe" aria-hidden>
           <span />
@@ -57,27 +74,54 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
         </div>
       </section>
 
-      {/* ---- Sign-in form ---- */}
+      {/* ---- Sign-in card ---- */}
       <section className="auth-panel">
         <div className="auth-card">
           <h2 style={{ fontSize: '1.75rem', marginBottom: 8 }}>Sign in</h2>
-          <p className="muted">Enter your email and we&apos;ll send you a sign-in link. No password needed.</p>
           {error && (
             <div className="alert alert-error" role="alert" style={{ margin: '16px 0' }}>
               {error}
             </div>
           )}
-          <form action={sendLink} className="form" style={{ marginTop: 20 }}>
+
+          {/* Email + password */}
+          <form action={withPassword} className="form" style={{ marginTop: 16 }}>
             <div className="field">
               <label className="field-label" htmlFor="email">
                 Email address
               </label>
               <input id="email" name="email" type="email" required autoComplete="email" className="input" placeholder="you@example.com" />
             </div>
+            <div className="field">
+              <label className="field-label" htmlFor="password">
+                Password
+              </label>
+              <input id="password" name="password" type="password" required autoComplete="current-password" className="input" />
+            </div>
             <button className="btn" type="submit">
-              Email me a sign-in link
+              Sign in
             </button>
           </form>
+
+          {/* Magic link — no password yet, or forgotten it */}
+          <details className="auth-link-option">
+            <summary>No password yet, or forgotten it? Email me a sign-in link</summary>
+            <form action={sendLink} className="form" style={{ marginTop: 12 }}>
+              <div className="field">
+                <label className="field-label" htmlFor="link-email">
+                  Email address
+                </label>
+                <input id="link-email" name="email" type="email" required autoComplete="email" className="input" placeholder="you@example.com" />
+              </div>
+              <button className="btn btn-secondary" type="submit">
+                Email me a sign-in link
+              </button>
+              <p className="small muted" style={{ margin: 0 }}>
+                Once you’re in, set a password under <strong>Password &amp; sign-in</strong> so you don’t need an email next time.
+              </p>
+            </form>
+          </details>
+
           {/* ---- New teachers ---- */}
           <p className="small muted" style={{ marginTop: 18 }}>
             New to Lindon? <Link href="/signup">Create an account</Link>
