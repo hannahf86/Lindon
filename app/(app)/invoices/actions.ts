@@ -15,6 +15,7 @@ import { invoiceEmail } from '@/lib/email-templates'
 import { addLessonLines, billToFor, isEditable, ITEM_KINDS, nextPosition } from '@/lib/invoices'
 import { applyCredits } from '@/lib/credits'
 import { createMonthlyInvoices } from '@/lib/monthly-invoices'
+import { addExamFeeLine, addHireLines } from '@/lib/addons'
 import type { Teacher } from '@/lib/database.types'
 
 // ---- Shared helpers ------------------------------------------------------------------
@@ -84,7 +85,10 @@ export async function createInvoice(_: ActionState, fd: FormData): Promise<Actio
         .single(),
     )
     id = inv.id
-    if (studentId && period) await addLessonLines(teacher, id, studentId, period[0], period[1])
+    if (studentId && period) {
+      await addLessonLines(teacher, id, studentId, period[0], period[1])
+      await addHireLines(teacher, id, studentId, period[0])
+    }
     // Take off any make-up credits the pupil has waiting
     if (studentId) await applyCredits(teacher, id, studentId)
   })
@@ -192,6 +196,31 @@ export async function addUninvoicedLessons(invoiceId: string, _: ActionState, fd
   })
 }
 
+// ---- Add-ons: exam fees and instrument hire -------------------------------------------------
+export async function addExamFeeToInvoice(invoiceId: string, examId: string): Promise<ActionState> {
+  return handle(async () => {
+    const teacher = await requireTeacher()
+    const inv = await editableInvoice(teacher, invoiceId)
+    if (!inv.student_id) throw new FormError('This invoice isn’t linked to a pupil.')
+    await addExamFeeLine(teacher, invoiceId, inv.student_id, examId)
+    refresh(invoiceId, inv.student_id)
+    revalidatePath(`/exams/${examId}`)
+    return { ok: 'Exam fee added.' }
+  })
+}
+
+export async function addHireToInvoice(invoiceId: string, loanId: string, month: string): Promise<ActionState> {
+  return handle(async () => {
+    const teacher = await requireTeacher()
+    const inv = await editableInvoice(teacher, invoiceId)
+    if (!inv.student_id) throw new FormError('This invoice isn’t linked to a pupil.')
+    const added = await addHireLines(teacher, invoiceId, inv.student_id, month, loanId)
+    if (!added) throw new FormError('That hire fee is already on an invoice for this month.')
+    refresh(invoiceId, inv.student_id)
+    return { ok: 'Hire fee added.' }
+  })
+}
+
 // ---- Make-up credits ---------------------------------------------------------------------
 export async function applyCreditsAction(invoiceId: string): Promise<ActionState> {
   return handle(async () => {
@@ -216,14 +245,14 @@ export async function runMonthlyInvoices(_: ActionState, fd: FormData): Promise<
     const r = await createMonthlyInvoices(teacher, `${month}-01`, issueDate)
     revalidatePath('/invoices')
     revalidatePath('/')
-    if (r.created.length === 0) return { ok: `No new invoices needed — nobody has un-invoiced lessons in ${fmtDate(`${month}-01`, 'MMMM yyyy')}.` }
+    if (r.created.length === 0) return { ok: `No new invoices needed — there are no un-invoiced lessons or hire in ${fmtDate(`${month}-01`, 'MMMM yyyy')}.` }
     const credits = r.created.reduce((n, c) => n + c.credits, 0)
     return {
       ok:
         `Created ${r.created.length} draft invoice${r.created.length === 1 ? '' : 's'} for ${fmtDate(`${month}-01`, 'MMMM yyyy')}` +
         (credits ? `, with ${credits} make-up credit${credits === 1 ? '' : 's'} taken off` : '') +
         `. Check them under Draft, then send.` +
-        (r.skipped.length ? ` Skipped (no lessons that month): ${r.skipped.join(', ')}.` : ''),
+        (r.skipped.length ? ` Skipped (nothing to bill that month): ${r.skipped.join(', ')}.` : ''),
     }
   })
 }

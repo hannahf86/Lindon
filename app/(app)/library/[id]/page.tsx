@@ -9,9 +9,9 @@ import { db, must, requireTeacher } from '@/lib/db'
 import { fullName, money } from '@/lib/format'
 import { fmtDate, todayISO } from '@/lib/dates'
 import { distinctValues, studentOptions } from '@/lib/queries'
-import { ConfirmButton } from '@/components/forms'
-import { Badge, Card, PageHeader } from '@/components/ui'
-import { deleteItem, returnLoan, updateItem } from '../actions'
+import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
+import { Badge, Card, MoneyField, PageHeader } from '@/components/ui'
+import { deleteItem, returnLoan, updateHireFee, updateItem } from '../actions'
 import { ItemForm } from '../item-form'
 import { LendForm } from '../lend-form'
 import { currencySymbol, loanState } from '../helpers'
@@ -69,10 +69,11 @@ export default async function LibraryItemPage({ params, searchParams }: PageProp
           {/* ---- Where is it now? ---- */}
           <Card title="Right now">
             {open ? (
+              <>
               <div className="spread">
                 <div>
                   <div>
-                    On loan to{' '}
+                    {open.hire_fee ? 'On hire to' : 'On loan to'}{' '}
                     {open.students ? (
                       <Link href={`/students/${open.students.id}`} style={{ fontWeight: 800 }}>
                         {fullName(open.students)}
@@ -96,6 +97,21 @@ export default async function LibraryItemPage({ params, searchParams }: PageProp
                   Mark returned
                 </ConfirmButton>
               </div>
+              {/* ---- Free loan or paid hire ---- */}
+              <div className="form-section">
+                <ActionForm action={updateHireFee.bind(null, open.id)}>
+                  <MoneyField
+                    label="Monthly hire fee"
+                    name="hire_fee"
+                    symbol={currencySymbol(teacher.currency)}
+                    defaultValue={open.hire_fee ? Number(open.hire_fee).toFixed(2) : ''}
+                    placeholder="0.00"
+                    hint="Leave empty for a free loan. Added to their monthly invoice until it’s returned."
+                  />
+                  <SubmitButton className="btn btn-secondary btn-sm">Save fee</SubmitButton>
+                </ActionForm>
+              </div>
+              </>
             ) : item.archived ? (
               <p className="muted">This item is archived. Untick “Archived” below to lend it again.</p>
             ) : students.length === 0 ? (
@@ -105,7 +121,7 @@ export default async function LibraryItemPage({ params, searchParams }: PageProp
             ) : (
               <>
                 <p className="muted">Available — lend it to a student:</p>
-                <LendForm itemId={item.id} students={students} today={today} />
+                <LendForm itemId={item.id} students={students} today={today} currencySymbol={currencySymbol(teacher.currency)} />
               </>
             )}
           </Card>
@@ -123,6 +139,7 @@ export default async function LibraryItemPage({ params, searchParams }: PageProp
                       <th>Lent</th>
                       <th>Due</th>
                       <th>Returned</th>
+                      <th className="right">Hire</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -149,6 +166,7 @@ export default async function LibraryItemPage({ params, searchParams }: PageProp
                             <Badge tone="sky">Still out</Badge>
                           )}
                         </td>
+                        <td className="right nowrap">{l.hire_fee ? `${money(l.hire_fee, teacher.currency)}/month` : <span className="muted">Free</span>}</td>
                       </tr>
                     ))}
                   </tbody>

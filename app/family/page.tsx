@@ -1,9 +1,9 @@
 // =============================================================================
 // app/family/page.tsx — family home: everything coming up at a glance
 //
-// For each teacher they're linked to: the pupils, next lessons, latest lesson
-// notes & homework, invoices waiting to be paid, upcoming exams and anything
-// on loan. Every query is scoped to the link's teacher AND its pupil ids
+// For each teacher they're linked to: how to contact them, the pupils, next
+// lessons, invoices waiting to be paid, upcoming exams and anything on loan.
+// Every query is scoped to the link's teacher AND its pupil ids
 // (from requireFamily) — never to ids from the URL.
 // =============================================================================
 import type { Metadata } from 'next'
@@ -15,7 +15,8 @@ import { duration, hhmm, money } from '@/lib/format'
 import { fmtDate, fmtTz, todayISO } from '@/lib/dates'
 import { displayStatus } from '@/lib/invoices'
 import { Badge, Card, EmptyState, StatusBadge } from '@/components/ui'
-import { familyUnread, pupilNames, studioLine } from './_lib/family-data'
+import { TeacherContact } from '@/components/teacher-contact'
+import { pupilNames, studioLine } from './_lib/family-data'
 
 export const metadata: Metadata = { title: 'Home' }
 
@@ -27,7 +28,7 @@ async function loadLink(link: FamilyLink) {
   const now = new Date().toISOString()
   const today = todayISO(link.teacher.timezone)
 
-  const [upcoming, past, invoices, exams, loans] = await Promise.all([
+  const [upcoming, invoices, exams, loans] = await Promise.all([
     db()
       .from('lessons')
       .select('id, student_id, starts_at, duration_minutes, instrument, location, status')
@@ -37,16 +38,6 @@ async function loadLink(link: FamilyLink) {
       .gte('starts_at', now)
       .order('starts_at')
       .limit(5)
-      .then(must),
-    // Recent past lessons — the newest three with notes or homework are shown
-    db()
-      .from('lessons')
-      .select('id, student_id, starts_at, instrument, notes, homework')
-      .eq('teacher_id', t)
-      .in('student_id', ids)
-      .lt('starts_at', now)
-      .order('starts_at', { ascending: false })
-      .limit(40)
       .then(must),
     db()
       .from('invoices')
@@ -67,7 +58,7 @@ async function loadLink(link: FamilyLink) {
       .then(must),
     db()
       .from('loans')
-      .select('id, student_id, lent_on, due_on, library_items(title, kind)')
+      .select('id, student_id, lent_on, due_on, hire_fee, library_items(title, kind)')
       .eq('teacher_id', t)
       .in('student_id', ids)
       .is('returned_on', null)
@@ -75,13 +66,12 @@ async function loadLink(link: FamilyLink) {
       .then(must),
   ])
 
-  const notes = past.filter((l) => l.notes.trim() || l.homework.trim()).slice(0, 3)
-  return { upcoming, notes, invoices, exams, loans, today }
+  return { upcoming, invoices, exams, loans, today }
 }
 
 export default async function FamilyHome() {
   const ctx = await requireFamily()
-  const [unread, data] = await Promise.all([familyUnread(ctx), Promise.all(ctx.links.map(loadLink))])
+  const data = await Promise.all(ctx.links.map(loadLink))
   const firstName = ctx.name.split(' ')[0] || 'there'
 
   return (
@@ -96,18 +86,6 @@ export default async function FamilyHome() {
 
       {/* ---- Tip of the day (same for everyone, changes daily) ---- */}
       <TipOfTheDay date={todayISO(ctx.links[0].teacher.timezone)} />
-
-      {/* ---- Unread messages ---- */}
-      {unread > 0 && (
-        <div className="alert alert-ok spread" style={{ marginBottom: 20 }}>
-          <span>
-            You have {unread} new {unread === 1 ? 'message' : 'messages'} from your teacher.
-          </span>
-          <Link href="/family/messages" className="btn btn-sm">
-            Read {unread === 1 ? 'it' : 'them'}
-          </Link>
-        </div>
-      )}
 
       <div className="stack">
         {ctx.links.map((link, i) => (
@@ -132,6 +110,7 @@ function TeacherSection({ link, data }: { link: FamilyLink; data: Awaited<Return
       <div>
         <div className="eyebrow">Your teacher</div>
         <h2 style={{ fontSize: '1.5rem' }}>{studioLine(link.teacher)}</h2>
+        <TeacherContact teacher={link.teacher} label="Need to change a lesson?" />
         {link.pupils.length > 0 && (
           <div className="chips" style={{ marginTop: 8 }}>
             {link.pupils.map((p) => (
@@ -147,7 +126,7 @@ function TeacherSection({ link, data }: { link: FamilyLink; data: Awaited<Return
       {!data ? (
         <Card>
           <EmptyState title="Nothing to show just yet">
-            There aren’t any pupils linked to your account with this teacher at the moment. If you think that’s a mistake, send them a message.
+            There aren’t any pupils linked to your account with this teacher at the moment. If you think that’s a mistake, please contact them.
           </EmptyState>
         </Card>
       ) : (
@@ -168,30 +147,6 @@ function TeacherSection({ link, data }: { link: FamilyLink; data: Awaited<Return
                       {l.location && ` · ${l.location}`}
                     </div>
                   </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          {/* ---- Latest notes & homework ---- */}
-          <Card title="Latest notes & homework" actions={<Link href="/family/lessons?view=past" className="small">All notes</Link>}>
-            {data.notes.length === 0 ? (
-              <p className="muted">Your teacher’s lesson notes and homework will appear here.</p>
-            ) : (
-              <ul className="list">
-                {data.notes.map((l) => (
-                    <li key={l.id}>
-                      <div className="spread">
-                        <strong>{fmtTz(l.starts_at, tz, 'EEE d MMM')}{who(l.student_id) && ` · ${who(l.student_id)}`}</strong>
-                        {l.instrument && <Badge tone="teal">{l.instrument}</Badge>}
-                      </div>
-                      {l.notes.trim() && <div className="pre small" style={{ marginTop: 4 }}>{l.notes}</div>}
-                      {l.homework.trim() && (
-                        <div className="small" style={{ marginTop: 6 }}>
-                          <strong>Homework:</strong> <span className="pre">{l.homework}</span>
-                        </div>
-                      )}
-                    </li>
                 ))}
               </ul>
             )}
@@ -262,6 +217,7 @@ function TeacherSection({ link, data }: { link: FamilyLink; data: Awaited<Return
                         <span className="small muted">
                           {l.library_items?.kind && ` · ${l.library_items.kind}`}
                           {who(l.student_id) && ` · ${who(l.student_id)}`}
+                          {l.hire_fee ? ` · ${money(l.hire_fee, c)} a month` : ''}
                         </span>
                       </span>
                       {l.due_on ? (

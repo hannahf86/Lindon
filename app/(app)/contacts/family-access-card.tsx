@@ -45,9 +45,9 @@ export async function FamilyAccessCard(props: {
       <p className="small muted" style={{ marginTop: 0 }}>
         {kind === 'guardian'
           ? props.pupilNames?.length
-            ? `With a login, ${first} can see ${props.pupilNames.join(' and ')}’s lessons, notes and invoices, and message you.`
-            : `${first} isn’t linked to any pupils under 18, so with a login they could only message you.`
-          : `With a login, ${first} can see their own lessons, notes and invoices, and message you.`}
+            ? `With a login, ${first} can see ${props.pupilNames.join(' and ')}’s lessons and invoices.`
+            : `${first} isn’t linked to any pupils under 18, so a login wouldn’t show them anything yet.`
+          : `With a login, ${first} can see their own lessons and invoices.`}
       </p>
 
       {/* ---- Current status ---- */}
@@ -97,7 +97,7 @@ export async function FamilyAccessCard(props: {
             </ConfirmButton>
             <ConfirmButton
               action={removeAccessAction.bind(null, kind, id)}
-              confirm={`Remove ${props.name}’s access to Lindon? They won’t be able to sign in. Your messages with them are kept.`}
+              confirm={`Remove ${props.name}’s access to Lindon? They won’t be able to sign in.`}
               className="btn btn-danger btn-sm"
             >
               Remove access

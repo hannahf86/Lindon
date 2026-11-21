@@ -1,13 +1,16 @@
 'use server'
 // =============================================================================
-// exams/actions.ts — create / update / delete exams. Board, grade, instrument
-// and time are typed by the teacher. Every query is scoped to the signed-in
-// teacher; the composite foreign key rejects another teacher's student.
+// exams/actions.ts — create / update / delete exams, and add an exam's fee to an
+// invoice. Board, grade, instrument and time are typed by the teacher. Every
+// query is scoped to the signed-in teacher; the composite foreign key rejects
+// another teacher's student.
 // =============================================================================
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { db, must, requireTeacher } from '@/lib/db'
 import { date, handle, oneOf, optionalNum, ref, str, time, FormError, type ActionState } from '@/lib/forms'
+import { addExamFeeLine } from '@/lib/addons'
+import { draftInvoiceFor } from '@/lib/products'
 
 const STATUSES = ['planned', 'entered', 'taken', 'withdrawn'] as const
 
@@ -60,6 +63,21 @@ export async function updateExam(id: string, _: ActionState, fd: FormData): Prom
     revalidateExams(row.student_id)
     revalidatePath(`/exams/${id}`)
     return { ok: 'Exam saved.' }
+  })
+}
+
+// ---- Add the fee to the pupil's draft invoice (creating one if needed) ---------------------
+export async function addExamFeeToDraft(id: string): Promise<ActionState> {
+  return handle(async () => {
+    const teacher = await requireTeacher()
+    const { data: exam } = await db().from('exams').select('student_id').eq('id', id).eq('teacher_id', teacher.id).maybeSingle()
+    if (!exam) throw new FormError('That exam no longer exists — refresh and try again.')
+    const inv = await draftInvoiceFor(teacher, exam.student_id)
+    await addExamFeeLine(teacher, inv.id, exam.student_id, id)
+    revalidateExams(exam.student_id)
+    revalidatePath(`/exams/${id}`)
+    revalidatePath('/invoices', 'layout')
+    return { ok: inv.created ? `Added to a new draft invoice, ${inv.number}.` : `Added to draft invoice ${inv.number}.` }
   })
 }
 

@@ -1,20 +1,19 @@
 // =============================================================================
-// lessons/[id]/page.tsx — one lesson: notes & practice (save, or save and
-// email to parents), last lesson's notes for context, edit the details,
-// and quick actions (mark completed, send reminder now, delete).
+// lessons/[id]/page.tsx — one lesson: edit the details, mark attendance, send a
+// reminder now, or delete it.
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { db, must, requireTeacher } from '@/lib/db'
+import { db, requireTeacher } from '@/lib/db'
 import { duration, fullName, money } from '@/lib/format'
 import { fmtTz } from '@/lib/dates'
 import { currencySymbol } from '@/lib/lessons'
 import { distinctValues, instrumentSuggestions } from '@/lib/queries'
 import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
-import { Badge, Card, PageHeader, StatusBadge, TextArea } from '@/components/ui'
+import { Badge, Card, PageHeader, StatusBadge } from '@/components/ui'
 import { LessonFields } from '../lesson-fields'
-import { deleteLesson, saveNotes, sendReminderNow, updateLesson } from '../actions'
+import { deleteLesson, sendReminderNow, updateLesson } from '../actions'
 import { AttendanceButtons } from '../attendance-buttons'
 
 export const metadata: Metadata = { title: 'Lesson' }
@@ -33,24 +32,12 @@ export default async function LessonPage({ params }: PageProps<'/lessons/[id]'>)
     .maybeSingle()
   if (!lesson) notFound()
 
-  const [previous, instruments, locations, credit] = await Promise.all([
-    // The student's earlier lessons — we show the latest one that has notes
-    db()
-      .from('lessons')
-      .select('id, starts_at, notes, homework, status')
-      .eq('teacher_id', t)
-      .eq('student_id', lesson.student_id)
-      .lt('starts_at', lesson.starts_at)
-      .not('status', 'in', '(notice_given,teacher_cancelled)')
-      .order('starts_at', { ascending: false })
-      .limit(6)
-      .then(must),
+  const [instruments, locations, credit] = await Promise.all([
     instrumentSuggestions(t),
     distinctValues(t, 'lessons', 'location'),
     // This lesson's make-up credit, if it earned one
     db().from('lesson_credits').select('amount, invoice_item_id').eq('teacher_id', t).eq('lesson_id', id).maybeSingle().then((r) => r.data),
   ])
-  const prev = previous.find((p) => p.notes || p.homework) ?? previous[0]
 
   const student = lesson.students
   const studentName = fullName(student) || 'Student'
@@ -88,39 +75,6 @@ export default async function LessonPage({ params }: PageProps<'/lessons/[id]'>)
 
       <div className="split">
         <div className="stack">
-          {/* ---- Lesson notes & practice ---- */}
-          <Card title="Lesson notes" id="notes">
-            <ActionForm action={saveNotes.bind(null, id)}>
-              <TextArea
-                label="What we covered"
-                name="notes"
-                defaultValue={lesson.notes}
-                rows={6}
-                placeholder="e.g. Worked on the B section of the minuet — much steadier left hand. Started sight-reading in G major."
-              />
-              <TextArea
-                label="Practice for this week"
-                name="homework"
-                defaultValue={lesson.homework}
-                rows={4}
-                placeholder="e.g. Minuet bars 9–16 hands separately, slowly. Scales: G and D major, two octaves."
-              />
-              <div className="form-actions">
-                <SubmitButton name="intent" value="save">
-                  Save notes
-                </SubmitButton>
-                <SubmitButton name="intent" value="email" className="btn btn-purple" pendingText="Sending…">
-                  Save &amp; email notes
-                </SubmitButton>
-              </div>
-              <p className="small muted" style={{ margin: 0 }}>
-                {lesson.notes_emailed_at
-                  ? `Notes last emailed ${fmtTz(lesson.notes_emailed_at, tz, "d MMM yyyy 'at' HH:mm")}.`
-                  : 'Notes haven’t been emailed yet. Under-18s’ notes go to their parents; adults get their own copy.'}
-              </p>
-            </ActionForm>
-          </Card>
-
           {/* ---- Lesson details (edit) ---- */}
           <Card title="Lesson details">
             <ActionForm action={updateLesson.bind(null, id)}>
@@ -177,31 +131,11 @@ export default async function LessonPage({ params }: PageProps<'/lessons/[id]'>)
             </div>
           </Card>
 
-          {/* ---- Previous lesson, for context ---- */}
-          <Card title="Last lesson">
-            {!prev ? (
-              <p className="muted">This is {student?.first_name ?? 'their'}&apos;s first lesson on record.</p>
-            ) : (
-              <>
-                <p className="small" style={{ fontWeight: 800 }}>
-                  <Link href={`/lessons/${prev.id}`}>{fmtTz(prev.starts_at, tz, 'EEE d MMM yyyy')}</Link>
-                </p>
-                {prev.notes ? <p style={{ whiteSpace: 'pre-line' }}>{prev.notes}</p> : <p className="muted">No notes written.</p>}
-                {prev.homework && (
-                  <div className="alert alert-info" style={{ fontWeight: 400 }}>
-                    <div style={{ fontWeight: 900, marginBottom: 4 }}>Practice set</div>
-                    <div style={{ whiteSpace: 'pre-line' }}>{prev.homework}</div>
-                  </div>
-                )}
-              </>
-            )}
-          </Card>
-
           {/* ---- Danger zone ---- */}
           <Card>
             <ConfirmButton
               action={deleteLesson.bind(null, id)}
-              confirm={`Delete this lesson and its notes? This can't be undone — to keep a record, set its status to "Cancelled" instead.`}
+              confirm={`Delete this lesson? This can't be undone — to keep a record, mark its attendance instead.`}
             >
               Delete lesson
             </ConfirmButton>

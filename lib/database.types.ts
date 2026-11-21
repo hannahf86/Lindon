@@ -44,7 +44,7 @@ export type StudentStatus = 'active' | 'paused' | 'left'
 /** Attendance. notice_given / teacher_cancelled earn a make-up credit. */
 export type LessonStatus = 'scheduled' | 'present' | 'absent' | 'notice_given' | 'teacher_cancelled'
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'void'
-export type InvoiceItemKind = 'lesson' | 'equipment' | 'other' | 'credit'
+export type InvoiceItemKind = 'lesson' | 'equipment' | 'exam' | 'hire' | 'other' | 'credit'
 export type ExamStatus = 'planned' | 'entered' | 'taken' | 'withdrawn'
 export type EmailKind = 'reminder' | 'broadcast' | 'individual' | 'invoice' | 'lesson_notes' | 'family_invite' | 'message_notice' | 'credit_notice'
 
@@ -178,6 +178,11 @@ export type InvoiceItem = {
   product_id: string | null
   /** For kind 'credit': the make-up credit this minus line uses */
   credit_id: string | null
+  /** For kind 'exam': the exam this fee is for */
+  exam_id: string | null
+  /** For kind 'hire': the loan, and the first day of the month covered */
+  loan_id: string | null
+  hire_month: string | null
   position: number
   created_at: string
 }
@@ -217,6 +222,8 @@ export type Loan = Timestamps & {
   lent_on: string
   due_on: string | null
   returned_on: string | null
+  /** Monthly fee while out on paid hire; null means a free loan */
+  hire_fee: number | null
   notes: string
 }
 
@@ -357,6 +364,8 @@ export type Database = {
           Fk<'invoice_items_invoice_id_teacher_id_fkey', 'invoice_id', 'invoices'>,
           Fk<'invoice_items_lesson_id_teacher_id_fkey', 'lesson_id', 'lessons'>,
           Fk<'invoice_items_product_id_teacher_id_fkey', 'product_id', 'products'>,
+          Fk<'invoice_items_exam_id_teacher_id_fkey', 'exam_id', 'exams'>,
+          Fk<'invoice_items_loan_id_teacher_id_fkey', 'loan_id', 'loans'>,
         ]
       }
       products: Table<Product, 'teacher_id' | 'name'>

@@ -2,20 +2,22 @@
 // invoices/[id]/invoice-items.tsx — the invoice's lines
 //
 // Editable invoices (draft / sent): each line is its own small form (description,
-// quantity, price, kind) with Save and Remove, plus an "Add item" form and an
-// "Add uninvoiced lessons" form underneath.
+// quantity, price, kind) with Save and Remove, plus add-ons waiting for this
+// pupil (exam fees, instrument hire), an "Add item" form and an "Add uninvoiced
+// lessons" form underneath.
 // Locked invoices (paid / void): a plain read-only table.
 // =============================================================================
 import type { InvoiceItem } from '@/lib/database.types'
+import type { PendingExamFee, PendingHire } from '@/lib/addons'
 import { money } from '@/lib/format'
 import { KIND_OPTIONS } from '@/lib/invoices'
 import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
 import { Badge, Card, MoneyField, Segmented, TextField } from '@/components/ui'
-import { addItem, addUninvoicedLessons, deleteItem, updateItem } from '../actions'
+import { addExamFeeToInvoice, addHireToInvoice, addItem, addUninvoicedLessons, deleteItem, updateItem } from '../actions'
 import { addProductToInvoice } from '@/app/(app)/equipment/actions'
 import { Picker, type PickerOption } from '@/components/pickers'
 
-const KIND_TONES = { lesson: 'sky', equipment: 'butter', other: 'purple', credit: 'teal' } as const
+const KIND_TONES = { lesson: 'sky', equipment: 'butter', exam: 'sky', hire: 'butter', other: 'purple', credit: 'teal' } as const
 const kindLabel = (k: string) => (k === 'credit' ? 'Make-up credit' : KIND_OPTIONS.find((o) => o.value === k)?.label)
 
 /** Currency symbol for the money inputs (e.g. "£" for GBP). */
@@ -37,6 +39,9 @@ export function InvoiceItems(props: {
   lessonPeriod: [string, string]
   /** Equipment the teacher sells — shown as a quick "add from your list" form */
   products?: PickerOption[]
+  /** Exam fees and hire for this pupil that aren't on an invoice yet */
+  examFees?: PendingExamFee[]
+  hire?: PendingHire[]
 }) {
   const { invoiceId, items, currency: c } = props
   const symbol = symbolFor(c)
@@ -143,6 +148,38 @@ export function InvoiceItems(props: {
           </ul>
         )}
       </Card>
+
+      {/* ---- Add-ons waiting for this pupil: exam fees and instrument hire ---- */}
+      {props.editable && !!(props.examFees?.length || props.hire?.length) && (
+        <Card title="Add-ons to bill">
+          <ul className="list">
+            {props.examFees?.map((f) => (
+              <li key={f.examId} className="spread">
+                <span>
+                  <Badge tone="sky">Exam</Badge> {f.description} · <strong>{money(f.amount, c)}</strong>
+                </span>
+                <ActionForm action={addExamFeeToInvoice.bind(null, invoiceId, f.examId)} className="row">
+                  <SubmitButton className="btn btn-secondary btn-sm" pendingText="Adding…">
+                    Add
+                  </SubmitButton>
+                </ActionForm>
+              </li>
+            ))}
+            {props.hire?.map((h) => (
+              <li key={h.loanId} className="spread">
+                <span>
+                  <Badge tone="butter">Hire</Badge> {h.description} · <strong>{money(h.amount, c)}</strong>
+                </span>
+                <ActionForm action={addHireToInvoice.bind(null, invoiceId, h.loanId, h.month)} className="row">
+                  <SubmitButton className="btn btn-secondary btn-sm" pendingText="Adding…">
+                    Add
+                  </SubmitButton>
+                </ActionForm>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {props.editable && (
         <div className="grid grid-2">

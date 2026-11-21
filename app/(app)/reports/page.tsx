@@ -24,7 +24,14 @@ function Bar({ value, max, colour = 'var(--teal)' }: { value: number; max: numbe
   )
 }
 
-const KIND_COLOURS = { lesson: 'var(--teal)', equipment: 'var(--butter)', other: 'var(--purple)', credit: 'var(--coral)' } as const
+const KIND_COLOURS = {
+  lesson: 'var(--teal)',
+  equipment: 'var(--butter)',
+  exam: 'var(--sky)',
+  hire: 'var(--teal-deep)',
+  other: 'var(--purple)',
+  credit: 'var(--coral)',
+} as const
 
 export default async function ReportsPage({ searchParams }: PageProps<'/reports'>) {
   const teacher = await requireTeacher()

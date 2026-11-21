@@ -2,10 +2,11 @@
 // library/lend-form.tsx — "lend an item to a student" form
 // Used on the library list (choose item + student) and on an item's own page
 // (item fixed, choose student). Lent date defaults to today; due date optional.
+// A monthly hire fee makes it paid hire; blank means a free loan.
 // =============================================================================
 import { ActionForm, SubmitButton } from '@/components/forms'
 import { Picker, type PickerOption } from '@/components/pickers'
-import { TextField } from '@/components/ui'
+import { MoneyField, TextField } from '@/components/ui'
 import { lendItem } from './actions'
 
 export function LendForm(props: {
@@ -15,6 +16,7 @@ export function LendForm(props: {
   students: PickerOption[]
   preselectStudent?: string
   today: string
+  currencySymbol: string
 }) {
   return (
     <ActionForm action={lendItem} resetOnSuccess>
@@ -27,7 +29,14 @@ export function LendForm(props: {
       <div className="form-grid">
         <TextField label="Lent on" name="lent_on" type="date" defaultValue={props.today} required />
         <TextField label="Due back" name="due_on" type="date" hint="Optional — leave empty for an open-ended loan." />
-        <TextField label="Notes" name="notes" placeholder="e.g. Includes bow and rosin" wrapClass="full" />
+        <MoneyField
+          label="Monthly hire fee"
+          name="hire_fee"
+          symbol={props.currencySymbol}
+          placeholder="0.00"
+          hint="Leave empty for a free loan. Added to their monthly invoice until it’s returned."
+        />
+        <TextField label="Notes" name="notes" placeholder="e.g. Includes bow and rosin" />
       </div>
       <div className="form-actions">
         <SubmitButton pendingText="Lending…">Lend item</SubmitButton>

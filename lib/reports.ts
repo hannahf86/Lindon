@@ -145,7 +145,14 @@ export type IncomeReport = {
   minutesTaught: number
 }
 
-const KIND_LABELS: Record<InvoiceItemKind, string> = { lesson: 'Lessons', equipment: 'Equipment', other: 'Other', credit: 'Make-up credits' }
+const KIND_LABELS: Record<InvoiceItemKind, string> = {
+  lesson: 'Lessons',
+  equipment: 'Equipment',
+  exam: 'Exam fees',
+  hire: 'Instrument hire',
+  other: 'Other',
+  credit: 'Make-up credits',
+}
 const MAX_MONTHS = 36
 
 export async function incomeReport(teacher: Teacher, p: Period): Promise<IncomeReport> {
@@ -183,7 +190,7 @@ export async function incomeReport(teacher: Teacher, p: Period): Promise<IncomeR
   }
 
   // Split by kind of line
-  const kinds: Record<InvoiceItemKind, number> = { lesson: 0, equipment: 0, other: 0, credit: 0 }
+  const kinds: Record<InvoiceItemKind, number> = { lesson: 0, equipment: 0, exam: 0, hire: 0, other: 0, credit: 0 }
   for (const inv of paid) for (const it of inv.invoice_items) kinds[it.kind] += Number(it.amount)
   const byKind = (Object.keys(kinds) as InvoiceItemKind[]).map((k) => ({ kind: k, label: KIND_LABELS[k], amount: kinds[k] }))
 

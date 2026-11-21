@@ -82,7 +82,15 @@ export async function lendItem(_: ActionState, fd: FormData): Promise<ActionStat
 
     const res = await db()
       .from('loans')
-      .insert({ teacher_id: teacher.id, item_id: itemId, student_id: studentId, lent_on: lentOn, due_on: dueOn, notes: str(fd, 'notes') })
+      .insert({
+        teacher_id: teacher.id,
+        item_id: itemId,
+        student_id: studentId,
+        lent_on: lentOn,
+        due_on: dueOn,
+        hire_fee: optionalNum(fd, 'hire_fee', 'Monthly hire fee'),
+        notes: str(fd, 'notes'),
+      })
       .select('id')
       .single()
     if (res.error) {
@@ -92,6 +100,26 @@ export async function lendItem(_: ActionState, fd: FormData): Promise<ActionStat
     }
     revalidateLibrary(itemId)
     return { ok: `“${item.title}” lent out.` }
+  })
+}
+
+// ---- Change the hire fee on an item still out --------------------------------------------
+// Only affects months not billed yet; lines already on an invoice keep their price.
+export async function updateHireFee(loanId: string, _: ActionState, fd: FormData): Promise<ActionState> {
+  return handle(async () => {
+    const teacher = await requireTeacher()
+    const row = must(
+      await db()
+        .from('loans')
+        .update({ hire_fee: optionalNum(fd, 'hire_fee', 'Monthly hire fee') })
+        .eq('id', loanId)
+        .eq('teacher_id', teacher.id)
+        .is('returned_on', null)
+        .select('item_id')
+        .single(),
+    )
+    revalidateLibrary(row.item_id)
+    return { ok: 'Hire fee saved.' }
   })
 }
 

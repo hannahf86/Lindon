@@ -1,18 +1,14 @@
 'use server'
 // =============================================================================
-// lessons/actions.ts — one-off lessons, editing lesson details, lesson notes
-// (optionally emailed to parents), quick "mark completed", "send reminder
-// now" and delete. Every query is scoped to the signed-in teacher.
+// lessons/actions.ts — one-off lessons, editing lesson details, one-tap
+// attendance, "send reminder now" and delete. Every query is scoped to the
+// signed-in teacher.
 // =============================================================================
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { db, must, requireTeacher } from '@/lib/db'
 import { bool, date, handle, int, num, oneOf, parseTime, ref, required, str, FormError, type ActionState } from '@/lib/forms'
-import { fullName } from '@/lib/format'
-import { fmtTz, zonedToUtc } from '@/lib/dates'
-import { lessonNotesEmail } from '@/lib/email-templates'
-import { sendEmail, signature, studioName } from '@/lib/email'
-import { recipientsFor } from '@/lib/recipients'
+import { zonedToUtc } from '@/lib/dates'
 import { sendLessonReminder } from '@/lib/reminders'
 import { CREDIT_STATUSES, LESSON_STATUSES } from '@/lib/lessons'
 import { notifyCreditIssued } from '@/lib/credits'
@@ -89,65 +85,6 @@ export async function updateLesson(id: string, _: ActionState, fd: FormData): Pr
     )
     revalidateLesson(id, before.student_id)
     return { ok: 'Lesson updated.' + (await creditNote(teacher, id, before.status, status)) }
-  })
-}
-
-// ---- Lesson notes + homework (save, or save & email) ---------------------------------
-export async function saveNotes(id: string, _: ActionState, fd: FormData): Promise<ActionState> {
-  return handle(async () => {
-    const teacher = await requireTeacher()
-    const notes = str(fd, 'notes')
-    const homework = str(fd, 'homework')
-    const sendIt = str(fd, 'intent') === 'email'
-
-    const { data: lesson } = await db()
-      .from('lessons')
-      .select('id, student_id, starts_at, status, students(first_name, last_name)')
-      .eq('id', id)
-      .eq('teacher_id', teacher.id)
-      .maybeSingle()
-    if (!lesson) throw new FormError('That lesson no longer exists.')
-
-    // Writing notes for a lesson that's already happened means it took place
-    const autoComplete = lesson.status === 'scheduled' && new Date(lesson.starts_at) < new Date()
-    must(
-      await db()
-        .from('lessons')
-        .update({ notes, homework, ...(autoComplete ? { status: 'present' as const } : {}) })
-        .eq('id', id)
-        .eq('teacher_id', teacher.id)
-        .select('id'),
-    )
-    revalidateLesson(id, lesson.student_id)
-    const savedMsg = autoComplete ? 'Notes saved and the pupil marked present.' : 'Notes saved.'
-    if (!sendIt) return { ok: savedMsg }
-
-    // ---- Email the notes ----
-    if (!notes && !homework) return { error: 'Notes saved, but there’s nothing to email yet — write some notes or practice first.' }
-    const { recipients } = await recipientsFor(teacher.id, [lesson.student_id])
-    if (recipients.length === 0) {
-      return { error: `${savedMsg} No email address to send to — add a parent, or the student’s own email if they’re 18 or over.` }
-    }
-    const result = await sendEmail({
-      teacher,
-      to: recipients.map((r) => r.email),
-      email: lessonNotesEmail({
-        studio: studioName(teacher),
-        studentName: fullName(lesson.students),
-        date: fmtTz(lesson.starts_at, teacher.timezone, 'EEEE d MMMM yyyy'),
-        notes,
-        homework,
-        signature: signature(teacher),
-      }),
-      kind: 'lesson_notes',
-      lessonId: id,
-    })
-    if (result.sent === 0) return { error: `${savedMsg} But the email didn’t send: ${result.error ?? 'unknown problem'}.` }
-    must(
-      await db().from('lessons').update({ notes_emailed_at: new Date().toISOString() }).eq('id', id).eq('teacher_id', teacher.id).select('id'),
-    )
-    revalidatePath(`/lessons/${id}`)
-    return { ok: `${savedMsg} Emailed to ${recipients.map((r) => r.name || r.email).join(', ')}.` }
   })
 }
 

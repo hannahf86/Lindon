@@ -32,7 +32,6 @@ function run(kind: FamilyKind, id: string, fn: (teacher: Teacher, t: FamilyTarge
     revalidatePath(kind === 'guardian' ? `/contacts/${id}` : `/students/${id}`)
     // Parents can also be invited from their child's page
     if (kind === 'guardian') revalidatePath('/students', 'layout')
-    revalidatePath('/messages', 'layout')
     return { ok }
   })
 }

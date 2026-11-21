@@ -312,7 +312,6 @@ form:has(input[name='student_id'][value='']:checked) .booking-only { display: no
 .link-btn[disabled] { opacity: 0.55; cursor: wait; }
 
 /* Lesson notes history (pupil page) */
-.note-text { margin: 6px 0 0; white-space: pre-line; }
 
 /* Tip of the day (dashboard + family home) */
 .tip { display: flex; gap: 14px; align-items: flex-start; padding: 16px 20px; border-radius: var(--radius-lg); background: var(--butter-wash); border-left: 6px solid var(--butter); margin-bottom: 20px; }
@@ -368,7 +367,6 @@ form:has(input[name='student_id'][value='']:checked) .booking-only { display: no
 .dv-time span { display: block; font-size: 0.8rem; font-weight: 700; color: var(--muted); }
 .dv-title { font-weight: 900; font-size: 1.05rem; text-decoration: none; color: var(--ink); }
 a.dv-title:hover { color: var(--teal-ink); text-decoration: underline; }
-.dv-notes { margin-top: 6px; color: var(--ink); white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 @media (max-width: 600px) { .dv-row { grid-template-columns: 56px minmax(0, 1fr); } .dv-row > .btn { grid-column: 2; justify-self: start; } }
 
 /* ---- Month view: calendar grid ---- */

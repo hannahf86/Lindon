@@ -61,7 +61,7 @@ export default async function SchedulePage({ searchParams }: PageProps<'/schedul
   const [lessons, exams, slots] = await Promise.all([
     db()
       .from('lessons')
-      .select('id, starts_at, duration_minutes, price, status, chargeable, instrument, location, time_slot_id, notes, students(id, first_name, last_name)')
+      .select('id, starts_at, duration_minutes, price, status, chargeable, instrument, location, time_slot_id, students(id, first_name, last_name)')
       .eq('teacher_id', t)
       .gte('starts_at', fromUtc)
       .lt('starts_at', toUtc)
@@ -213,14 +213,13 @@ export default async function SchedulePage({ searchParams }: PageProps<'/schedul
                           <div className="small muted">
                             {[duration(r.l.duration_minutes), r.l.instrument, r.l.location, money(r.l.price, teacher.currency)].filter(Boolean).join(' · ')}
                           </div>
-                          {r.l.notes && <div className="small dv-notes">{r.l.notes}</div>}
                           {/* One-tap attendance */}
                           <div style={{ marginTop: 8 }}>
                             <AttendanceButtons lessonId={r.l.id} status={r.l.status} pupil={r.l.students?.first_name ?? 'The pupil'} small />
                           </div>
                         </div>
                         <Link href={`/lessons/${r.l.id}`} className="btn btn-secondary btn-sm">
-                          {r.l.notes ? 'Open' : 'Add notes'}
+                          Open
                         </Link>
                       </li>
                     ) : r.kind === 'exam' ? (

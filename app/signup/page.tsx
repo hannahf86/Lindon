@@ -28,7 +28,7 @@ export default async function SignupPage() {
         <div>
           <LogoMark size={64} />
           <h1>Lindon</h1>
-          <p>Pupils, bookings, lesson notes, invoices and reminders — in one friendly place.</p>
+          <p>Pupils, bookings, attendance, invoices and reminders — in one friendly place.</p>
         </div>
         <div className="auth-stripe" aria-hidden>
           <span />

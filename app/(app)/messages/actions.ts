@@ -1,80 +1,66 @@
 'use server'
 // =============================================================================
-// messages/actions.ts — the teacher's side of in-app messages
+// messages/actions.ts — compose & send an email to students / their parents
 //
-// startConversation  "New message" picker → open (or create) the conversation
-//                    with a parent/guardian or an ADULT pupil, then go there.
-// sendTeacherMessage reply in a conversation. Messages are permanent; the
-//                    family gets an email alert (lib/messages.ts).
-// Safeguarding: a conversation is never started with, or sent to, an
-// under-18 pupil directly — only through their parents.
+// Two steps from one form (the clicked button sets `intent`):
+//   check → work out who would receive it and show the list (nothing sent)
+//   send  → work it out again (so it's always current) and send
+// Under-18s are reached through their linked parents, 18+ directly — see
+// lib/recipients.ts. Every send is written to the email log by sendEmail().
 // =============================================================================
-import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { db, requireTeacher } from '@/lib/db'
-import { handle, str, FormError, type ActionState } from '@/lib/forms'
-import { isMinor } from '@/lib/format'
-import { studioName } from '@/lib/email'
-import { conversationFor, postMessage, type ConversationTarget } from '@/lib/messages'
+import { requireTeacher } from '@/lib/db'
+import { all, oneOf, str, FormError } from '@/lib/forms'
+import { recipientsFor } from '@/lib/recipients'
+import { messageEmail } from '@/lib/email-templates'
+import { sendEmail, signature, studioName } from '@/lib/email'
+import type { ComposeState } from './types'
 
-const UUID = /^[0-9a-f-]{36}$/i
+const AUDIENCES = ['all', 'choose'] as const
 
-/** Check a guardian / pupil belongs to this teacher and may be messaged (pupils: adults only). */
-async function checkTarget(teacherId: string, target: ConversationTarget): Promise<void> {
-  if ('guardianId' in target) {
-    const { data } = await db().from('guardians').select('id').eq('id', target.guardianId).eq('teacher_id', teacherId).maybeSingle()
-    if (!data) throw new FormError('That contact no longer exists.')
-    return
-  }
-  const { data } = await db().from('students').select('date_of_birth, is_minor').eq('id', target.studentId).eq('teacher_id', teacherId).maybeSingle()
-  if (!data) throw new FormError('That pupil no longer exists.')
-  if (isMinor(data)) throw new FormError('Pupils under 18 can’t be messaged directly — message their parent instead.')
-}
-
-// ---- Start a conversation ---------------------------------------------------------------
-export async function startConversation(_: ActionState, fd: FormData): Promise<ActionState> {
-  let id = ''
-  const result = await handle(async () => {
+export async function composeEmail(_: ComposeState, fd: FormData): Promise<ComposeState> {
+  try {
     const teacher = await requireTeacher()
-    const [kind, ref] = str(fd, 'who').split(':')
-    if (!ref || !UUID.test(ref) || (kind !== 'g' && kind !== 's')) throw new FormError('Choose who to message.')
-    const target: ConversationTarget = kind === 'g' ? { guardianId: ref } : { studentId: ref }
-    await checkTarget(teacher.id, target)
-    id = (await conversationFor(teacher.id, target)).id
-  })
-  if (result?.error) return result
-  revalidatePath('/messages')
-  redirect(`/messages/${id}`)
-}
+    const intent = str(fd, 'intent') === 'send' ? 'send' : 'check'
+    const audience = oneOf(fd, 'audience', AUDIENCES, 'all')
 
-// ---- Reply ----------------------------------------------------------------------------------
-export async function sendTeacherMessage(conversationId: string, _: ActionState, fd: FormData): Promise<ActionState> {
-  return handle(async () => {
-    const teacher = await requireTeacher()
-    if (!UUID.test(conversationId)) throw new FormError('Invalid reference.')
-    const { data: conversation } = await db()
-      .from('conversations')
-      .select('*')
-      .eq('id', conversationId)
-      .eq('teacher_id', teacher.id)
-      .maybeSingle()
-    if (!conversation) throw new FormError('That conversation no longer exists.')
+    // ---- Who's it for? ----
+    let ids: string[] | undefined
+    if (audience === 'choose') {
+      ids = all(fd, 'student_ids')
+      if (ids.some((v) => !/^[0-9a-f-]{36}$/i.test(v))) throw new FormError('Invalid reference.')
+      if (ids.length === 0) throw new FormError('Tick at least one student, or choose “All active students”.')
+    }
+    // recipientsFor scopes by teacher_id, so ids from another teacher match nothing
+    const { recipients, missing } = await recipientsFor(teacher.id, ids)
+    const missingNames = missing.map((m) => m.name)
 
-    // The contact must still exist, and a pupil must still be an adult
-    if (conversation.guardian_id) await checkTarget(teacher.id, { guardianId: conversation.guardian_id })
-    else if (conversation.student_id) await checkTarget(teacher.id, { studentId: conversation.student_id })
-    else throw new FormError('This contact has been deleted, so the conversation is kept as a record only.')
+    if (intent === 'check') {
+      return {
+        preview: {
+          recipients: recipients.map((r) => ({ name: r.name, email: r.email, studentName: r.studentName, via: r.via })),
+          missing: missingNames,
+        },
+      }
+    }
 
-    await postMessage({
+    // ---- Send ----
+    const subject = str(fd, 'subject')
+    const body = str(fd, 'body')
+    if (!subject) throw new FormError('Add a subject line.')
+    if (!body) throw new FormError('Write your message first.')
+    if (recipients.length === 0) throw new FormError('Nobody to send to — none of these students have an email address (or a parent with one).')
+
+    const result = await sendEmail({
       teacher,
-      conversation,
-      sender: 'teacher',
-      senderEmail: teacher.email,
-      senderName: teacher.display_name || studioName(teacher),
-      body: str(fd, 'body'),
+      to: recipients.map((r) => r.email),
+      email: messageEmail({ studio: studioName(teacher), subject, body, signature: signature(teacher) }),
+      kind: ids && ids.length === 1 ? 'individual' : 'broadcast',
     })
     revalidatePath('/messages')
-    revalidatePath(`/messages/${conversationId}`)
-    return { ok: 'Sent.' }
-  })
+    return { sent: { ...result, missing: missingNames } }
+  } catch (e) {
+    if (e instanceof FormError) return { error: e.message }
+    throw e
+  }
 }

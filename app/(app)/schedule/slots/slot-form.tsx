@@ -1,7 +1,7 @@
 // =============================================================================
 // schedule/slots/slot-form.tsx — the add / edit time slot form
-// Day is a row of pills; start time, length and price are typed ("4:30pm" or
-// "16:30" both work). The student is chosen from a Picker, or left as
+// Day is a row of pills; length is a dropdown; start time and price are typed
+// ("4:30pm" or "16:30" both work). The student is chosen from a Picker, or left as
 // "Unbooked / available".
 // =============================================================================
 import Link from 'next/link'
@@ -9,10 +9,10 @@ import type { TimeSlot } from '@/lib/database.types'
 import type { ActionState } from '@/lib/forms'
 import { DAY_SHORT, hhmm } from '@/lib/format'
 import { fmtDate } from '@/lib/dates'
-import { REPEAT_OPTIONS } from '@/lib/lessons'
+import { lengthOptions, REPEAT_OPTIONS } from '@/lib/lessons'
 import { ActionForm, SubmitButton } from '@/components/forms'
 import { Picker, type PickerOption } from '@/components/pickers'
-import { MoneyField, Segmented, TextArea, TextField, Toggle } from '@/components/ui'
+import { MoneyField, Segmented, SelectField, TextArea, TextField, Toggle } from '@/components/ui'
 import { SuggestField } from '@/components/pickers'
 
 export function SlotForm(props: {
@@ -53,14 +53,11 @@ export function SlotForm(props: {
           required
           autoComplete="off"
         />
-        <TextField
-          label="Length (minutes)"
+        <SelectField
+          label="Lesson length"
           name="duration_minutes"
-          inputMode="numeric"
+          options={lengthOptions(s?.duration_minutes)}
           defaultValue={String(s?.duration_minutes ?? 30)}
-          placeholder="e.g. 30"
-          required
-          autoComplete="off"
         />
         <MoneyField
           label="Price per lesson"

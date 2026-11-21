@@ -1,10 +1,9 @@
 // =============================================================================
-// lessons/page.tsx — Lessons & notes: one row per pupil
+// lessons/page.tsx — Lessons: one row per pupil
 //
-// For each active pupil: their last lesson (and whether its notes are
-// missing or attendance isn't marked yet), and their next lesson. Pupils who
-// need attention are listed first. Click a name to see all their notes on
-// their own page; click the flag to jump straight to the lesson that needs it.
+// For each active pupil: their last lesson (and whether its attendance still
+// needs marking) and their next lesson. Pupils who need attention are listed
+// first. Click a name for their page; click the flag to jump to that lesson.
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -14,7 +13,7 @@ import { fmtTz } from '@/lib/dates'
 import { isCancelled } from '@/lib/lessons'
 import { Badge, Card, EmptyState, PageHeader } from '@/components/ui'
 
-export const metadata: Metadata = { title: 'Lessons & notes' }
+export const metadata: Metadata = { title: 'Lessons' }
 
 export default async function LessonsPage() {
   const teacher = await requireTeacher()
@@ -27,7 +26,7 @@ export default async function LessonsPage() {
     // Recent past lessons, newest first (enough to find each pupil's latest)
     db()
       .from('lessons')
-      .select('id, student_id, starts_at, status, notes, homework')
+      .select('id, student_id, starts_at, status')
       .eq('teacher_id', t)
       .lt('starts_at', nowIso)
       .order('starts_at', { ascending: false })
@@ -52,18 +51,16 @@ export default async function LessonsPage() {
 
   const rows = pupils.map((p) => {
     const last = lastByPupil.get(p.id)
-    const unmarked = last?.status === 'scheduled'
-    const missingNotes = !!last && last.status !== 'absent' && !last.notes && !last.homework
-    return { p, last, next: nextByPupil.get(p.id), unmarked, missingNotes, needs: unmarked || missingNotes }
+    return { p, last, next: nextByPupil.get(p.id), unmarked: last?.status === 'scheduled' }
   })
-  rows.sort((a, b) => Number(b.needs) - Number(a.needs)) // attention first, otherwise alphabetical
-  const needCount = rows.filter((r) => r.needs).length
+  rows.sort((a, b) => Number(b.unmarked) - Number(a.unmarked)) // attention first, otherwise alphabetical
+  const needCount = rows.filter((r) => r.unmarked).length
 
   return (
     <>
       <PageHeader
-        title="Lessons & notes"
-        subtitle={needCount ? `${needCount} pupil${needCount === 1 ? ' needs' : 's need'} notes or attendance for their last lesson.` : 'All caught up — every last lesson has notes.'}
+        title="Lessons"
+        subtitle={needCount ? `${needCount} pupil${needCount === 1 ? ' needs' : 's need'} attendance marked for their last lesson.` : 'All caught up — every last lesson is marked.'}
         actions={
           <Link className="btn" href="/lessons/new">
             + One-off lesson
@@ -73,7 +70,7 @@ export default async function LessonsPage() {
 
       <Card>
         {rows.length === 0 ? (
-          <EmptyState title="No active pupils">Add pupils and book them into time slots to start keeping lesson notes.</EmptyState>
+          <EmptyState title="No active pupils">Add pupils and book them into time slots to see their lessons here.</EmptyState>
         ) : (
           <div className="table-wrap">
             <table className="table">
@@ -81,16 +78,16 @@ export default async function LessonsPage() {
                 <tr>
                   <th>Pupil</th>
                   <th>Last lesson</th>
-                  <th>Notes</th>
+                  <th>Attendance</th>
                   <th>Next lesson</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ p, last, next, unmarked, missingNotes }) => (
+                {rows.map(({ p, last, next, unmarked }) => (
                   <tr key={p.id}>
-                    {/* ---- Name → their page, with every note ---- */}
+                    {/* ---- Name → their page ---- */}
                     <td>
-                      <Link className="rowlink" href={`/students/${p.id}#notes`}>
+                      <Link className="rowlink" href={`/students/${p.id}`}>
                         {fullName(p)}
                       </Link>
                       {p.instruments.length > 0 && <div className="small muted">{p.instruments.join(', ')}</div>}
@@ -104,16 +101,12 @@ export default async function LessonsPage() {
                         <span className="muted small">No lessons yet</span>
                       ) : unmarked ? (
                         <Link href={`/lessons/${last.id}`} style={{ textDecoration: 'none' }}>
-                          <Badge tone="coral">Attendance &amp; notes needed</Badge>
-                        </Link>
-                      ) : missingNotes ? (
-                        <Link href={`/lessons/${last.id}#notes`} style={{ textDecoration: 'none' }}>
-                          <Badge tone="coral">Notes missing</Badge>
+                          <Badge tone="coral">Needs marking</Badge>
                         </Link>
                       ) : last.status === 'absent' ? (
                         <Badge tone="butter">Absent</Badge>
                       ) : (
-                        <Badge tone="teal">Up to date</Badge>
+                        <Badge tone="teal">Present</Badge>
                       )}
                     </td>
                     <td className="nowrap">{next ? fmtTz(next.starts_at, tz, 'EEE d MMM, HH:mm') : <span className="muted small">None booked</span>}</td>

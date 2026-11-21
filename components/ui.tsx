@@ -1,14 +1,15 @@
 // =============================================================================
 // components/ui.tsx — presentational building blocks (server-safe, no state)
 //
-// PageHeader · Card · Field · TextField · TextArea · MoneyField · Segmented ·
-// SlidePill · Toggle · Badge · StatusBadge · EmptyState · Stat
+// PageHeader · Card · Field · TextField · TextArea · SelectField · MoneyField ·
+// Segmented · SlidePill · Toggle · Badge · StatusBadge · EmptyState · Stat
 //
-// House rule: NO dropdown menus. Fixed choices use <Segmented> (radio pills);
-// everything else (instruments, times, boards, grades) is typed by the teacher.
+// House rule: no dropdown menus, with ONE exception: lesson length (SelectField).
+// Other fixed choices use <Segmented> (radio pills); everything else
+// (instruments, times, boards, grades) is typed by the teacher.
 // =============================================================================
 import Link from 'next/link'
-import type { ReactNode, InputHTMLAttributes, TextareaHTMLAttributes } from 'react'
+import type { ReactNode, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 import { label as humanise } from '@/lib/format'
 
 // ---- Page header ---------------------------------------------------------------
@@ -97,6 +98,28 @@ export function TextArea({
   return (
     <Field label={label} hint={hint} className={wrapClass} htmlFor={id}>
       <textarea id={id} className="textarea" {...area} />
+    </Field>
+  )
+}
+
+// ---- Dropdown (lesson length only — see the house rule above) ---------------------
+export function SelectField({
+  label,
+  hint,
+  wrapClass,
+  options,
+  ...select
+}: SelectHTMLAttributes<HTMLSelectElement> & { label: string; name: string; hint?: ReactNode; wrapClass?: string; options: { value: string; label: string }[] }) {
+  const id = select.id ?? `f-${select.name}`
+  return (
+    <Field label={label} hint={hint} className={wrapClass} htmlFor={id}>
+      <select id={id} className="input" {...select}>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
     </Field>
   )
 }

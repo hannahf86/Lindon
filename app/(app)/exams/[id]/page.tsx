@@ -1,17 +1,18 @@
 // =============================================================================
-// exams/[id]/page.tsx — view, edit or delete one exam
+// exams/[id]/page.tsx — view, edit or delete one exam, and bill its fee
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db, requireTeacher } from '@/lib/db'
-import { fullName, hhmm } from '@/lib/format'
+import { fullName, hhmm, money } from '@/lib/format'
 import { fmtDate, todayISO } from '@/lib/dates'
 import { studentOptions } from '@/lib/queries'
-import { ConfirmButton } from '@/components/forms'
+import { examFeeInvoice } from '@/lib/addons'
+import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
 import { Card, PageHeader, StatusBadge } from '@/components/ui'
 import { ExamForm } from '../exam-form'
-import { deleteExam, updateExam } from '../actions'
+import { addExamFeeToDraft, deleteExam, updateExam } from '../actions'
 import { DeadlineBadge, examSuggestions, examTitle } from '../helpers'
 import { currencySymbol } from '../../library/helpers'
 
@@ -32,8 +33,13 @@ export default async function ExamPage({ params, searchParams }: PageProps<'/exa
   if (!exam) notFound()
 
   // Include students who have left, so an old exam still shows its student ticked
-  const [students, suggestions] = await Promise.all([studentOptions(teacher.id, { includeLeft: true }), examSuggestions(teacher.id)])
+  const [students, suggestions, billedOn] = await Promise.all([
+    studentOptions(teacher.id, { includeLeft: true }),
+    examSuggestions(teacher.id),
+    examFeeInvoice(teacher.id, id),
+  ])
   const { students: student, ...row } = exam
+  const hasFee = Number(exam.fee) > 0
 
   return (
     <>
@@ -60,6 +66,30 @@ export default async function ExamPage({ params, searchParams }: PageProps<'/exa
       {sp.saved === '1' && (
         <div className="alert alert-ok" style={{ marginBottom: 20 }}>
           Exam added.
+        </div>
+      )}
+
+      {/* ---- Exam fee: an add-on to the pupil's invoice ---- */}
+      {(hasFee || billedOn) && exam.status !== 'withdrawn' && (
+        <div style={{ marginBottom: 20 }}>
+          <Card className="no-print">
+            {billedOn ? (
+              <p style={{ margin: 0 }}>
+                The exam fee is on invoice <Link href={`/invoices/${billedOn.id}`} style={{ fontWeight: 800 }}>{billedOn.number}</Link>.
+              </p>
+            ) : (
+              <div className="spread">
+                <p style={{ margin: 0 }}>
+                  The {money(exam.fee ?? 0, teacher.currency)} exam fee hasn’t been billed yet.
+                </p>
+                <ActionForm action={addExamFeeToDraft.bind(null, id)} className="row">
+                  <SubmitButton className="btn btn-sm" pendingText="Adding…">
+                    Add to invoice
+                  </SubmitButton>
+                </ActionForm>
+              </div>
+            )}
+          </Card>
         </div>
       )}
 

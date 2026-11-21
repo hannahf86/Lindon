@@ -51,7 +51,7 @@ export function StudentForm(props: {
 
       {/* ---- Contact: adults only (hidden by CSS while "Child" is selected) ---- */}
       <Card title="Contact details" className="adult-only">
-        <p className="muted small">Adult pupils are emailed directly, so reminders, notes and invoices go here.</p>
+        <p className="muted small">Adult pupils are emailed directly, so reminders and invoices go here.</p>
         <div className="form-grid">
           <TextField label="Email" name="email" type="email" defaultValue={s?.email} autoComplete="off" />
           <TextField label="Phone" name="phone" type="tel" defaultValue={s?.phone} autoComplete="off" />

@@ -1,6 +1,6 @@
 'use client'
 // =============================================================================
-// messages/email/compose-form.tsx — write an email, check who gets it, then send
+// messages/compose-form.tsx — write an email, check who gets it, then send
 //
 // Step 1 "Check who'll receive it" asks the server for the recipient list.
 // Step 2 "Send to N people" only appears once the list has been checked and

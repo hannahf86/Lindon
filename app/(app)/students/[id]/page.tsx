@@ -89,11 +89,7 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
             <Link className="btn btn-secondary" href={`/students/${id}/edit`}>
               Edit
             </Link>
-            {/* In-app message: adults directly, children via their parents */}
-            <Link className="btn btn-secondary" href={minor ? `/messages/new?pick=${id}` : `/messages/new?student=${id}`}>
-              Message
-            </Link>
-            <Link className="btn btn-ghost" href={`/messages/email?to=${id}`}>
+            <Link className="btn btn-secondary" href={`/messages?to=${id}`}>
               Email
             </Link>
             <Link className="btn" href={`/invoices/new?student=${id}`}>
@@ -164,7 +160,7 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
                         </Link>
                         <ConfirmButton
                           action={endBooking.bind(null, sl.id)}
-                          confirm={`End ${s.first_name}'s ${dayName(sl.day_of_week)} ${hhmm(sl.start_time)} booking? Their upcoming lessons from it are removed (past lessons and notes are kept, and anything already invoiced stays). The slot stays on your timetable as free.`}
+                          confirm={`End ${s.first_name}'s ${dayName(sl.day_of_week)} ${hhmm(sl.start_time)} booking? Their upcoming lessons from it are removed (past lessons are kept, and anything already invoiced stays). The slot stays on your timetable as free.`}
                           className="link-btn"
                         >
                           End booking
@@ -206,40 +202,20 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
             )}
           </Card>
 
-          {/* ---- Every lesson's notes, newest first ---- */}
-          <Card title="Lesson notes" id="notes">
+          {/* ---- Past lessons and their attendance, newest first ---- */}
+          <Card title="Past lessons">
             {recent.length === 0 ? (
               <p className="muted">No lessons have happened yet.</p>
             ) : (
-              <ul className="list notes-history">
-                {recent.map((l) => {
-                  const missing = !l.notes && !l.homework && (l.status === 'present' || l.status === 'scheduled')
-                  return (
-                    <li key={l.id}>
-                      <div className="spread">
-                        <Link href={`/lessons/${l.id}`} style={{ fontWeight: 800 }}>
-                          {fmtTz(l.starts_at, tz, 'EEEE d MMMM yyyy')}
-                        </Link>
-                        <span className="row" style={{ gap: 6 }}>
-                          {l.notes_emailed_at && <Badge tone="teal">Emailed</Badge>}
-                          <StatusBadge status={l.status} />
-                        </span>
-                      </div>
-                      {l.notes && <p className="note-text">{l.notes}</p>}
-                      {l.homework && (
-                        <p className="note-text">
-                          <strong>Practice: </strong>
-                          {l.homework}
-                        </p>
-                      )}
-                      {missing && (
-                        <Link href={`/lessons/${l.id}#notes`} className="small" style={{ fontWeight: 800, color: 'var(--coral-ink)' }}>
-                          Notes missing — write them
-                        </Link>
-                      )}
-                    </li>
-                  )
-                })}
+              <ul className="list">
+                {recent.map((l) => (
+                  <li key={l.id} className="spread">
+                    <Link href={`/lessons/${l.id}`} style={{ fontWeight: 800 }}>
+                      {fmtTz(l.starts_at, tz, 'EEEE d MMMM yyyy')}
+                    </Link>
+                    <StatusBadge status={l.status} />
+                  </li>
+                ))}
               </ul>
             )}
           </Card>
@@ -350,7 +326,7 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
                         {!invitedIds.has(link.guardians.id) && link.guardians.email && (
                           <ConfirmButton
                             action={inviteFamilyAction.bind(null, 'guardian', link.guardians.id)}
-                            confirm={`Invite ${fullName(link.guardians)} to Lindon? We'll email ${link.guardians.email} a sign-in link so they can see ${s.first_name}'s lessons, notes and invoices, and message you.`}
+                            confirm={`Invite ${fullName(link.guardians)} to Lindon? We'll email ${link.guardians.email} a sign-in link so they can see ${s.first_name}'s lessons and invoices.`}
                             className="link-btn"
                           >
                             Invite to Lindon
@@ -469,7 +445,11 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
                   <li key={ln.id} className="spread">
                     <span>
                       <strong>{ln.library_items?.title}</strong>
-                      <span className="muted small"> · since {fmtDate(ln.lent_on, 'd MMM yyyy')}</span>
+                      <span className="muted small">
+                        {' '}
+                        · since {fmtDate(ln.lent_on, 'd MMM yyyy')}
+                        {ln.hire_fee ? ` · ${money(ln.hire_fee, teacher.currency)}/month hire` : ''}
+                      </span>
                     </span>
                     {ln.returned_on ? (
                       <StatusBadge status="returned" />
@@ -497,7 +477,7 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
           <Card>
             <ConfirmButton
               action={deleteStudent.bind(null, id)}
-              confirm={`Delete ${fullName(s)}? This also deletes their lessons, notes, loans and exams. Invoices are kept. This can't be undone — consider setting them to "Left" instead.`}
+              confirm={`Delete ${fullName(s)}? This also deletes their lessons, loans and exams. Invoices are kept. This can't be undone — consider setting them to "Left" instead.`}
             >
               Delete student
             </ConfirmButton>

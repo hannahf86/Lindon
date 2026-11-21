@@ -121,33 +121,6 @@ export function lessonReminderEmail(opts: {
   }
 }
 
-// ---- Lesson notes ------------------------------------------------------------
-export function lessonNotesEmail(opts: {
-  studio: string
-  studentName: string
-  date: string
-  notes: string
-  homework: string
-  signature: string
-}): Email {
-  const subject = `Lesson notes for ${opts.studentName} — ${opts.date}`
-  return {
-    subject,
-    text: `Lesson notes for ${opts.studentName} (${opts.date})\n\n${opts.notes}\n\n${opts.homework ? 'Practice this week:\n' + opts.homework + '\n\n' : ''}${opts.signature}`,
-    html: layout({
-      studio: opts.studio,
-      heading: `Lesson notes — ${opts.studentName}`,
-      bodyHtml:
-        `<p style="margin:0 0 16px;color:${MUTED}">${esc(opts.date)}</p>` +
-        paragraphs(opts.notes) +
-        (opts.homework
-          ? `<div style="background:#FBF6DE;border-radius:14px;padding:16px 18px;margin:8px 0 6px"><div style="font-weight:900;margin-bottom:8px">Practice this week</div>${paragraphs(opts.homework)}</div>`
-          : '') +
-        `<p style="margin:18px 0 0;font-weight:700">${esc(opts.signature)}</p>`,
-    }),
-  }
-}
-
 // ---- Invoice -----------------------------------------------------------------
 export function invoiceEmail(opts: {
   studio: string
@@ -207,32 +180,15 @@ export function familyInviteEmail(opts: {
   const subject = `${opts.teacherName} has invited you to Lindon`
   return {
     subject,
-    text: `Hi ${opts.inviteeName},\n\n${opts.teacherName} uses Lindon to organise music lessons. You can now sign in to see ${who}'s upcoming lessons, lesson notes and invoices, and send ${opts.teacherName} messages.\n\nSign in here with this email address (no password needed):\n${opts.url}\n`,
+    text: `Hi ${opts.inviteeName},\n\n${opts.teacherName} uses Lindon to organise music lessons. You can now sign in to see ${who}'s upcoming lessons and invoices.\n\nSign in here with this email address (no password needed):\n${opts.url}\n`,
     html: layout({
       studio: opts.studio,
       heading: "You're invited",
       bodyHtml:
         `<p style="margin:0 0 14px;line-height:1.55">Hi ${esc(opts.inviteeName)},</p>` +
-        `<p style="margin:0 0 14px;line-height:1.55">${esc(opts.teacherName)} uses <strong>Lindon</strong> to organise music lessons. You can now sign in to see ${esc(who)}&#39;s upcoming lessons, lesson notes and invoices — and send ${esc(opts.teacherName)} messages.</p>` +
+        `<p style="margin:0 0 14px;line-height:1.55">${esc(opts.teacherName)} uses <strong>Lindon</strong> to organise music lessons. You can now sign in to see ${esc(who)}&#39;s upcoming lessons and invoices.</p>` +
         `<p style="margin:0 0 22px;line-height:1.55">Sign in with this email address. There&#39;s no password: we&#39;ll email you a link each time.</p>` +
         button(opts.url, 'Open Lindon'),
-    }),
-  }
-}
-
-// ---- "You have a new message" alert -------------------------------------------
-export function newMessageEmail(opts: { studio: string; fromName: string; body: string; url: string }): Email {
-  const subject = `New message from ${opts.fromName}`
-  return {
-    subject,
-    text: `${opts.fromName} sent you a message:\n\n${opts.body}\n\nReply in Lindon: ${opts.url}`,
-    html: layout({
-      studio: opts.studio,
-      heading: 'New message',
-      bodyHtml:
-        `<p style="margin:0 0 12px;color:#5C6B75">From <strong style="color:#23303A">${esc(opts.fromName)}</strong></p>` +
-        `<div style="background:#F2F7F7;border-radius:14px;padding:16px 18px;margin:0 0 20px">${paragraphs(opts.body)}</div>` +
-        button(opts.url, 'Reply in Lindon'),
     }),
   }
 }

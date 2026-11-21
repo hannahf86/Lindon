@@ -2,8 +2,8 @@
 // app/family/lessons/page.tsx — a family's lessons: Upcoming / Past
 //
 // ?view=past switches tabs; ?pupil=<id> narrows to one child (only accepted
-// if canSeePupil() says so). Past lessons show the teacher's notes and
-// homework. Prices are never shown here.
+// if canSeePupil() says so). Only the teacher can move a lesson, so families
+// see how to contact them. Prices are never shown here.
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -12,6 +12,7 @@ import { canSeePupil, requireFamily, type FamilyLink } from '@/lib/family'
 import { duration } from '@/lib/format'
 import { fmtTz } from '@/lib/dates'
 import { Badge, Card, EmptyState, PageHeader } from '@/components/ui'
+import { TeacherContact } from '@/components/teacher-contact'
 import { lessonBadge, pupilNames, studioLine } from '../_lib/family-data'
 
 export const metadata: Metadata = { title: 'Lessons' }
@@ -38,7 +39,7 @@ export default async function FamilyLessonsPage({ searchParams }: PageProps<'/fa
       if (ids.length === 0) return []
       const q = db()
         .from('lessons')
-        .select('id, student_id, starts_at, duration_minutes, instrument, location, status, notes, homework')
+        .select('id, student_id, starts_at, duration_minutes, instrument, location, status')
         .eq('teacher_id', link.teacher.id)
         .in('student_id', ids)
       const rows = must(
@@ -73,7 +74,7 @@ export default async function FamilyLessonsPage({ searchParams }: PageProps<'/fa
           Upcoming
         </Link>
         <Link href={href('past', pupil)} aria-current={view === 'past' ? 'page' : undefined}>
-          Past lessons & notes
+          Past lessons
         </Link>
       </nav>
 
@@ -92,13 +93,24 @@ export default async function FamilyLessonsPage({ searchParams }: PageProps<'/fa
         </nav>
       )}
 
+      {/* ---- Changing a lesson goes through the teacher ---- */}
+      <div className="alert alert-info" style={{ marginBottom: 20 }}>
+        {ctx.links.map((link) => (
+          <TeacherContact
+            key={link.accessId}
+            teacher={link.teacher}
+            label={manyTeachers ? `To change a lesson with ${studioLine(link.teacher)}:` : 'Need to change a lesson?'}
+          />
+        ))}
+      </div>
+
       {/* ---- Lesson list ---- */}
       <Card>
         {lessons.length === 0 ? (
           <EmptyState title={view === 'past' ? 'No past lessons yet' : 'No lessons booked'}>
             {view === 'past'
-              ? 'Once lessons have taken place, your teacher’s notes and homework will show here.'
-              : 'Your teacher hasn’t booked any upcoming lessons yet. Send them a message if you have a question.'}
+              ? 'Lessons will show here once they’ve taken place.'
+              : 'Your teacher hasn’t booked any upcoming lessons yet.'}
           </EmptyState>
         ) : (
           <ul className="list">
@@ -122,20 +134,6 @@ export default async function FamilyLessonsPage({ searchParams }: PageProps<'/fa
                   {cancelled && view === 'upcoming' && (
                     <div className="small" style={{ color: 'var(--coral-ink)', fontWeight: 700, marginTop: 4 }}>
                       This lesson has been cancelled.
-                    </div>
-                  )}
-
-                  {/* Notes + homework (past lessons only) */}
-                  {view === 'past' && l.notes.trim() && (
-                    <div style={{ marginTop: 8 }}>
-                      <div className="eyebrow">Lesson notes</div>
-                      <div className="pre">{l.notes}</div>
-                    </div>
-                  )}
-                  {view === 'past' && l.homework.trim() && (
-                    <div style={{ marginTop: 8, background: 'var(--butter-wash)', borderRadius: 12, padding: '8px 12px' }}>
-                      <div className="eyebrow">Homework</div>
-                      <div className="pre">{l.homework}</div>
                     </div>
                   )}
                 </li>

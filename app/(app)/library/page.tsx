@@ -14,7 +14,7 @@ import { ConfirmButton } from '@/components/forms'
 import { Badge, Card, EmptyState, PageHeader } from '@/components/ui'
 import { returnLoan } from './actions'
 import { LendForm } from './lend-form'
-import { loanState } from './helpers'
+import { currencySymbol, loanState } from './helpers'
 
 export const metadata: Metadata = { title: 'Library & loans' }
 
@@ -186,7 +186,7 @@ export default async function LibraryPage({ searchParams }: PageProps<'/library'
               Add a <Link href="/students/new">student</Link> first, then you can lend them things.
             </p>
           ) : (
-            <LendForm items={availableOptions} students={students} preselectStudent={preselect} today={today} />
+            <LendForm items={availableOptions} students={students} preselectStudent={preselect} today={today} currencySymbol={currencySymbol(teacher.currency)} />
           )}
         </Card>
       </div>

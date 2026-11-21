@@ -49,6 +49,15 @@ export type BookingLike = {
   skip_dates: string[]
 }
 
+/**
+ * Choices for the lesson-length dropdown. A lesson saved earlier with another
+ * length keeps it as an extra option, so re-saving can't quietly change it.
+ */
+export function lengthOptions(current?: number): { value: string; label: string }[] {
+  const lengths = current && ![30, 45, 60].includes(current) ? [current, 30, 45, 60].sort((a, b) => a - b) : [30, 45, 60]
+  return lengths.map((m) => ({ value: String(m), label: `${m} minutes` }))
+}
+
 export const REPEAT_OPTIONS = [
   { value: '1', label: 'Every week' },
   { value: '2', label: 'Every 2 weeks' },

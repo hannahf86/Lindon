@@ -11,6 +11,7 @@ import { fmtDate, fmtTz, monthBounds, todayISO } from '@/lib/dates'
 import { displayStatus, isEditable } from '@/lib/invoices'
 import { productOptions } from '@/lib/products'
 import { availableCredits } from '@/lib/credits'
+import { pendingExamFees, pendingHire } from '@/lib/addons'
 import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
 import { Card, PageHeader, StatusBadge, TextArea, TextField } from '@/components/ui'
 import { InvoiceItems } from './invoice-items'
@@ -79,7 +80,7 @@ export default async function InvoicePage({ params, searchParams }: PageProps<'/
       {sp.new === '1' && (
         <div className="alert alert-info" style={{ marginBottom: 20 }}>
           Invoice created as a draft{items.length ? ` with ${items.length} item${items.length === 1 ? '' : 's'}` : ''}. Check it over, add any
-          equipment, then email it or print it.
+          equipment, exam fees or hire, then email it or print it.
         </div>
       )}
 
@@ -110,6 +111,8 @@ export default async function InvoicePage({ params, searchParams }: PageProps<'/
             hasStudent={!!inv.student_id}
             lessonPeriod={monthBounds(inv.issue_date)}
             products={editable ? await productOptions(teacher) : undefined}
+            examFees={editable && inv.student_id ? await pendingExamFees(teacher.id, inv.student_id) : undefined}
+            hire={editable && inv.student_id ? await pendingHire(teacher, inv.student_id, inv.issue_date) : undefined}
           />
 
           {/* ---- Bill-to, dates and notes ---- */}

@@ -18,12 +18,14 @@ import { fmtTz, rangeBoundsUtc } from './dates'
 import type { Invoice, Lesson, Teacher } from './database.types'
 
 export const INVOICE_STATUSES = ['draft', 'sent', 'paid', 'void'] as const
-export const ITEM_KINDS = ['lesson', 'equipment', 'other'] as const
+export const ITEM_KINDS = ['lesson', 'equipment', 'exam', 'hire', 'other'] as const
 
 /** Kind choices for the Segmented pills on line items. */
 export const KIND_OPTIONS = [
   { value: 'lesson', label: 'Lesson' },
   { value: 'equipment', label: 'Equipment' },
+  { value: 'exam', label: 'Exam' },
+  { value: 'hire', label: 'Hire' },
   { value: 'other', label: 'Other' },
 ] as const
 

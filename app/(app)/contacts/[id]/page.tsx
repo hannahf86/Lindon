@@ -53,11 +53,6 @@ export default async function ContactPage({ params }: PageProps<'/contacts/[id]'
             {g.phone && <span>· {g.phone}</span>}
           </span>
         }
-        actions={
-          <Link className="btn btn-secondary" href={`/messages/new?guardian=${id}`}>
-            Message
-          </Link>
-        }
       />
 
       <div className="split">

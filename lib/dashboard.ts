@@ -17,7 +17,7 @@ export async function loadDashboard(teacher: Teacher) {
   const [dayStart, dayEnd] = dayBoundsUtc(today, tz)
   const weekStart = weekStartISO(today)
   const [weekFrom, weekTo] = rangeBoundsUtc(weekStart, addDaysISO(weekStart, 6), tz)
-  const [notesFrom] = dayBoundsUtc(addDaysISO(today, -14), tz)
+  const [attendanceFrom] = dayBoundsUtc(addDaysISO(today, -14), tz)
   const horizon = addDaysISO(today, 60)
 
   const [
@@ -25,7 +25,7 @@ export async function loadDashboard(teacher: Teacher) {
     activeCount,
     todaysLessons,
     weekCount,
-    needNotes,
+    needAttendance,
     unpaid,
     exams,
     overdueLoans,
@@ -55,15 +55,14 @@ export async function loadDashboard(teacher: Teacher) {
       .lt('starts_at', weekTo)
       .not('status', 'in', '(notice_given,teacher_cancelled)'),
 
-    // ---- Past 14 days' lessons with no notes yet ----
+    // ---- Past 14 days' lessons with attendance not marked yet ----
     db()
       .from('lessons')
       .select('id, starts_at, instrument, status, students(id, first_name, last_name)')
       .eq('teacher_id', t)
-      .gte('starts_at', notesFrom)
+      .gte('starts_at', attendanceFrom)
       .lt('starts_at', nowIso)
-      .not('status', 'in', '(notice_given,teacher_cancelled)')
-      .eq('notes', '')
+      .eq('status', 'scheduled')
       .order('starts_at', { ascending: false })
       .limit(20)
       .then(must),
@@ -137,7 +136,7 @@ export async function loadDashboard(teacher: Teacher) {
     activeStudents: activeCount.count ?? 0,
     todaysLessons,
     weekLessonCount: weekCount.count ?? 0,
-    needNotes,
+    needAttendance,
     outstandingTotal: unpaid.reduce((sum, inv) => sum + Number(inv.total), 0),
     outstandingCount: unpaid.length,
     overdueInvoices: unpaid.filter((inv) => inv.due_date && inv.due_date < today),

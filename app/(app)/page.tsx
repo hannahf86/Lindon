@@ -1,7 +1,7 @@
 // =============================================================================
 // app/(app)/page.tsx — the dashboard: today at a glance
-// Greeting · new family messages (only when there are some) · stat tiles · today's lessons · things needing attention (notes,
-// overdue invoices, exam deadlines, overdue loans, under-18s with no parent).
+// Greeting · stat tiles · today's lessons · things needing attention (attendance
+// to mark, overdue invoices, exam deadlines, overdue loans, under-18s with no parent).
 // Brand-new teachers see a short "getting started" checklist instead.
 // =============================================================================
 import type { Metadata } from 'next'
@@ -14,7 +14,6 @@ import { fmtDate, fmtTz } from '@/lib/dates'
 import { dayName, duration, fullName, hhmm, money } from '@/lib/format'
 import { Badge, Card, Stat, StatusBadge } from '@/components/ui'
 import { DeadlineBadge, examTitle } from './exams/helpers'
-import { loadInbox } from './messages/data'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
@@ -27,11 +26,7 @@ function greeting(hour: number): string {
 export default async function DashboardPage() {
   const teacher = await requireTeacher()
   const tz = teacher.timezone
-  const [d, unreadConversations] = await Promise.all([
-    loadDashboard(teacher),
-    // A side panel — never let a messages hiccup take the whole dashboard down
-    loadInbox(teacher.id, { unreadOnly: true, limit: 5 }).catch(() => []),
-  ])
+  const d = await loadDashboard(teacher)
   const now = new Date().toISOString()
   const firstName = (teacher.display_name || '').split(' ')[0]
   const settingsDone = !!(teacher.display_name && teacher.email)
@@ -56,32 +51,6 @@ export default async function DashboardPage() {
 
       {/* ---- Tip of the day (same for everyone, changes daily) ---- */}
       <TipOfTheDay date={fmtTz(now, tz, 'yyyy-MM-dd')} />
-
-      {/* ---- New messages from families ---- */}
-      {unreadConversations.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <Card title="New messages" actions={<Link href="/messages" className="btn btn-ghost btn-sm">Inbox →</Link>}>
-            <ul className="list">
-              {unreadConversations.map((c) => (
-                <li key={c.id} className="spread" style={{ flexWrap: 'nowrap' }}>
-                  <span style={{ minWidth: 0 }}>
-                    <Link href={`/messages/${c.id}`} style={{ fontWeight: 800 }}>
-                      {c.name}
-                    </Link>
-                    {c.latest && <span className="small muted"> · {fmtTz(c.latest.created_at, tz, 'EEE d MMM, HH:mm')}</span>}
-                    {c.latest && (
-                      <div className="small" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {c.latest.body}
-                      </div>
-                    )}
-                  </span>
-                  <Badge tone="coral">{c.unread} new</Badge>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </div>
-      )}
 
       {/* ---- First-run guidance ---- */}
       {!d.hasStudents ? (
@@ -174,13 +143,13 @@ export default async function DashboardPage() {
                 </Card>
               )}
 
-              {/* ---- Lessons needing notes ---- */}
-              <Card title="Lessons needing notes" actions={<span className="small muted">Last 14 days</span>}>
-                {d.needNotes.length === 0 ? (
-                  <p className="muted">All caught up — every recent lesson has notes.</p>
+              {/* ---- Past lessons with attendance not marked yet ---- */}
+              <Card title="Attendance to mark" actions={<span className="small muted">Last 14 days</span>}>
+                {d.needAttendance.length === 0 ? (
+                  <p className="muted">All caught up — every recent lesson is marked.</p>
                 ) : (
                   <ul className="list">
-                    {d.needNotes.map((l) => (
+                    {d.needAttendance.map((l) => (
                       <li key={l.id} className="spread">
                         <span>
                           <Link href={`/lessons/${l.id}`} style={{ fontWeight: 800 }}>
@@ -193,7 +162,7 @@ export default async function DashboardPage() {
                           </span>
                         </span>
                         <Link href={`/lessons/${l.id}`} className="btn btn-secondary btn-sm">
-                          Add notes
+                          Mark
                         </Link>
                       </li>
                     ))}

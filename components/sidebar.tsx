@@ -2,7 +2,6 @@
 // =============================================================================
 // components/sidebar.tsx — main navigation (teal brand band)
 // Desktop: fixed left column. Mobile: top band with a swipeable pill strip.
-// `unread` (in-app messages from families) shows as a coral pill on Messages.
 // =============================================================================
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -33,7 +32,7 @@ const NAV: { group: string; items: { href: string; label: string; icon: ReactNod
   {
     group: 'Teaching',
     items: [
-      { href: '/lessons', label: 'Lessons & notes', icon: I('M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z') },
+      { href: '/lessons', label: 'Lessons', icon: I('M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z') },
       { href: '/exams', label: 'Exams', icon: I('M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3') },
       { href: '/library', label: 'Library & loans', icon: I('M4 19V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19a2 2 0 0 0 2 2h13') },
     ],
@@ -55,7 +54,7 @@ const NAV: { group: string; items: { href: string; label: string; icon: ReactNod
   },
 ]
 
-export function Sidebar(props: { studio: string; who: string; unread?: number; signOut: () => Promise<void> }) {
+export function Sidebar(props: { studio: string; who: string; signOut: () => Promise<void> }) {
   const pathname = usePathname()
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/'))
 
@@ -85,24 +84,6 @@ export function Sidebar(props: { studio: string; who: string; unread?: number; s
               <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? 'page' : undefined}>
                 {item.icon}
                 {item.label}
-                {/* Unread messages pill — coral + ink reads on both the teal band and the white active pill */}
-                {item.href === '/messages' && !!props.unread && (
-                  <span
-                    aria-label={`${props.unread} unread`}
-                    style={{
-                      marginLeft: 'auto',
-                      background: 'var(--coral)',
-                      color: 'var(--ink)',
-                      borderRadius: 999,
-                      padding: '1px 8px',
-                      fontSize: '0.75rem',
-                      fontWeight: 900,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {props.unread > 99 ? '99+' : props.unread}
-                  </span>
-                )}
               </Link>
             ))}
           </div>
