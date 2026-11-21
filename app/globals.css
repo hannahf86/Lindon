@@ -450,3 +450,14 @@ a.dv-title:hover { color: var(--teal-ink); text-decoration: underline; }
 /* Sign-in page: magic-link fallback */
 .auth-link-option { margin-top: 18px; }
 .auth-link-option summary { cursor: pointer; font-weight: 800; color: var(--teal-ink); font-size: 0.95rem; }
+
+/* Onboarding step tracker (/welcome) */
+.onboard-steps { list-style: none; margin: 0 0 28px; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+.onboard-steps li > a, .onboard-steps li > span { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px; text-decoration: none; font-weight: 800; font-size: 0.85rem; color: var(--muted); background: #fff; border: 2px solid var(--line); }
+.onboard-steps .dot { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: var(--line-soft); color: var(--ink); font-size: 0.8rem; }
+.onboard-steps li.current > span { border-color: var(--teal-ink); color: var(--ink); }
+.onboard-steps li.current .dot { background: var(--teal-ink); color: #fff; }
+.onboard-steps li.done > a { color: var(--teal-ink); }
+.onboard-steps li.done .dot { background: var(--teal-wash); color: var(--teal-ink); }
+.onboard-nav { justify-content: space-between; margin-top: 8px; }
+@media (max-width: 700px) { .onboard-steps li:not(.current) .lbl { display: none; } }
