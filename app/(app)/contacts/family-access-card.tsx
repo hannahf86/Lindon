@@ -6,7 +6,8 @@
 // last signed in / removed) with the matching actions. If their email has
 // changed since the invite, offers to re-invite at the new address.
 // ChildLoginNote is the version for a child's student page: children never
-// get their own login — their parents are invited instead.
+// get their own login — each parent is listed with their status and an
+// Invite / Resend invite button right there (FamilyInviteInline).
 // =============================================================================
 import { fullName } from '@/lib/format'
 import { accessRows, accessStatus, accessText, type AccessState } from '@/lib/family-invites'
@@ -108,12 +109,12 @@ export async function FamilyAccessCard(props: {
   )
 }
 
-// ---- Child's student page: no login, invite the parents ---------------------------------
-export function ChildLoginNote(props: { guardians: { id: string; first_name: string; last_name: string }[] }) {
+// ---- Child's student page: invite their parents (status + button for each) ----------------
+export async function ChildLoginNote(props: { teacher: Teacher; childName: string; guardians: { id: string; first_name: string; last_name: string; email: string }[] }) {
   return (
     <Card title="Family login">
       <p className="small muted" style={{ marginTop: 0 }}>
-        Children don’t get their own login — invite their parents from the contact page.
+        Children don’t get their own login. Invite a parent and they’ll get an email to check their details and {props.childName}’s lessons, and create a password.
       </p>
       {props.guardians.length === 0 ? (
         <p className="small" style={{ color: 'var(--coral-ink)', fontWeight: 700 }}>
@@ -123,11 +124,43 @@ export function ChildLoginNote(props: { guardians: { id: string; first_name: str
         <ul className="list">
           {props.guardians.map((g) => (
             <li key={g.id}>
-              <strong>{fullName(g)}</strong>
+              <FamilyInviteInline teacher={props.teacher} kind="guardian" id={g.id} name={fullName(g)} email={g.email} />
             </li>
           ))}
         </ul>
       )}
     </Card>
+  )
+}
+
+// ---- One person: name, login status, and Invite / Resend right there ----------------------------
+export async function FamilyInviteInline(props: { teacher: Teacher; kind: FamilyKind; id: string; name: string; email: string }) {
+  const { teacher, kind, id } = props
+  const status = accessStatus(await accessRows(teacher.id, kind === 'guardian' ? { guardianId: id } : { studentId: id }))
+  const email = props.email.trim().toLowerCase()
+  const tone = TONES[status.state]
+  return (
+    <div className="stack" style={{ gap: 6 }}>
+      <div className="spread">
+        <strong>{props.name}</strong>
+        <Badge tone={tone.tone}>{tone.label}</Badge>
+      </div>
+      <div className="small muted">{accessText(status, teacher.timezone, !!email)}</div>
+      <div className="row" style={{ gap: 6 }}>
+        {status.live ? (
+          <ConfirmButton action={resendInviteAction.bind(null, kind, id)} confirm={`Send the invitation to ${status.live.email} again?`} className="btn btn-secondary btn-sm">
+            Resend invite
+          </ConfirmButton>
+        ) : email ? (
+          <ConfirmButton action={inviteFamilyAction.bind(null, kind, id)} confirm={`Email ${email} an invitation to Lindon?`} className="btn btn-sm">
+            {status.state === 'removed' ? 'Invite again' : 'Invite to Lindon'}
+          </ConfirmButton>
+        ) : (
+          <span className="small" style={{ color: 'var(--coral-ink)', fontWeight: 700 }}>
+            Add an email address to invite them.
+          </span>
+        )}
+      </div>
+    </div>
   )
 }

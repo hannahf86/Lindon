@@ -413,7 +413,7 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
 
           {/* ---- Family login (feature: family_logins) ---- */}
           {!loginsOn ? null : minor ? (
-            <ChildLoginNote guardians={s.student_guardians.flatMap((l) => (l.guardians ? [l.guardians] : []))} />
+            <ChildLoginNote teacher={teacher} childName={s.first_name} guardians={s.student_guardians.flatMap((l) => (l.guardians ? [l.guardians] : []))} />
           ) : (
             <FamilyAccessCard teacher={teacher} kind="student" id={id} name={fullName(s)} email={s.email} />
           )}
