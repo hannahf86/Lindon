@@ -1,15 +1,15 @@
 // =============================================================================
-// lib/email-templates.ts — branded HTML emails (Lindon palette)
+// lib/email-templates.ts — branded HTML emails (Lindon Heather palette)
 //
 // Email clients ignore most CSS, so everything is inline-styled tables.
 // ALL teacher/student-supplied text goes through esc() before it is placed
 // in HTML. Every template returns { subject, html, text }.
 // =============================================================================
 
-const TEAL_INK = '#1D7F7A'
-const INK = '#23303A'
-const MUTED = '#5C6B75'
-const BUTTER = '#F6E5A0'
+const TEAL_INK = '#5B3F8C' // primary (Heather)
+const INK = '#2E2240'
+const MUTED = '#625873'
+const BUTTER = '#E3C67E' // accent gold
 
 export type Email = { subject: string; html: string; text: string }
 
@@ -30,10 +30,10 @@ export function paragraphs(s: string): string {
     .join('')
 }
 
-/** Shared shell: teal header band with the studio name, white card, footer. */
+/** Shared shell: purple header band with the studio name, white card, footer. */
 export function layout(opts: { studio: string; heading: string; bodyHtml: string; footer?: string; brand?: string; accent?: string }): string {
-  return `<!doctype html><html><body style="margin:0;padding:0;background:#F2F7F7;font-family:Nunito,'Segoe UI',Helvetica,Arial,sans-serif;color:${INK}">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F2F7F7;padding:24px 12px">
+  return `<!doctype html><html><body style="margin:0;padding:0;background:#FAF7F2;font-family:Nunito,'Segoe UI',Helvetica,Arial,sans-serif;color:${INK}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAF7F2;padding:24px 12px">
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:20px;overflow:hidden">
 <tr><td style="background:${opts.brand ?? TEAL_INK};padding:22px 28px">
@@ -56,7 +56,7 @@ export function detailTable(rows: [string, string][]): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:6px 0 18px;border-collapse:collapse">${rows
     .map(
       ([k, v]) =>
-        `<tr><td style="padding:8px 0;color:${MUTED};width:38%;border-bottom:1px solid #E6EEEE">${esc(k)}</td><td style="padding:8px 0;font-weight:700;border-bottom:1px solid #E6EEEE">${esc(v)}</td></tr>`,
+        `<tr><td style="padding:8px 0;color:${MUTED};width:38%;border-bottom:1px solid #E6DFEC">${esc(k)}</td><td style="padding:8px 0;font-weight:700;border-bottom:1px solid #E6DFEC">${esc(v)}</td></tr>`,
     )
     .join('')}</table>`
 }
@@ -143,7 +143,7 @@ export function invoiceEmail(opts: {
   const lineRows = opts.lines
     .map(
       (l) =>
-        `<tr><td style="padding:8px 0;border-bottom:1px solid #E6EEEE">${esc(l.description)}</td><td align="right" style="padding:8px 0;border-bottom:1px solid #E6EEEE;white-space:nowrap">${esc(l.amount)}</td></tr>`,
+        `<tr><td style="padding:8px 0;border-bottom:1px solid #E6DFEC">${esc(l.description)}</td><td align="right" style="padding:8px 0;border-bottom:1px solid #E6DFEC;white-space:nowrap">${esc(l.amount)}</td></tr>`,
     )
     .join('')
   const subject = opts.reminder ? `Reminder: invoice ${opts.number} from ${opts.studio}` : `Invoice ${opts.number} from ${opts.studio}`
@@ -172,7 +172,7 @@ export function invoiceEmail(opts: {
         ]) +
         `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">${lineRows}<tr><td style="padding:12px 0;font-weight:900">Total</td><td align="right" style="padding:12px 0;font-weight:900;font-size:18px;color:${opts.brand ?? TEAL_INK}">${esc(opts.total)}</td></tr></table>` +
         (opts.paymentDetails
-          ? `<div style="background:#EEF7F7;border-radius:14px;padding:16px 18px;margin:16px 0"><div style="font-weight:900;margin-bottom:8px">How to pay</div>${paragraphs(opts.paymentDetails)}</div>`
+          ? `<div style="background:#EFE9F7;border-radius:14px;padding:16px 18px;margin:16px 0"><div style="font-weight:900;margin-bottom:8px">How to pay</div>${paragraphs(opts.paymentDetails)}</div>`
           : '') +
         (opts.notes ? paragraphs(opts.notes) : '') +
         `<p style="margin:18px 0 0;font-weight:700">${esc(opts.signature)}</p>`,
@@ -216,7 +216,7 @@ export function newMessageEmail(opts: { studio: string; fromName: string; body: 
       heading: 'New message',
       bodyHtml:
         `<p style="margin:0 0 12px;color:#5C6B75">From <strong style="color:#23303A">${esc(opts.fromName)}</strong></p>` +
-        `<div style="background:#F2F7F7;border-radius:14px;padding:16px 18px;margin:0 0 20px">${paragraphs(opts.body)}</div>` +
+        `<div style="background:#FAF7F2;border-radius:14px;padding:16px 18px;margin:0 0 20px">${paragraphs(opts.body)}</div>` +
         button(opts.url, 'Reply in Lindon'),
     }),
   }

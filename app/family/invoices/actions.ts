@@ -65,7 +65,7 @@ export async function familySaysPaid(invoiceId: string, _: ActionState, fd: Form
             heading: 'A family says they’ve paid',
             bodyHtml:
               detailTable(rows) +
-              (note ? `<div style="background:#EEF7F7;border-radius:14px;padding:14px 16px;margin:0 0 14px"><strong>Their note</strong>${paragraphs(note)}</div>` : '') +
+              (note ? `<div style="background:#EFE9F7;border-radius:14px;padding:14px 16px;margin:0 0 14px"><strong>Their note</strong>${paragraphs(note)}</div>` : '') +
               `<p style="margin:0">Check it’s arrived, then <a href="${esc(appUrl(`/invoices/${found.id}`))}">mark the invoice paid</a>.</p>`,
           }),
         },

@@ -58,7 +58,7 @@ async function tellTeacher(teacher: Teacher, subject: string, heading: string, r
         heading,
         bodyHtml:
           detailTable(rows) +
-          (note ? `<div style="background:#EEF7F7;border-radius:14px;padding:14px 16px;margin:0 0 14px"><strong>Their note</strong>${paragraphs(note)}</div>` : '') +
+          (note ? `<div style="background:#EFE9F7;border-radius:14px;padding:14px 16px;margin:0 0 14px"><strong>Their note</strong>${paragraphs(note)}</div>` : '') +
           `<p style="margin:0;color:#5C6B75">From ${esc(from)}</p>`,
       }),
     },

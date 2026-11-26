@@ -155,6 +155,13 @@ export default async function DashboardPage({ searchParams }: PageProps<'/'>) {
           <Link href="/schedule/slots" className="btn btn-secondary">
             Edit schedule
           </Link>
+          {/* ---- This week at a glance (sage card) ---- */}
+          <Link href="/?view=week" className="dash-week" style={{ textDecoration: 'none' }}>
+            <span className="eyebrow">This week</span>
+            <strong>
+              {d.weekLessonCount} lesson{d.weekLessonCount === 1 ? '' : 's'} booked
+            </strong>
+          </Link>
         </div>
       </div>
 

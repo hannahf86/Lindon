@@ -33,7 +33,7 @@ export async function loadDashboard(teacher: Teacher) {
   const horizon = addDaysISO(today, 60)
   const none = Promise.resolve([])
 
-  const [studentCount, paidThisMonth, unpaid, hours, upcoming, upcomingEvents, needAttendance, minors, endingBookings, exams, overdueLoans] = await Promise.all([
+  const [studentCount, paidThisMonth, unpaid, hours, upcoming, weekLessons, upcomingEvents, needAttendance, minors, endingBookings, exams, overdueLoans] = await Promise.all([
     // ---- Any students at all? (first-run guidance) ----
     db().from('students').select('id', { count: 'exact', head: true }).eq('teacher_id', t),
 
@@ -52,6 +52,11 @@ export async function loadDashboard(teacher: Teacher) {
     // ---- Teaching hours + lessons in the next fortnight (for free time) ----
     db().from('teaching_hours').select('day_of_week, starts, ends').eq('teacher_id', t).then(must),
     db().from('lessons').select('starts_at, duration_minutes, status').eq('teacher_id', t).gte('starts_at', aheadFrom).lt('starts_at', aheadTo).then(must),
+    // ---- Lessons this week (Mon–Sun), not cancelled — the "This week" card ----
+    (() => {
+      const [wFrom, wTo] = rangeBoundsUtc(weekStartISO(today), addDaysISO(weekStartISO(today), 6), tz)
+      return db().from('lessons').select('status').eq('teacher_id', t).gte('starts_at', wFrom).lt('starts_at', wTo).then(must)
+    })(),
     db().from('events').select('event_date, starts, ends').eq('teacher_id', t).gte('event_date', today).lte('event_date', addDaysISO(today, FREE_DAYS - 1)).not('starts', 'is', null).then(must),
 
     // ---- Past 14 days' lessons with attendance not marked ----
@@ -146,6 +151,7 @@ export async function loadDashboard(teacher: Teacher) {
     freeSlots: freeSlots.slice(0, FREE_SHOWN),
     freeCount: freeSlots.length,
     hasHours: hours.length > 0,
+    weekLessonCount: weekLessons.filter((l) => !isCancelled(l.status)).length,
     needAttendance,
     endingBookings,
     minorsWithoutParent: minors.filter((s) => isMinor(s) && s.student_guardians.length === 0),

@@ -1,7 +1,7 @@
 // =============================================================================
 // app/family/layout.tsx — the family area shell (parents & adult pupils)
 //
-// Teal top bar: Lindon logo, nav pills (Home · Lessons · Messages · Invoices),
+// Plum top bar: Lindon logo, nav pills (Home · Lessons · Messages · Invoices),
 // the signed-in email, Password (sign-in settings) and Sign out. Deliberately NOT inside the (app) group,
 // so families never see the teacher sidebar. requireFamily() redirects anyone
 // without a live invitation.
@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: { default: 'Family', template: '%s ·
 
 // Family-only styles (kept here so the shared stylesheet stays untouched)
 const FAMILY_CSS = `
-.fam-bar { background: var(--teal-ink); color: #fff; }
+.fam-bar { background: var(--sidebar-bg); color: #fff; }
 .fam-bar-inner { max-width: 1180px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; gap: 12px 32px; flex-wrap: wrap; }
 .fam-brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-weight: 900; font-size: 1.3rem; }
 .fam-brand:hover { color: #fff; }
@@ -26,7 +26,7 @@ const FAMILY_CSS = `
 .fam-nav::-webkit-scrollbar { display: none; }
 .fam-nav a { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 8px 18px; border-radius: 999px; color: #fff; text-decoration: none; font-weight: 800; background: rgb(255 255 255 / 0.14); }
 .fam-nav a:hover { background: rgb(255 255 255 / 0.24); color: #fff; }
-.fam-nav a[aria-current='page'] { background: #fff; color: var(--teal-ink); }
+.fam-nav a[aria-current='page'] { background: var(--nav-active-bg); color: var(--nav-active-text); }
 .fam-count { background: var(--coral); color: var(--ink); border-radius: 999px; font-size: 0.75rem; font-weight: 900; padding: 1px 7px; line-height: 1.4; }
 .fam-who { display: flex; align-items: center; gap: 12px; font-size: 0.85rem; margin-left: auto; min-width: 0; }
 .fam-account { color: #fff; font-weight: 800; }

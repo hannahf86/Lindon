@@ -75,8 +75,8 @@ export default async function PrintInvoicePage({ params }: PageProps<'/invoices/
           borderRadius: 'var(--radius-lg)',
           boxShadow: 'var(--shadow)',
           color: 'var(--ink)',
-          ['--teal-ink' as string]: teacher.invoice_color ?? '#1D7F7A',
-          ['--butter' as string]: teacher.invoice_accent ?? '#F6E5A0',
+          ['--teal-ink' as string]: teacher.invoice_color ?? '#5B3F8C',
+          ['--butter' as string]: teacher.invoice_accent ?? '#E3C67E',
         }}
       >
         {/* Studio + invoice number */}

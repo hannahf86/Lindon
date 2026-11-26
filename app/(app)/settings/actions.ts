@@ -62,8 +62,8 @@ function readSection(fd: FormData, teacher: Teacher) {
         invoice_footer: str(fd, 'invoice_footer'),
         currency: readCurrency(fd),
         timezone: readTimezone(fd),
-        invoice_color: readColour(fd, 'invoice_color', '#1D7F7A'),
-        invoice_accent: readColour(fd, 'invoice_accent', '#F6E5A0'),
+        invoice_color: readColour(fd, 'invoice_color', '#5B3F8C'),
+        invoice_accent: readColour(fd, 'invoice_accent', '#E3C67E'),
       }
     case 'communication':
       return {

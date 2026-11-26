@@ -250,10 +250,10 @@ function InvoicingTab({ teacher: t }: { teacher: T }) {
           The colours on your printed / PDF invoices and invoice emails.
         </p>
         <div className="form-grid">
-          <ColourField label="Main colour" name="invoice_color" value={t.invoice_color ?? '#1D7F7A'} hint="Your studio name, totals and the email header." />
-          <ColourField label="Accent stripe" name="invoice_accent" value={t.invoice_accent ?? '#F6E5A0'} hint="The stripe under the header." />
+          <ColourField label="Main colour" name="invoice_color" value={t.invoice_color ?? '#5B3F8C'} hint="Your studio name, totals and the email header." />
+          <ColourField label="Accent stripe" name="invoice_accent" value={t.invoice_accent ?? '#E3C67E'} hint="The stripe under the header." />
         </div>
-        <div className="brand-preview" style={{ ['--brand' as string]: t.invoice_color ?? '#1D7F7A', ['--brand-accent' as string]: t.invoice_accent ?? '#F6E5A0' }}>
+        <div className="brand-preview" style={{ ['--brand' as string]: t.invoice_color ?? '#5B3F8C', ['--brand-accent' as string]: t.invoice_accent ?? '#E3C67E' }}>
           <div className="brand-preview-head">{t.business_name || t.display_name || 'Your studio'}</div>
           <div className="brand-preview-stripe" />
           <div className="small muted" style={{ padding: '10px 14px' }}>

@@ -1,41 +1,74 @@
 /* =============================================================================
    app/globals.css — Lindon design system
-   Built from the original "HF Music Apps" brand sheet (Claude Design): teal hero,
-   purple / pale teal / coral / butter accents, chunky rounded type, generous
-   radii. Adapted for a dense admin app: brand teal is too light for white
-   text, so buttons and links use a deeper "teal ink" that passes WCAG AA.
+   Heather palette (2026-11-26): soft plum sidebar, warm off-white page,
+   purple primary, cream-gold / lavender banners, purple / gold / sage / rose
+   accents. Chunky rounded type and generous radii as before. The token names
+   (--teal-ink etc.) are historical — they now hold heather colours.
    ========================================================================== */
 
 /* ---- Tokens ---------------------------------------------------------------- */
+/* Heather palette (2026-11-26, Hannah's restyle; all text pairs pass WCAG AA).
+   The old names (--teal-ink, --butter…) are kept so every component picks up
+   the new colours; they now hold heather values. */
 :root {
-  /* Brand palette (sampled from the brand sheet) */
-  --teal: #3cbfb9;
-  --purple: #7b6c97;
-  --sky: #abd8db;
-  --coral: #f6a9a3;
-  --butter: #f6e5a0;
+  /* Heather — named tokens */
+  --sidebar-bg: #3b2a54;          /* soft plum */
+  --sidebar-text: #ffffff;
+  --sidebar-text-muted: #cfc3e3;  /* section labels, sign out */
+  --nav-active-bg: #ede6f7;       /* pale lavender pill */
+  --nav-active-text: #3b2a54;
+  --page-bg: #faf7f2;             /* warm off-white */
+  --card-bg: #ffffff;
+  --card-border: #e6dfec;
+  --text: #2e2240;
+  --text-muted: #625873;
+  --primary: #5b3f8c;             /* main buttons, logo tile */
+  --primary-text: #ffffff;
+  --link: #5b3f8c;
+  --secondary-btn-border: #2e2240;
+  --tip-bg: #f5eed8;
+  --tip-text: #2e2240;
+  --quote-bg: #ece6f5;
+  --quote-text: #2e2240;
+  --cal-cell-bg: #f2eee8;
+  --cal-cell-active-bg: #ffffff;  /* teaching days */
+  --cal-today-border: #7a5bb0;
+  --cal-event-bg: #efe9f7;
+  --cal-event-bar: #7a5bb0;
+  --cal-event-text: #2e2240;
+  --accent-purple: #7a5bb0;
+  --accent-gold: #e3c67e;
+  --accent-sage: #b9d3c3;
+  --accent-sage-text: #1f3a2e;
+  --accent-rose: #ddb1aa;
 
-  /* Working colours derived from the brand */
-  --teal-ink: #1d7f7a;     /* buttons, links — 4.9:1 with white */
-  --teal-deep: #16625e;    /* hover */
-  --teal-wash: #e3f5f4;    /* tinted backgrounds */
-  --purple-wash: #eeebf4;
-  --coral-ink: #b4473e;    /* destructive actions, overdue */
-  --coral-wash: #fdeceb;
-  --butter-wash: #fbf6de;
-  --sky-wash: #e8f4f5;
+  /* Working names used across the app (now heather) */
+  --teal: var(--accent-purple);   /* accents: focus rings, today, event bars */
+  --purple: var(--accent-purple);
+  --sky: #cfc3e3;
+  --coral: var(--accent-rose);
+  --butter: var(--accent-gold);
 
-  --ink: #23303a;
-  --muted: #5c6b75;
-  --line: #d9e6e6;
-  --line-soft: #e9f1f1;
-  --bg: #f4f9f9;
-  --surface: #ffffff;
+  --teal-ink: var(--primary);     /* buttons, links — 8:1 with white */
+  --teal-deep: #4a3373;           /* hover */
+  --teal-wash: #efe9f7;           /* tinted backgrounds */
+  --purple-wash: var(--quote-bg);
+  --coral-ink: #a8453b;           /* destructive actions, overdue */
+  --coral-wash: #f8ecea;
+  --butter-wash: var(--tip-bg);
+  --sky-wash: #efe9f7;
+
+  --ink: var(--text);
+  --muted: var(--text-muted);
+  --line: var(--card-border);
+  --line-soft: #f1ece6;
+  --bg: var(--page-bg);
+  --surface: var(--card-bg);
 
   --radius-sm: 10px;
   --radius: 16px;
   --radius-lg: 24px;
-  --shadow: 0 1px 2px rgb(35 48 58 / 0.04), 0 6px 20px rgb(35 48 58 / 0.06);
+  --shadow: 0 1px 2px rgb(46 34 64 / 0.04), 0 6px 20px rgb(46 34 64 / 0.06);
 
   --font: var(--font-nunito), 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --sidebar-w: 248px;
@@ -69,11 +102,11 @@ p { margin: 0 0 0.75rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .eyebrow { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 
-/* ---- App shell: teal sidebar + content ------------------------------------- */
+/* ---- App shell: plum sidebar + content ------------------------------------- */
 .shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
 .sidebar {
-  background: var(--teal-ink);
-  color: #fff;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
   padding: 24px 16px;
   position: sticky; top: 0; height: 100vh; overflow-y: auto;
   display: flex; flex-direction: column; gap: 16px;
@@ -88,21 +121,21 @@ p { margin: 0 0 0.75rem; }
 @media (max-width: 900px) { .wordmark .logo-mark { width: 32px; height: 32px; } }
 .brand-stripe { display: flex; height: 8px; border-radius: 999px; overflow: hidden; margin: 12px 8px 0; }
 .brand-stripe span { flex: 1; }
-.brand-stripe span:nth-child(1) { background: var(--purple); }
-.brand-stripe span:nth-child(2) { background: var(--sky); }
-.brand-stripe span:nth-child(3) { background: var(--coral); }
-.brand-stripe span:nth-child(4) { background: var(--butter); }
+.brand-stripe span:nth-child(1) { background: var(--accent-purple); }
+.brand-stripe span:nth-child(2) { background: var(--accent-gold); }
+.brand-stripe span:nth-child(3) { background: var(--accent-sage); }
+.brand-stripe span:nth-child(4) { background: var(--accent-rose); }
 
 .nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .nav-spacer { flex: 1; min-height: 16px; } /* pushes Settings to the bottom */
-.nav-group { font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 800; opacity: 0.85; padding: 14px 12px 4px; }
+.nav-group { font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 800; color: var(--sidebar-text-muted); padding: 14px 12px 4px; }
 .nav > :first-child > .nav-group { padding-top: 4px; }
 .nav a {
   color: #fff; text-decoration: none; font-weight: 800;
   padding: 9px 12px; border-radius: 999px; display: flex; align-items: center; gap: 10px;
 }
 .nav a:hover { background: rgb(255 255 255 / 0.16); color: #fff; }
-.nav a[aria-current='page'] { background: #fff; color: var(--teal-ink); }
+.nav a[aria-current='page'] { background: var(--nav-active-bg); color: var(--nav-active-text); }
 .nav svg { width: 18px; height: 18px; flex: none; }
 .sidebar-foot { margin-top: auto; padding: 0 8px; font-size: 0.85rem; }
 .sidebar-foot .who { font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
@@ -170,14 +203,14 @@ p { margin: 0 0 0.75rem; }
 .btn:hover { background: var(--teal-deep); color: #fff; }
 .btn:active { transform: translateY(1px); }
 .btn[disabled], .btn[aria-disabled='true'] { opacity: 0.55; cursor: not-allowed; }
-.btn-secondary { background: var(--surface); color: var(--teal-ink); border-color: var(--line); }
-.btn-secondary:hover { background: var(--teal-wash); color: var(--teal-deep); }
+.btn-secondary { background: var(--surface); color: var(--text); border-color: var(--secondary-btn-border); }
+.btn-secondary:hover { background: var(--nav-active-bg); color: var(--text); }
 .btn-ghost { background: transparent; color: var(--teal-ink); padding-inline: 10px; }
 .btn-ghost:hover { background: var(--teal-wash); color: var(--teal-deep); }
 .btn-danger { background: var(--surface); color: var(--coral-ink); border-color: var(--coral); }
 .btn-danger:hover { background: var(--coral-wash); color: var(--coral-ink); }
 .btn-purple { background: var(--purple); }
-.btn-purple:hover { background: #665a80; }
+.btn-purple:hover { background: #664d97; }
 .btn-sm { padding: 7px 12px; font-size: 0.85rem; }
 
 /* ---- Forms -------------------------------------------------------------------- */
@@ -192,7 +225,7 @@ p { margin: 0 0 0.75rem; }
   width: 100%; font: inherit; color: var(--ink);
   background: #fff; border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px;
 }
-.input:focus, .textarea:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 4px rgb(60 191 185 / 0.18); }
+.input:focus, .textarea:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 4px rgb(122 91 176 / 0.2); }
 .textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
 .input-prefix { position: relative; }
 .input-prefix > span { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 700; pointer-events: none; }
@@ -215,7 +248,7 @@ legend { padding: 0; }
 
 /* Slide pill — two-way choice (e.g. Child / Adult) with a sliding knob */
 .slide-pill { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; width: max-content; padding: 4px; border-radius: 999px; background: var(--line-soft); border: 2px solid var(--line); isolation: isolate; }
-.slide-pill::before { content: ''; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 999px; background: var(--teal-ink); box-shadow: 0 2px 6px rgb(29 127 122 / 0.3); transition: transform 0.22s cubic-bezier(.3,.7,.4,1); z-index: -1; }
+.slide-pill::before { content: ''; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 999px; background: var(--teal-ink); box-shadow: 0 2px 6px rgb(91 63 140 / 0.3); transition: transform 0.22s cubic-bezier(.3,.7,.4,1); z-index: -1; }
 .slide-pill:has(label:nth-child(2) input:checked)::before { transform: translateX(100%); }
 .slide-pill:not(:has(input:checked))::before { opacity: 0; }
 .slide-pill label { cursor: pointer; }
@@ -279,15 +312,15 @@ form:has(input[name='student_id'][value='']:checked) .booking-only { display: no
 .alert { border-radius: 14px; padding: 12px 16px; font-weight: 700; }
 .alert-error { background: var(--coral-wash); color: var(--coral-ink); }
 .alert-ok { background: var(--teal-wash); color: var(--teal-deep); }
-.alert-info { background: var(--butter-wash); color: #6b5a12; }
+.alert-info { background: var(--butter-wash); color: #5c4710; }
 
 /* ---- Badges ------------------------------------------------------------------- */
 .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 800; white-space: nowrap; background: var(--line-soft); color: var(--ink); }
 .badge.teal { background: var(--teal-wash); color: var(--teal-deep); }
-.badge.sky { background: var(--sky-wash); color: #2a6670; }
+.badge.sky { background: var(--sky-wash); color: #4a3373; }
 .badge.coral { background: var(--coral-wash); color: var(--coral-ink); }
-.badge.butter { background: var(--butter-wash); color: #6b5a12; }
-.badge.purple { background: var(--purple-wash); color: #5a4e72; }
+.badge.butter { background: var(--butter-wash); color: #5c4710; }
+.badge.purple { background: var(--purple-wash); color: #4a3373; }
 
 /* ---- Tables ------------------------------------------------------------------- */
 .table-wrap { overflow-x: auto; margin: 0 -6px; }
@@ -319,7 +352,7 @@ form:has(input[name='student_id'][value='']:checked) .booking-only { display: no
 /* Tip of the day (dashboard + family home) */
 .tip { display: flex; gap: 14px; align-items: center; padding: 16px 20px; border-radius: var(--radius-lg); background: var(--butter-wash); border-left: 6px solid var(--butter); margin-bottom: 20px; }
 .tip-mark { flex: none; width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: var(--surface); color: var(--teal-ink); }
-.tip-eyebrow { color: #6b5a12; }
+.tip-eyebrow { color: #5c4710; }
 .tip-text { margin: 4px 0 0; font-size: 1.05rem; font-weight: 700; color: var(--ink); line-height: 1.45; }
 
 /* Empty state */
@@ -354,7 +387,7 @@ form:has(input[name='student_id'][value='']:checked) .booking-only { display: no
 .segmented-links { display: inline-flex; padding: 4px; gap: 2px; background: var(--line-soft); border: 2px solid var(--line); border-radius: 999px; }
 .segmented-links a { padding: 7px 16px; border-radius: 999px; font-weight: 800; text-decoration: none; color: var(--muted); }
 .segmented-links a:hover { color: var(--ink); }
-.segmented-links a[aria-current='page'] { background: var(--teal-ink); color: #fff; }
+.segmented-links a[aria-current='page'] { background: var(--text); color: #fff; }
 
 /* ---- Day view: roomy timeline ---- */
 .dayview { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -396,15 +429,15 @@ a.dv-title:hover { color: var(--teal-ink); text-decoration: underline; }
 
 /* ---- Auth pages ----------------------------------------------------------- */
 .auth { min-height: 100vh; display: grid; grid-template-columns: 1.1fr 1fr; }
-.auth-brand { background: var(--teal-ink); color: #fff; padding: clamp(32px, 6vw, 72px); display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; }
+.auth-brand { background: var(--sidebar-bg); color: #fff; padding: clamp(32px, 6vw, 72px); display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; }
 .auth-brand h1 { font-size: clamp(2.5rem, 6vw, 4.5rem); line-height: 0.95; font-weight: 900; margin: 16px 0; }
 .auth-brand p { font-size: 1.15rem; max-width: 30ch; }
 .auth-stripe { display: flex; height: 18px; border-radius: 999px; overflow: hidden; max-width: 360px; }
 .auth-stripe span { flex: 1; }
-.auth-stripe span:nth-child(1) { background: var(--purple); }
-.auth-stripe span:nth-child(2) { background: var(--sky); }
-.auth-stripe span:nth-child(3) { background: var(--coral); }
-.auth-stripe span:nth-child(4) { background: var(--butter); }
+.auth-stripe span:nth-child(1) { background: var(--accent-purple); }
+.auth-stripe span:nth-child(2) { background: var(--accent-gold); }
+.auth-stripe span:nth-child(3) { background: var(--accent-sage); }
+.auth-stripe span:nth-child(4) { background: var(--accent-rose); }
 .auth-panel { display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
 .auth-card { width: 100%; max-width: 400px; }
 @media (max-width: 800px) {
@@ -427,7 +460,7 @@ a.dv-title:hover { color: var(--teal-ink); text-decoration: underline; }
 
 /* Onboarding (/welcome) */
 .welcome { min-height: 100vh; }
-.welcome-bar { background: var(--teal-ink); color: #fff; display: flex; align-items: center; gap: 10px; padding: 14px clamp(16px, 4vw, 40px); font-weight: 900; font-size: 1.3rem; }
+.welcome-bar { background: var(--sidebar-bg); color: #fff; display: flex; align-items: center; gap: 10px; padding: 14px clamp(16px, 4vw, 40px); font-weight: 900; font-size: 1.3rem; }
 .welcome-main { max-width: 820px; margin: 0 auto; padding: 32px 16px 64px; }
 .welcome-main h1 { margin-bottom: 6px; }
 .welcome-main .card { margin-bottom: 20px; }
@@ -617,3 +650,23 @@ button.month-cell:focus-visible { outline: 3px solid var(--teal); outline-offset
 .inv-actions .btn-sm { padding: 10px 20px; font-size: 0.92rem; }
 .inv-actions .input-sm { padding: 9px 12px; font-size: 0.9rem; min-width: 140px; }
 .inv-actions .small { max-width: 320px; text-align: right; }
+
+/* ==== Heather restyle: component touches ================================== */
+.sidebar-foot, .sidebar-foot .linkish { color: var(--sidebar-text-muted); }
+.sidebar-foot .who { color: var(--sidebar-text); }
+/* Banners: tip (cream-gold) and quote (lavender), no side bar */
+.tip { background: var(--tip-bg); color: var(--tip-text); border-left: 0; }
+.tip.quote { background: var(--quote-bg); color: var(--quote-text); }
+.tip.quote .tip-eyebrow, .tip .tip-eyebrow { color: var(--text-muted); }
+.tip-mark { background: var(--card-bg); color: var(--primary); }
+/* Calendar: warm cells, white teaching days, lavender events with a purple bar */
+.month-cell { background: var(--cal-cell-active-bg); }
+.month-cell.off, .day.off { background: var(--cal-cell-bg); }
+.month-cell.today { outline: 2px solid var(--cal-today-border); }
+.month-chip, .event { background: var(--cal-event-bg); border-left-color: var(--cal-event-bar); color: var(--cal-event-text); }
+/* Dashboard tiles: soft border instead of the thick one */
+.dash-tile { border: 1px solid var(--card-border); }
+/* "This week" highlight card (sage) */
+.dash-week { background: var(--accent-sage); color: var(--accent-sage-text); border-radius: 18px; padding: 16px 18px; }
+.dash-week .eyebrow { color: var(--accent-sage-text); opacity: 0.85; }
+.dash-week strong { display: block; font-size: 1.35rem; font-weight: 900; line-height: 1.2; margin-top: 2px; }
