@@ -137,7 +137,7 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
                           </Link>
                           <ConfirmButton
                             action={deleteStudent.bind(null, s.id)}
-                            confirm={`Remove ${fullName(s)}? This deletes their lessons, bookings and parent links for good. Their invoices are kept. If they've just stopped for now, edit them and set their status to Paused or Past instead.`}
+                            confirm={`Remove ${fullName(s)}? This deletes their lessons, bookings, invoices (paid ones too) and parent links for good. If they've just stopped for now, set their status to Paused or Past instead — that keeps everything.`}
                             className="danger"
                           >
                             Remove student

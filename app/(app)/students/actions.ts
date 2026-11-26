@@ -142,11 +142,15 @@ export async function updateStudent(id: string, _: ActionState, fd: FormData): P
 }
 
 // ---- Delete ------------------------------------------------------------------------
-// Cascades to their lessons, loans, exams and guardian links. Invoices are
-// kept (bill-to name is stored on the invoice) so income reports stay right.
+// Deleting a pupil removes EVERYTHING about them (Hannah's call): their
+// invoices (all of them, paid included — with their lines) are deleted first,
+// then the pupil, which cascades to lessons, bookings, loans, exams, credits
+// and parent links. Archiving (status Paused / Past) keeps it all.
 export async function deleteStudent(id: string): Promise<ActionState> {
   const teacher = await requireTeacher()
+  must(await db().from('invoices').delete().eq('teacher_id', teacher.id).eq('student_id', id).select('id'))
   must(await db().from('students').delete().eq('id', id).eq('teacher_id', teacher.id).select('id'))
+  revalidatePath('/invoices', 'layout')
   revalidatePath('/students')
   redirect('/students')
 }
