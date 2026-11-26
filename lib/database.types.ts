@@ -333,6 +333,21 @@ export type CalendarEvent = {
 /** A holiday or term break: no lessons from starts_on to ends_on (inclusive). */
 export type HolidayRow = { id: string; teacher_id: string; name: string; starts_on: string; ends_on: string; created_at: string }
 
+/** A file shared with families (Music & files). */
+export type SharedFileRow = {
+  id: string
+  teacher_id: string
+  title: string
+  notes: string
+  path: string
+  file_name: string
+  mime: string
+  size_bytes: number
+  everyone: boolean
+  student_ids: string[]
+  created_at: string
+}
+
 export type UserPassword = {
   user_id: string
   hash: string
@@ -447,6 +462,7 @@ export type Database = {
       teaching_hours: Table<TeachingHours, 'teacher_id' | 'day_of_week' | 'starts' | 'ends'>
       events: Table<CalendarEvent, 'teacher_id' | 'title' | 'event_date'>
       holidays: Table<HolidayRow, 'teacher_id' | 'name' | 'starts_on' | 'ends_on'>
+      shared_files: Table<SharedFileRow, 'teacher_id' | 'title' | 'path' | 'file_name' | 'mime'>
       lesson_credits: Table<
         LessonCredit,
         'teacher_id' | 'student_id' | 'amount' | 'reason',

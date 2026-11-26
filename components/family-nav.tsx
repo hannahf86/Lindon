@@ -14,16 +14,17 @@ const ITEMS = [
   { href: '/family', label: 'Home' },
   { href: '/family/lessons', label: 'Lessons' },
   { href: '/family/messages', label: 'Messages' },
+  { href: '/family/music', label: 'Music' },
   { href: '/family/invoices', label: 'Invoices' },
 ]
 
-export function FamilyNav({ unread, showMessages }: { unread: number; showMessages: boolean }) {
+export function FamilyNav({ unread, showMessages, showMusic = false }: { unread: number; showMessages: boolean; showMusic?: boolean }) {
   const pathname = usePathname()
   const isActive = (href: string) => (href === '/family' ? pathname === '/family' : pathname === href || pathname.startsWith(href + '/'))
 
   return (
     <nav className="fam-nav" aria-label="Family">
-      {ITEMS.filter((i) => showMessages || i.href !== '/family/messages').map((item) => (
+      {ITEMS.filter((i) => (showMessages || i.href !== '/family/messages') && (showMusic || i.href !== '/family/music')).map((item) => (
         <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? 'page' : undefined}>
           {item.label}
           {/* Unread badge (hidden while reading messages — they're being marked read) */}

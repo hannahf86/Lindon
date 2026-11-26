@@ -34,6 +34,12 @@ const CORE: Item[] = [
 // ---- Switched on per teacher --------------------------------------------------------
 const EXTRAS: Item[] = [
   { href: '/messages', label: 'Messages', feature: 'messaging', icon: I('M3 6h18v12H3zM3 7l9 6 9-6') },
+  {
+    href: '/files',
+    label: 'Music & files',
+    feature: 'sheets',
+    icon: I('M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'),
+  },
   { href: '/exams', label: 'Exams', feature: 'exams', icon: I('M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3') },
   { href: '/library', label: 'Library & loans', feature: 'library', icon: I('M4 19V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19a2 2 0 0 0 2 2h13') },
   { href: '/equipment', label: 'Invoice items', feature: 'equipment', icon: I('M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8zM7.5 7.5h.01') },

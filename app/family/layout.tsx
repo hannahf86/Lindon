@@ -10,6 +10,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { signOut } from '@/auth'
 import { requireFamily } from '@/lib/family'
+import { has } from '@/lib/features'
 import { LogoMark } from '@/components/logo'
 import { FamilyNav } from '@/components/family-nav'
 import { MobileMenu } from '@/components/mobile-menu'
@@ -79,7 +80,7 @@ export default async function FamilyLayout({ children }: LayoutProps<'/family'>)
           </Link>
           {/* Phones: nav + account links behind a hamburger */}
           <MobileMenu unread={unread} className="fam-menu">
-          <FamilyNav unread={unread} showMessages={messagingLinks(ctx).length > 0} />
+          <FamilyNav unread={unread} showMessages={messagingLinks(ctx).length > 0} showMusic={ctx.links.some((l) => has(l.teacher, 'sheets'))} />
           <div className="fam-who">
             <span title={ctx.email}>{ctx.email}</span>
             <Link href="/account" className="fam-account">

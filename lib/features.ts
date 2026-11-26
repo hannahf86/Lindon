@@ -22,6 +22,12 @@ export const FEATURES = [
     needs: 'family_logins',
   },
   {
+    key: 'sheets',
+    label: 'Music & files for families',
+    description: 'Share sheet music, scans and backing tracks with families, for everyone or chosen pupils. Needs family logins.',
+    needs: 'family_logins',
+  },
+  {
     key: 'exams',
     label: 'Exams',
     description: 'Exam dates, entry deadlines and exam fees on invoices.',
