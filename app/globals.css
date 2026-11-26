@@ -566,3 +566,6 @@ button.month-cell:focus-visible { outline: 3px solid var(--teal); outline-offset
 /* Invoices list: main button + "More…" dropdown */
 .inv-actions { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .inv-actions-row { display: flex; gap: 6px; align-items: center; }
+
+/* Date pickers: only as wide as a date needs (not full width) */
+.input[type="date"] { width: 100%; max-width: 220px; }
