@@ -317,7 +317,7 @@ form:has(input[name='student_id'][value='']:checked) .booking-only { display: no
 .note-text { margin: 6px 0 0; white-space: pre-line; }
 
 /* Tip of the day (dashboard + family home) */
-.tip { display: flex; gap: 14px; align-items: flex-start; padding: 16px 20px; border-radius: var(--radius-lg); background: var(--butter-wash); border-left: 6px solid var(--butter); margin-bottom: 20px; }
+.tip { display: flex; gap: 14px; align-items: center; padding: 16px 20px; border-radius: var(--radius-lg); background: var(--butter-wash); border-left: 6px solid var(--butter); margin-bottom: 20px; }
 .tip-mark { flex: none; width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: var(--surface); color: var(--teal-ink); }
 .tip-eyebrow { color: #6b5a12; }
 .tip-text { margin: 4px 0 0; font-size: 1.05rem; font-weight: 700; color: var(--ink); line-height: 1.45; }
@@ -502,5 +502,9 @@ button.month-cell:focus-visible { outline: 3px solid var(--teal); outline-offset
 .dash-daily .tip { margin-bottom: 0; }
 .tip.quote { background: var(--purple-wash); border-left-color: var(--purple); }
 .tip.quote .tip-eyebrow { color: var(--purple); }
-.tip.quote .tip-mark { font-size: 1.15rem; }
+.tip.quote .tip-mark { font-size: 1.15rem; line-height: 1; }
 @media (max-width: 900px) { .dash-tile { min-height: 0; } }
+
+/* Dashboard quick-action buttons: Figma size 313 x 64 */
+.dash-actions { gap: 16px; }
+.dash-actions .btn { min-height: 64px; font-size: 1.15rem; }
