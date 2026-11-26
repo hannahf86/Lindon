@@ -78,7 +78,7 @@ export default async function FamilyHome() {
   const firstName = ctx.name.split(' ')[0] || 'there'
 
   return (
-    <>
+    <div className="fam-home">
       {/* ---- Greeting ---- */}
       <header className="page-head">
         <div>
@@ -102,12 +102,12 @@ export default async function FamilyHome() {
         </div>
       )}
 
-      <div className="stack">
+      <div className="stack" style={{ gap: 48 }}>
         {ctx.links.map((link, i) => (
           <TeacherSection key={link.accessId} link={link} data={data[i]} />
         ))}
       </div>
-    </>
+    </div>
   )
 }
 
@@ -120,14 +120,16 @@ function TeacherSection({ link, data }: { link: FamilyLink; data: Awaited<Return
   const who = (id: string | null) => (many && id ? names.get(id) : null)
 
   return (
-    <section className="stack" style={{ gap: 16 }}>
-      {/* ---- Teacher + pupils ---- */}
-      <div>
-        <div className="eyebrow">Your teacher</div>
-        <h2 style={{ fontSize: '1.5rem' }}>{studioLine(link.teacher)}</h2>
-        <TeacherContact teacher={link.teacher} label="Need to change a lesson?" />
+    <section className="stack" style={{ gap: 24 }}>
+      {/* ---- Teacher (left) + pupils (right) ---- */}
+      <div className="fam-teacher">
+        <div>
+          <div className="eyebrow">Your teacher</div>
+          <h2 style={{ fontSize: '1.5rem', margin: '4px 0 6px' }}>{studioLine(link.teacher)}</h2>
+          <TeacherContact teacher={link.teacher} label="Need to change a lesson?" />
+        </div>
         {link.pupils.length > 0 && (
-          <div className="chips" style={{ marginTop: 8 }}>
+          <div className="chips">
             {link.pupils.map((p) => (
               <span key={p.id} className="chip">
                 {p.first_name} {p.last_name}
@@ -145,7 +147,7 @@ function TeacherSection({ link, data }: { link: FamilyLink; data: Awaited<Return
           </EmptyState>
         </Card>
       ) : (
-        <div className="grid grid-2" style={{ alignItems: 'start' }}>
+        <div className="fam-grid">
           {/* ---- Next lessons ---- */}
           <Card title="Next lessons" actions={<Link href="/family/lessons" className="small">See all</Link>}>
             {data.upcoming.length === 0 ? (

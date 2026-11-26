@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: { default: 'Family', template: '%s ·
 // Family-only styles (kept here so the shared stylesheet stays untouched)
 const FAMILY_CSS = `
 .fam-bar { background: var(--teal-ink); color: #fff; }
-.fam-bar-inner { max-width: 960px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; }
+.fam-bar-inner { max-width: 1180px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; }
 .fam-brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-weight: 900; font-size: 1.3rem; }
 .fam-brand:hover { color: #fff; }
 .fam-nav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: 1 1 auto; min-width: 0; }
@@ -32,7 +32,14 @@ const FAMILY_CSS = `
 .fam-account { color: #fff; font-weight: 800; }
 .fam-account:hover { color: #fff; }
 .fam-who span { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
-.fam-main { max-width: 960px; margin: 0 auto; padding: 28px 16px 64px; }
+.fam-main { max-width: 1180px; margin: 0 auto; padding: 36px 24px 72px; }
+/* Family home: roomier layout */
+.fam-home .page-head { margin-bottom: 24px; }
+.fam-home .tip { margin-bottom: 32px; }
+.fam-teacher { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px 24px; padding-bottom: 20px; margin-bottom: 8px; border-bottom: 2px solid var(--line-soft); }
+.fam-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
+.fam-grid > .card { margin: 0; height: 100%; }
+@media (max-width: 800px) { .fam-grid { grid-template-columns: 1fr; } }
 .bubble-list { display: flex; flex-direction: column; gap: 12px; }
 .bubble { max-width: min(560px, 85%); padding: 10px 14px; border-radius: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .bubble.mine { align-self: flex-end; background: var(--teal-wash); border-bottom-right-radius: 4px; }
