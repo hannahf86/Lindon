@@ -66,17 +66,25 @@ export type BookingLike = {
  * Choices for the lesson-length dropdown. A lesson saved earlier with another
  * length keeps it as an extra option, so re-saving can't quietly change it.
  */
+const LESSON_LENGTHS = [30, 45, 60, 90]
+
 export function lengthOptions(current?: number): { value: string; label: string }[] {
-  const lengths = current && ![30, 45, 60].includes(current) ? [current, 30, 45, 60].sort((a, b) => a - b) : [30, 45, 60]
+  const lengths = current && !LESSON_LENGTHS.includes(current) ? [current, ...LESSON_LENGTHS].sort((a, b) => a - b) : LESSON_LENGTHS
   return lengths.map((m) => ({ value: String(m), label: `${m} minutes` }))
 }
 
+/** How often a regular lesson repeats. (Every 3 weeks dropped — Hannah's call.) */
 export const REPEAT_OPTIONS = [
   { value: '1', label: 'Every week' },
   { value: '2', label: 'Every 2 weeks' },
-  { value: '3', label: 'Every 3 weeks' },
   { value: '4', label: 'Every 4 weeks' },
-] as const
+]
+
+/** The repeat pills, keeping an older booking's other frequency (e.g. every 3 weeks) so re-saving can't change it. */
+export function repeatOptions(current?: number | null): { value: string; label: string }[] {
+  if (!current || REPEAT_OPTIONS.some((o) => o.value === String(current))) return REPEAT_OPTIONS
+  return [...REPEAT_OPTIONS, { value: String(current), label: `Every ${current} weeks` }].sort((a, b) => Number(a.value) - Number(b.value))
+}
 
 /** "every week" / "every 2 weeks" */
 export function frequencyText(repeatWeeks: number): string {

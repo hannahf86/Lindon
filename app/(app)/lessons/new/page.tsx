@@ -9,7 +9,7 @@ import { db, requireTeacher } from '@/lib/db'
 import { fullName } from '@/lib/format'
 import { todayISO } from '@/lib/dates'
 import { currencySymbol } from '@/lib/lessons'
-import { distinctValues, instrumentSuggestions, studentOptions } from '@/lib/queries'
+import { instrumentSuggestions, studentOptions } from '@/lib/queries'
 import { ActionForm, SubmitButton } from '@/components/forms'
 import { Picker } from '@/components/pickers'
 import { Card, PageHeader } from '@/components/ui'
@@ -27,7 +27,7 @@ export default async function NewLessonPage({ searchParams }: PageProps<'/lesson
   const [students, instruments, locations, student, slot] = await Promise.all([
     studentOptions(t),
     instrumentSuggestions(t),
-    distinctValues(t, 'lessons', 'location'),
+    Promise.resolve(teacher.locations),
     studentId
       ? db().from('students').select('id, first_name, last_name, instruments').eq('id', studentId).eq('teacher_id', t).maybeSingle().then((r) => r.data)
       : null,
@@ -72,7 +72,7 @@ export default async function NewLessonPage({ searchParams }: PageProps<'/lesson
               defaults={defaults}
               currencySymbol={currencySymbol(teacher.currency)}
               instrumentSuggestions={instruments}
-              locationSuggestions={locations}
+              locations={locations}
             />
           </div>
         </Card>

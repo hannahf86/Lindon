@@ -186,7 +186,7 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
   const freeLabel = (g: Span) => `${clock(g.from)}–${clock(g.to)}`
 
   return (
-    <DayAdder students={adderStudents} currencySymbol={currencySymbol(teacher.currency)} dayHref={basePath}>
+    <DayAdder students={adderStudents} locations={teacher.locations} currencySymbol={currencySymbol(teacher.currency)} dayHref={basePath}>
       {/* ---- Totals for the period ---- */}
       {props.showTotals && (
         <div className="grid grid-3" style={{ marginBottom: 20 }}>

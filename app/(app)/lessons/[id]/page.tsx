@@ -9,7 +9,7 @@ import { db, requireTeacher } from '@/lib/db'
 import { duration, fullName, money } from '@/lib/format'
 import { fmtTz } from '@/lib/dates'
 import { currencySymbol } from '@/lib/lessons'
-import { distinctValues, instrumentSuggestions } from '@/lib/queries'
+import { instrumentSuggestions } from '@/lib/queries'
 import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
 import { Badge, Card, PageHeader, StatusBadge } from '@/components/ui'
 import { LessonFields } from '../lesson-fields'
@@ -35,7 +35,7 @@ export default async function LessonPage({ params }: PageProps<'/lessons/[id]'>)
 
   const [instruments, locations, credit] = await Promise.all([
     instrumentSuggestions(t),
-    distinctValues(t, 'lessons', 'location'),
+    Promise.resolve(teacher.locations),
     // This lesson's make-up credit, if it earned one
     db().from('lesson_credits').select('amount, invoice_item_id').eq('teacher_id', t).eq('lesson_id', id).maybeSingle().then((r) => r.data),
   ])
@@ -85,7 +85,7 @@ export default async function LessonPage({ params }: PageProps<'/lessons/[id]'>)
                 timeZone={tz}
                 currencySymbol={currencySymbol(teacher.currency)}
                 instrumentSuggestions={instruments}
-                locationSuggestions={locations}
+                locations={locations}
                 credits={credits}
               />
               <div className="form-actions">

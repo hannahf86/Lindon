@@ -14,6 +14,7 @@ import { ActionForm, SubmitButton } from '@/components/forms'
 import { Card, PageHeader, TextArea, TextField } from '@/components/ui'
 import { FeatureFields } from '@/components/feature-fields'
 import { TeachingHoursEditor } from '@/components/teaching-hours'
+import { TagInput } from '@/components/pickers'
 import { updateSettings } from './actions'
 
 export const metadata: Metadata = { title: 'Settings' }
@@ -78,6 +79,17 @@ export default async function SettingsPage() {
 
         {/* ---- How you charge + feature switches (same fields as onboarding) ---- */}
         <FeatureFields teacher={t} />
+
+        {/* ---- Locations (the Location dropdown when booking lessons) ---- */}
+        <Card title="Locations" id="locations">
+          <TagInput
+            name="locations"
+            label="Where you teach"
+            defaultValue={t.locations}
+            placeholder="e.g. Home studio — press Enter to add another"
+            hint="These are the choices in the Location dropdown when you book a lesson. Remove one with its ×; lessons already booked there keep it."
+          />
+        </Card>
 
         {/* ---- Region ---- */}
         <Card title="Money & time">

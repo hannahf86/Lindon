@@ -12,6 +12,7 @@ import { bool, date, handle, int, num, oneOf, parseTime, ref, required, str, For
 import { diffDays, todayISO } from '@/lib/dates'
 import { alignToWeekday, endAfterLessons, parseDateList } from '@/lib/lessons'
 import { syncSlotLessons, syncMessage } from '@/lib/bookings'
+import { rememberLocation } from '@/lib/locations'
 
 const DAYS = ['1', '2', '3', '4', '5', '6', '7'] as const
 const REPEATS = ['1', '2', '3', '4'] as const
@@ -75,6 +76,7 @@ export async function createSlot(_: ActionState, fd: FormData): Promise<ActionSt
   const result = await handle(async () => {
     const teacher = await requireTeacher()
     const row = readSlot(fd, teacher.timezone)
+    await rememberLocation(teacher, row.location)
     studentId = row.student_id
     const slot = must(await db().from('time_slots').insert({ ...row, teacher_id: teacher.id }).select('*').single())
     id = slot.id
@@ -94,6 +96,7 @@ export async function updateSlot(id: string, _: ActionState, fd: FormData): Prom
   const result = await handle(async () => {
     const teacher = await requireTeacher()
     const row = readSlot(fd, teacher.timezone)
+    await rememberLocation(teacher, row.location)
     const { data: before } = await db().from('time_slots').select('student_id').eq('id', id).eq('teacher_id', teacher.id).maybeSingle()
     const slot = must(await db().from('time_slots').update(row).eq('id', id).eq('teacher_id', teacher.id).select('*').single())
     touched = [before?.student_id ?? null, row.student_id]

@@ -2,18 +2,20 @@
 // schedule/slots/slot-form.tsx — the add / edit time slot form
 // Day is a row of pills; length is a dropdown; start time and price are typed
 // ("4:30pm" or "16:30" both work). The student is chosen from a Picker, or left as
-// "Unbooked / available".
+// "Unbooked / available". Location is a dropdown of the teacher's saved
+// locations, with "add a new location" (components/location-select.tsx).
 // =============================================================================
 import Link from 'next/link'
 import type { TimeSlot } from '@/lib/database.types'
 import type { ActionState } from '@/lib/forms'
 import { DAY_SHORT, hhmm } from '@/lib/format'
 import { fmtDate } from '@/lib/dates'
-import { lengthOptions, REPEAT_OPTIONS } from '@/lib/lessons'
+import { lengthOptions, repeatOptions } from '@/lib/lessons'
 import { ActionForm, SubmitButton } from '@/components/forms'
 import { Picker, type PickerOption } from '@/components/pickers'
 import { MoneyField, Segmented, SelectField, TextArea, TextField, Toggle } from '@/components/ui'
 import { SuggestField } from '@/components/pickers'
+import { LocationSelect } from '@/components/location-select'
 
 export function SlotForm(props: {
   action: (state: ActionState, fd: FormData) => Promise<ActionState>
@@ -23,10 +25,13 @@ export function SlotForm(props: {
   studentId?: string | null
   defaultInstrument?: string
   instrumentSuggestions: string[]
-  locationSuggestions: string[]
+  /** The teacher's saved locations */
+  locations: string[]
   currencySymbol: string
   /** Edit only: how many upcoming scheduled lessons were made from this slot */
   upcomingLessons?: number
+  /** Day pill to start on when adding (1 = Monday … 7 = Sunday) */
+  defaultDay?: number
   /** Suggested first lesson date for a new booking (next matching day) */
   defaultStartsOn?: string
   cancelHref?: string
@@ -37,12 +42,14 @@ export function SlotForm(props: {
   return (
     <ActionForm action={props.action}>
       {props.returnTo && <input type="hidden" name="return_to" value={props.returnTo} />}
+      {/* Older slots may have a label (the field was replaced by Location) — keep it */}
+      <input type="hidden" name="label" value={s?.label ?? ''} />
       {/* ---- When ---- */}
       <Segmented
         label="Day"
         name="day_of_week"
         options={DAY_SHORT.map((d, i) => ({ value: String(i + 1), label: d }))}
-        defaultValue={String(s?.day_of_week ?? 1)}
+        defaultValue={String(s?.day_of_week ?? props.defaultDay ?? 1)}
       />
       <div className="form-grid">
         <TextField
@@ -66,7 +73,7 @@ export function SlotForm(props: {
           defaultValue={s ? Number(s.price).toFixed(2) : ''}
           placeholder="0.00"
         />
-        <TextField label="Label" name="label" defaultValue={s?.label} placeholder="e.g. After school, Lunchtime" hint="Optional" />
+        <LocationSelect locations={props.locations} defaultValue={s?.location ?? ''} />
       </div>
 
       {/* ---- Who ---- */}
@@ -86,7 +93,7 @@ export function SlotForm(props: {
         </p>
         <div className="form-grid">
           <TextField label="First lesson" name="starts_on" type="date" defaultValue={s?.starts_on ?? props.defaultStartsOn ?? ''} hint="Leave blank for the next one." />
-          <Segmented label="How often" name="repeat_weeks" options={REPEAT_OPTIONS} defaultValue={String(s?.repeat_weeks ?? 1)} />
+          <Segmented label="How often" name="repeat_weeks" options={repeatOptions(s?.repeat_weeks)} defaultValue={String(s?.repeat_weeks ?? 1)} />
           <TextField label="Last lesson" name="ends_on" type="date" defaultValue={s?.ends_on ?? ''} hint="Optional — empty means no end date." />
           <TextField label="…or number of lessons" name="lesson_count" inputMode="numeric" placeholder="e.g. 6" hint="Fills in the last lesson date for you." />
           <TextField
@@ -108,13 +115,6 @@ export function SlotForm(props: {
           defaultValue={s?.instrument ?? props.defaultInstrument ?? ''}
           suggestions={props.instrumentSuggestions}
           placeholder="e.g. Piano"
-        />
-        <SuggestField
-          name="location"
-          label="Location"
-          defaultValue={s?.location ?? ''}
-          suggestions={props.locationSuggestions}
-          placeholder="e.g. Home studio, St Peter's School"
         />
         <TextArea label="Notes" name="notes" defaultValue={s?.notes} wrapClass="full" rows={3} style={{ minHeight: 70 }} hint="Only you can see these." />
       </div>

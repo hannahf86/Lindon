@@ -19,6 +19,7 @@ import type { ActionState } from '@/lib/forms'
 import { lengthOptions } from '@/lib/lessons'
 import { MoneyField, SelectField, TextField } from '@/components/ui'
 import { EventFields } from '@/components/event-fields'
+import { LocationSelect } from '@/components/location-select'
 import { addLessonFromCalendar } from '@/app/(app)/lessons/actions'
 import { createEvent } from '@/app/(app)/events/actions'
 
@@ -38,7 +39,7 @@ export function AddDayButton({ date, className, label, children }: { date: strin
 }
 
 // ---- Provider + pop-up -----------------------------------------------------------------
-export function DayAdder(props: { students: AdderStudent[]; currencySymbol: string; dayHref: string; children: ReactNode }) {
+export function DayAdder(props: { students: AdderStudent[]; locations: string[]; currencySymbol: string; dayHref: string; children: ReactNode }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const [date, setDate] = useState('')
   const [kind, setKind] = useState<'lesson' | 'event'>('lesson')
@@ -85,7 +86,7 @@ export function DayAdder(props: { students: AdderStudent[]; currencySymbol: stri
 
           {date &&
             (kind === 'lesson' ? (
-              <LessonForm key={`l-${round}`} date={date} students={props.students} currencySymbol={props.currencySymbol} onDone={close} />
+              <LessonForm key={`l-${round}`} date={date} students={props.students} locations={props.locations} currencySymbol={props.currencySymbol} onDone={close} />
             ) : (
               <EventForm key={`e-${round}`} date={date} onDone={close} />
             ))}
@@ -118,7 +119,7 @@ function FormErrorBox({ state }: { state: ActionState }) {
 }
 
 // ---- Lesson ----------------------------------------------------------------------------------
-function LessonForm(props: { date: string; students: AdderStudent[]; currencySymbol: string; onDone: () => void }) {
+function LessonForm(props: { date: string; students: AdderStudent[]; locations: string[]; currencySymbol: string; onDone: () => void }) {
   const router = useRouter()
   const [studentId, setStudentId] = useState('')
   const { state, pending, onSubmit } = useCalendarAction(addLessonFromCalendar, props.onDone)
@@ -162,7 +163,7 @@ function LessonForm(props: { date: string; students: AdderStudent[]; currencySym
         <SelectField label="Lesson length" name="duration_minutes" options={lengthOptions(s?.duration ?? undefined)} defaultValue={String(s?.duration ?? 30)} />
         <MoneyField label="Price" name="price" symbol={props.currencySymbol} defaultValue={s?.price != null ? s.price.toFixed(2) : ''} placeholder="0.00" />
         <TextField label="Instrument" name="instrument" defaultValue={s?.instrument ?? ''} placeholder="e.g. Piano" autoComplete="off" />
-        <TextField label="Location" name="location" defaultValue={s?.location ?? ''} placeholder="e.g. Home studio" autoComplete="off" wrapClass="full" />
+        <LocationSelect locations={props.locations} defaultValue={s?.location ?? ''} wrapClass="full" />
       </div>
 
       <div className="form-actions">

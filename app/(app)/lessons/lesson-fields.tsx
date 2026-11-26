@@ -9,6 +9,7 @@ import { utcToZonedParts } from '@/lib/dates'
 import { MoneyField, Segmented, SelectField, TextField, Toggle } from '@/components/ui'
 import { attendanceOptions, lengthOptions } from '@/lib/lessons'
 import { SuggestField } from '@/components/pickers'
+import { LocationSelect } from '@/components/location-select'
 
 export type LessonDefaults = { date?: string; time?: string; duration_minutes?: number; price?: number; instrument?: string; location?: string }
 
@@ -18,7 +19,8 @@ export function LessonFields(props: {
   defaults?: LessonDefaults
   currencySymbol: string
   instrumentSuggestions: string[]
-  locationSuggestions: string[]
+  /** The teacher's saved locations */
+  locations: string[]
   /** Teacher bills in advance, so cancellations earn make-up credits */
   credits?: boolean
 }) {
@@ -48,7 +50,7 @@ export function LessonFields(props: {
 
         {/* ---- What & where ---- */}
         <SuggestField name="instrument" label="Instrument" defaultValue={l?.instrument ?? d.instrument ?? ''} suggestions={props.instrumentSuggestions} placeholder="e.g. Piano" />
-        <SuggestField name="location" label="Location" defaultValue={l?.location ?? d.location ?? ''} suggestions={props.locationSuggestions} placeholder="e.g. Home studio" />
+        <LocationSelect locations={props.locations} defaultValue={l?.location ?? d.location ?? ''} />
       </div>
 
       {/* ---- Status (edit only) ---- */}

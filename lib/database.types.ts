@@ -67,6 +67,7 @@ export type Teacher = Timestamps & {
   reminder_message: string
   /** Optional parts of Lindon this teacher has switched on (lib/features.ts) */
   features: string[]
+  locations: string[] // saved lesson locations (Settings → Locations)
   /** advance = bill the month ahead, with make-up credits; arrears = bill last month's lessons */
   billing_mode: BillingMode
   /** Email the monthly invoices automatically (off = drafts to check first) */

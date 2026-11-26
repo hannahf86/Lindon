@@ -13,7 +13,8 @@ import { sendLessonReminder } from '@/lib/reminders'
 import { CREDIT_STATUSES, LESSON_STATUSES } from '@/lib/lessons'
 import { notifyCreditIssued } from '@/lib/credits'
 import { usesCredits } from '@/lib/features'
-import type { LessonStatus } from '@/lib/database.types'
+import { rememberLocation } from '@/lib/locations'
+import type { LessonStatus, Teacher } from '@/lib/database.types'
 
 /** Date / time / length / price / instrument / location (shared by create + update). */
 function readDetails(fd: FormData, timeZone: string) {
@@ -27,6 +28,13 @@ function readDetails(fd: FormData, timeZone: string) {
     instrument: str(fd, 'instrument'),
     location: str(fd, 'location'),
   }
+}
+
+/** readDetails + add a newly typed location to the teacher's saved list. */
+async function detailsRemembered(fd: FormData, teacher: Teacher) {
+  const details = readDetails(fd, teacher.timezone)
+  await rememberLocation(teacher, details.location)
+  return details
 }
 
 function revalidateLesson(id: string, studentId?: string | null) {
@@ -49,7 +57,7 @@ export async function createLesson(_: ActionState, fd: FormData): Promise<Action
     const row = must(
       await db()
         .from('lessons')
-        .insert({ ...readDetails(fd, teacher.timezone), student_id, teacher_id: teacher.id })
+        .insert({ ...(await detailsRemembered(fd, teacher)), student_id, teacher_id: teacher.id })
         .select('id')
         .single(),
     )
@@ -69,7 +77,7 @@ export async function addLessonFromCalendar(_: ActionState, fd: FormData): Promi
     const student_id = ref(fd, 'student_id')
     if (!student_id) throw new FormError('Choose a student.')
     studentId = student_id
-    const row = must(await db().from('lessons').insert({ ...readDetails(fd, teacher.timezone), student_id, teacher_id: teacher.id }).select('id').single())
+    const row = must(await db().from('lessons').insert({ ...(await detailsRemembered(fd, teacher)), student_id, teacher_id: teacher.id }).select('id').single())
     id = row.id
     return { ok: 'Lesson added.' }
   })
@@ -83,7 +91,7 @@ export async function updateLesson(id: string, _: ActionState, fd: FormData): Pr
     const teacher = await requireTeacher()
     const { data: before } = await db().from('lessons').select('starts_at, student_id, status').eq('id', id).eq('teacher_id', teacher.id).maybeSingle()
     if (!before) throw new FormError('That lesson no longer exists.')
-    const details = readDetails(fd, teacher.timezone)
+    const details = await detailsRemembered(fd, teacher)
     const moved = new Date(before.starts_at).toISOString() !== details.starts_at
     const status = oneOf(fd, 'status', LESSON_STATUSES, 'scheduled')
     must(

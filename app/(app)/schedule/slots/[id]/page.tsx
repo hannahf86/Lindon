@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation'
 import { db, requireTeacher } from '@/lib/db'
 import { dayName, hhmm } from '@/lib/format'
 import { currencySymbol } from '@/lib/lessons'
-import { distinctValues, instrumentSuggestions, studentOptions } from '@/lib/queries'
+import { instrumentSuggestions, studentOptions } from '@/lib/queries'
 import { ConfirmButton } from '@/components/forms'
 import { Card, PageHeader } from '@/components/ui'
 import { SlotForm } from '../slot-form'
@@ -30,7 +30,7 @@ export default async function EditSlotPage({ params, searchParams }: PageProps<'
     // Include left students so an old booking still shows as selected
     studentOptions(t, { includeLeft: true }),
     instrumentSuggestions(t),
-    distinctValues(t, 'time_slots', 'location'),
+    Promise.resolve(teacher.locations),
     db()
       .from('lessons')
       .select('id', { count: 'exact', head: true })
@@ -53,7 +53,7 @@ export default async function EditSlotPage({ params, searchParams }: PageProps<'
           slot={slot}
           students={students}
           instrumentSuggestions={instruments}
-          locationSuggestions={locations}
+          locations={locations}
           currencySymbol={currencySymbol(teacher.currency)}
           upcomingLessons={upcoming.count ?? 0}
           cancelHref={from ?? '/schedule/slots'}

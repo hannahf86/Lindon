@@ -6,6 +6,7 @@
 import { revalidatePath } from 'next/cache'
 import { db, must, requireTeacher } from '@/lib/db'
 import { handle, int, str, FormError, type ActionState } from '@/lib/forms'
+import { splitList } from '@/lib/format'
 import { readFeatureFields } from '@/lib/feature-form'
 
 /** Typed IANA timezone, e.g. "Europe/London" — checked against the runtime's list. */
@@ -42,6 +43,8 @@ export async function updateSettings(_: ActionState, fd: FormData): Promise<Acti
           email,
           phone: str(fd, 'phone'),
           address: str(fd, 'address'),
+          // Saved lesson locations (the Location dropdown)
+          locations: splitList(str(fd, 'locations')),
           // Region
           currency: readCurrency(fd),
           timezone: readTimezone(fd),

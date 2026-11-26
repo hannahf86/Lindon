@@ -1,7 +1,9 @@
 // =============================================================================
 // schedule/slots/page.tsx — Schedule → Free slots: every pupil's regular lesson (and any older unbooked slot), grouped by day,
 // with booked / available / paused status, overlap warnings, and the
-// "add a slot" form. /schedule/slots?student=<id> preselects that student.
+// "add a slot" form. /schedule/slots?student=<id> preselects that student;
+// ?free=1 (optionally &day=1–7) switches the form to "Add a free slot" (no
+// pupil), from the "+ Add a free slot" buttons.
 // Layout: the booking form on the left, the slots by day on the right
 // (Hannah's call). All table columns are left-aligned.
 // =============================================================================
@@ -12,7 +14,7 @@ import { diffDays, fmtDate, todayISO } from '@/lib/dates'
 import { ScheduleTabs } from '../tabs'
 import { dayName, duration, fullName, hhmm, money } from '@/lib/format'
 import { bookingSummary, currencySymbol, endTime, findOverlaps } from '@/lib/lessons'
-import { distinctValues, instrumentSuggestions, studentOptions } from '@/lib/queries'
+import { instrumentSuggestions, studentOptions } from '@/lib/queries'
 import { Badge, Card, EmptyState, PageHeader, Stat } from '@/components/ui'
 import { SlotForm } from './slot-form'
 import { createSlot } from './actions'
@@ -24,6 +26,8 @@ export default async function SlotsPage({ searchParams }: PageProps<'/schedule/s
   const sp = await searchParams
   const t = teacher.id
   const preselect = typeof sp.student === 'string' && /^[0-9a-f-]{36}$/i.test(sp.student) ? sp.student : null
+  const freeMode = sp.free === '1'
+  const freeDay = typeof sp.day === 'string' && /^[1-7]$/.test(sp.day) ? Number(sp.day) : undefined
   const savedId = typeof sp.saved === 'string' ? sp.saved : null
   const savedMsg = typeof sp.msg === 'string' ? sp.msg.slice(0, 400) : ''
   const today = todayISO(teacher.timezone)
@@ -38,7 +42,7 @@ export default async function SlotsPage({ searchParams }: PageProps<'/schedule/s
       .then(must),
     studentOptions(t),
     instrumentSuggestions(t),
-    distinctValues(t, 'time_slots', 'location'),
+    Promise.resolve(teacher.locations),
   ])
 
   // Preselected student (from their page's "Book a slot" link)
@@ -92,21 +96,43 @@ export default async function SlotsPage({ searchParams }: PageProps<'/schedule/s
 
       <div className="split split-form-first">
         {/* ---- Book a lesson (left, the main thing on this page) ---- */}
-        <Card title={preStudent ? `Book a lesson for ${fullName(preStudent)}` : 'Book a regular lesson'} id="add">
-          {preStudent && <p className="small muted">Pick the day and time — {preStudent.first_name} is already chosen below.</p>}
+        <Card
+          title={freeMode ? 'Add a free slot' : preStudent ? `Book a lesson for ${fullName(preStudent)}` : 'Book a regular lesson'}
+          id="add"
+          actions={
+            freeMode ? (
+              <Link href="/schedule/slots" className="btn btn-ghost btn-sm">
+                Book a pupil instead
+              </Link>
+            ) : null
+          }
+        >
+          {freeMode ? (
+            <p className="small muted">A time you’re free to teach. Leave Student as “Unbooked / available” — you can book a pupil into it later.</p>
+          ) : (
+            preStudent && <p className="small muted">Pick the day and time — {preStudent.first_name} is already chosen below.</p>
+          )}
           <SlotForm
+            // Remount when switching between "book a pupil" and "add a free slot"
+            key={`${freeMode ? 'free' : 'book'}-${freeDay ?? ''}-${preStudent?.id ?? ''}`}
             action={createSlot}
             students={students}
-            studentId={preStudent?.id ?? null}
-            defaultInstrument={preStudent?.instruments[0] ?? ''}
+            studentId={freeMode ? null : (preStudent?.id ?? null)}
+            defaultDay={freeDay}
+            defaultInstrument={freeMode ? '' : (preStudent?.instruments[0] ?? '')}
             instrumentSuggestions={instruments}
-            locationSuggestions={locations}
+            locations={locations}
             currencySymbol={currencySymbol(teacher.currency)}
           />
         </Card>
 
         {/* ---- Free slots & bookings, grouped by day (right) ---- */}
         <div className="stack">
+          <div>
+            <Link href="/schedule/slots?free=1#add" className="btn btn-secondary">
+              + Add a free slot
+            </Link>
+          </div>
           {slots.length === 0 ? (
             <Card>
               <EmptyState title="No bookings yet">Book a pupil’s regular lesson using the form.</EmptyState>
@@ -116,7 +142,15 @@ export default async function SlotsPage({ searchParams }: PageProps<'/schedule/s
               const daySlots = slots.filter((s) => s.day_of_week === day)
               if (daySlots.length === 0) return null
               return (
-                <Card key={day} title={dayName(day)}>
+                <Card
+                  key={day}
+                  title={dayName(day)}
+                  actions={
+                    <Link href={`/schedule/slots?free=1&day=${day}#add`} className="btn btn-ghost btn-sm">
+                      + Free slot
+                    </Link>
+                  }
+                >
                   <div className="table-wrap">
                     <table className="table">
                       <thead>
