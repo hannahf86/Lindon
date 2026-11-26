@@ -192,15 +192,15 @@ export function familyInviteEmail(opts: {
   const subject = `${opts.teacherName} has invited you to Lindon`
   return {
     subject,
-    text: `Hi ${opts.inviteeName},\n\n${opts.teacherName} uses Lindon to organise music lessons. You can now sign in to see ${who}'s upcoming lessons and invoices.\n\nSign in here with this email address (no password needed):\n${opts.url}\n`,
+    text: `Hi ${opts.inviteeName},\n\n${opts.teacherName} uses Lindon to organise music lessons. You can now see ${who}'s upcoming lessons and invoices.\n\nOpen this link to check your details and create a password:\n${opts.url}\n`,
     html: layout({
       studio: opts.studio,
       heading: "You're invited",
       bodyHtml:
         `<p style="margin:0 0 14px;line-height:1.55">Hi ${esc(opts.inviteeName)},</p>` +
-        `<p style="margin:0 0 14px;line-height:1.55">${esc(opts.teacherName)} uses <strong>Lindon</strong> to organise music lessons. You can now sign in to see ${esc(who)}&#39;s upcoming lessons and invoices.</p>` +
-        `<p style="margin:0 0 22px;line-height:1.55">Sign in with this email address. There&#39;s no password: we&#39;ll email you a link each time.</p>` +
-        button(opts.url, 'Open Lindon'),
+        `<p style="margin:0 0 14px;line-height:1.55">${esc(opts.teacherName)} uses <strong>Lindon</strong> to organise music lessons. You can now see ${esc(who)}&#39;s upcoming lessons and invoices.</p>` +
+        `<p style="margin:0 0 22px;line-height:1.55">Click below to check your details and the lesson times, then create a password. It takes a minute.</p>` +
+        button(opts.url, 'Get started'),
     }),
   }
 }

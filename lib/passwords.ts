@@ -58,6 +58,18 @@ async function userByEmail(email: string): Promise<AuthUser | null> {
   return (data as AuthUser | null) ?? null
 }
 
+/** The Auth.js user for this email, created if they've never signed in (family welcome page). */
+export async function ensureAuthUser(email: string, name: string): Promise<string> {
+  const existing = await userByEmail(email)
+  if (existing) return existing.id
+  const { data, error } = await authUsers()
+    .insert({ email: email.trim().toLowerCase(), name: name || null, emailVerified: new Date().toISOString() })
+    .select('id')
+    .single()
+  if (error) throw new Error(error.message)
+  return (data as { id: string }).id
+}
+
 // ---- Sign in with a password ---------------------------------------------------------------
 /** The user if the email + password are right; null otherwise (including while paused). */
 export async function verifyLogin(email: string, password: string): Promise<AuthUser | null> {

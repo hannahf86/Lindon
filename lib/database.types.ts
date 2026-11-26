@@ -354,6 +354,10 @@ export type FamilyAccess = {
   invited_at: string
   last_seen_at: string | null
   revoked_at: string | null
+  /** The welcome-page link (/join/<token>) in the invite email */
+  invite_token: string | null
+  /** When they finished the welcome page */
+  onboarded_at: string | null
   created_at: string
 }
 

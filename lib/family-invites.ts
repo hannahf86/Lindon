@@ -18,6 +18,7 @@ import { sendEmail, studioName } from './email'
 import { familyInviteEmail } from './email-templates'
 import { appUrl, type ConversationTarget } from './messages'
 import { FormError } from './forms'
+import { newInviteToken } from './family-join'
 import type { FamilyAccess, Teacher } from './database.types'
 
 export type FamilyTarget = ConversationTarget
@@ -96,7 +97,7 @@ async function loadInvitee(teacherId: string, target: FamilyTarget): Promise<Inv
 }
 
 /** Email the invitation (logged in email_log). Returns an error message if it didn't go. */
-async function sendInvite(teacher: Teacher, to: string, invitee: Invitee): Promise<string | undefined> {
+async function sendInvite(teacher: Teacher, to: string, invitee: Invitee, token: string): Promise<string | undefined> {
   const teacherName = teacher.display_name || studioName(teacher)
   const result = await sendEmail({
     teacher,
@@ -107,7 +108,7 @@ async function sendInvite(teacher: Teacher, to: string, invitee: Invitee): Promi
       teacherName,
       inviteeName: invitee.firstName,
       pupilNames: invitee.pupilNames,
-      url: appUrl('/login'),
+      url: appUrl(`/join/${token}`),
     }),
   })
   return result.sent > 0 ? undefined : (result.error ?? 'The email could not be sent.')
@@ -125,6 +126,7 @@ export async function inviteFamily(teacher: Teacher, target: FamilyTarget): Prom
   const status = accessStatus(await accessRows(teacher.id, target))
   if (status.live) throw new FormError(`${invitee.name} is already invited. Use “Resend invite” to send the email again.`)
 
+  const token = newInviteToken()
   const { error } = await db()
     .from('family_access')
     .insert({
@@ -132,13 +134,14 @@ export async function inviteFamily(teacher: Teacher, target: FamilyTarget): Prom
       email: invitee.email,
       guardian_id: 'guardianId' in target ? target.guardianId : null,
       student_id: 'studentId' in target ? target.studentId : null,
+      invite_token: token,
     })
   if (error) {
     if (/duplicate key/.test(error.message)) throw new FormError(`${invitee.name} is already invited.`)
     throw new Error(error.message)
   }
 
-  const err = await sendInvite(teacher, invitee.email, invitee)
+  const err = await sendInvite(teacher, invitee.email, invitee, token)
   if (err) throw new FormError(notSentNote(invitee.email, err))
   return `Invitation sent to ${invitee.email}.`
 }
@@ -150,8 +153,10 @@ export async function resendFamilyInvite(teacher: Teacher, target: FamilyTarget)
   const { live } = accessStatus(await accessRows(teacher.id, target))
   if (!live) throw new FormError(`${invitee.name} doesn’t have an invitation to resend.`)
 
-  await db().from('family_access').update({ invited_at: new Date().toISOString() }).eq('id', live.id).eq('teacher_id', teacher.id)
-  const err = await sendInvite(teacher, live.email, invitee)
+  // Older invitations may not have a welcome-page link yet
+  const token = live.invite_token ?? newInviteToken()
+  await db().from('family_access').update({ invited_at: new Date().toISOString(), invite_token: token }).eq('id', live.id).eq('teacher_id', teacher.id)
+  const err = await sendInvite(teacher, live.email, invitee, token)
   if (err) throw new FormError(notSentNote(live.email, err))
   return `Invitation sent again to ${live.email}.`
 }
