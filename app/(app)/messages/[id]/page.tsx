@@ -67,7 +67,8 @@ export default async function ConversationPage({ params }: PageProps<'/messages/
   const first = name.split(' ')[0]
 
   return (
-    <>
+    // Narrower column (about 940px) so conversations are easier to read
+    <div className="thread-page">
       {/* ---- Header ---- */}
       <PageHeader
         title={deleted ? `${name} (deleted)` : name}
@@ -171,6 +172,6 @@ export default async function ConversationPage({ params }: PageProps<'/messages/
           </p>
         )}
       </Card>
-    </>
+    </div>
   )
 }

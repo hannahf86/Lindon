@@ -596,3 +596,6 @@ button.month-cell:focus-visible { outline: 3px solid var(--teal); outline-offset
 .join-head p { margin: 0; color: var(--muted); }
 .join form { display: grid; gap: 20px; }
 .join-pupil + .join-pupil { padding-top: 14px; border-top: 1px solid var(--line-soft); }
+
+/* Message thread: a readable column width */
+.thread-page { max-width: 940px; }
