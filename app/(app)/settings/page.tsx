@@ -2,7 +2,7 @@
 // settings/page.tsx — Settings, in four tabs (?tab=…):
 //
 //   Studio info     your name, studio, contact details · locations ·
-//                   teaching hours (its own add/remove forms, so it sits below
+//                   calendar link (Google / Apple / Outlook) · teaching hours (its own add/remove forms, so it sits below
 //                   the tab's Save button)
 //   Invoicing       how you charge · invoice numbering, terms, how to pay ·
 //                   footer note · money & time · invoice branding colours
@@ -20,12 +20,14 @@ import { requireTeacher } from '@/lib/db'
 import { db } from '@/lib/admin'
 import { isAdmin } from '@/lib/access'
 import { has } from '@/lib/features'
-import { ActionForm, SubmitButton } from '@/components/forms'
+import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
 import { Card, PageHeader, TextArea, TextField, Toggle } from '@/components/ui'
 import { ChargingFields, FeatureToggles } from '@/components/feature-fields'
 import { TeachingHoursEditor } from '@/components/teaching-hours'
 import { TagInput } from '@/components/pickers'
-import { updateSettings } from './actions'
+import { CopyField } from '@/components/copy-field'
+import { calendarFeedUrl } from '@/lib/calendar-feed'
+import { makeCalendarLink, removeCalendarLink, updateSettings } from './actions'
 
 export const metadata: Metadata = { title: 'Settings' }
 
@@ -134,6 +136,45 @@ function StudioTab({ teacher: t }: { teacher: T }) {
           />
         </Card>
       </TabForm>
+
+      {/* ---- Calendar link: subscribe from Google / Apple / Outlook ---- */}
+      <section id="calendar" style={{ marginTop: 32 }}>
+        <Card title="Add your lessons to Google Calendar">
+          {t.calendar_token ? (
+            <div className="form">
+              <CopyField label="Your private calendar link" value={calendarFeedUrl(t.calendar_token)} />
+              <ol className="small" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
+                <li>Copy the link above.</li>
+                <li>
+                  On a computer, open <strong>Google Calendar</strong>. Next to “Other calendars” on the left, click <strong>+</strong> → <strong>From URL</strong>.
+                </li>
+                <li>Paste the link and click <strong>Add calendar</strong>. Your lessons and events appear within a few minutes, and on your phone too.</li>
+              </ol>
+              <p className="small muted" style={{ margin: 0 }}>
+                It’s one-way: change lessons here in Lindon. Google checks for changes every few hours, so new bookings can take a while to show. Works with Apple and Outlook calendars as well (“Subscribe to calendar”).
+              </p>
+              <div className="alert alert-info small">Keep this link to yourself — anyone who has it can see your lesson times and pupils’ names. If it gets shared, make a new one.</div>
+              <div className="row">
+                <ConfirmButton action={makeCalendarLink} confirm="Make a new link? The current one stops working straight away, so you'll need to add the new one to your calendar." className="btn btn-secondary btn-sm">
+                  Make a new link
+                </ConfirmButton>
+                <ConfirmButton action={removeCalendarLink} confirm="Switch the calendar link off? Your lessons will disappear from any calendar using it." className="btn btn-danger btn-sm">
+                  Switch off
+                </ConfirmButton>
+              </div>
+            </div>
+          ) : (
+            <div className="form">
+              <p style={{ margin: 0 }}>Get a private link that puts your lessons and events into Google Calendar (or Apple / Outlook), on your computer and phone.</p>
+              <div>
+                <ConfirmButton action={makeCalendarLink} confirm="Make your private calendar link?" className="btn">
+                  Get my calendar link
+                </ConfirmButton>
+              </div>
+            </div>
+          )}
+        </Card>
+      </section>
 
       {/* ---- Schedule: teaching hours (saves as you go) ---- */}
       <section id="teaching-hours" style={{ marginTop: 32 }}>

@@ -76,6 +76,8 @@ export type Teacher = Timestamps & {
   exam_reminder_days: number
   /** Email the teacher when a family sends a message */
   message_alerts: boolean
+  /** Private calendar feed key (/api/calendar/<token>); null = no link yet */
+  calendar_token: string | null
   /** advance = bill the month ahead, with make-up credits; arrears = bill last month's lessons */
   billing_mode: BillingMode
   /** Email the monthly invoices automatically (off = drafts to check first) */

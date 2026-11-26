@@ -569,3 +569,21 @@ button.month-cell:focus-visible { outline: 3px solid var(--teal); outline-offset
 
 /* Date pickers: only as wide as a date needs (not full width) */
 .input[type="date"] { width: 100%; max-width: 220px; }
+
+/* Invoice page: simple line list + accordions */
+.inv-lines { list-style: none; margin: 0; padding: 0; }
+.inv-line { padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+.inv-line-main { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; }
+.inv-line-desc { min-width: 0; }
+.inv-line-tools { margin-top: 4px; }
+.inv-line-edit { margin-top: 4px; }
+.inv-line-edit > summary { list-style: none; display: inline; }
+.inv-line-edit > summary::-webkit-details-marker { display: none; }
+.inv-line-edit[open] > form { margin: 10px 0 6px; }
+.inv-total { border-bottom: 0; font-weight: 900; font-size: 1.15rem; }
+.accordion { margin-top: 14px; border: 2px solid var(--line); border-radius: 14px; }
+.accordion > summary { cursor: pointer; padding: 12px 16px; font-weight: 800; color: var(--teal-ink); list-style: none; }
+.accordion > summary::-webkit-details-marker { display: none; }
+.accordion > summary::after { content: '▾'; float: right; transition: transform 0.15s; }
+.accordion[open] > summary::after { transform: rotate(180deg); }
+.accordion-body { padding: 0 16px 16px; display: grid; gap: 16px; }

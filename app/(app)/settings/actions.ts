@@ -11,6 +11,7 @@ import { splitList } from '@/lib/format'
 import { readChargingFields } from '@/lib/feature-form'
 import { FEATURE_KEYS } from '@/lib/features'
 import type { Teacher } from '@/lib/database.types'
+import { newCalendarToken } from '@/lib/calendar-feed'
 
 /** Typed IANA timezone, e.g. "Europe/London" — checked against the runtime's list. */
 function readTimezone(fd: FormData): string {
@@ -87,5 +88,27 @@ export async function updateSettings(_: ActionState, fd: FormData): Promise<Acti
     // Studio name and the sidebar's extras show on every page
     revalidatePath('/', 'layout')
     return { ok: 'Settings saved.' }
+  })
+}
+
+// ---- Calendar subscription link (Settings → Studio info → Calendar) ---------------------------
+/** Make the private calendar link, or replace it (the old link stops working). */
+export async function makeCalendarLink(): Promise<ActionState> {
+  return handle(async () => {
+    const teacher = await requireTeacher()
+    const replacing = !!teacher.calendar_token
+    must(await db().from('teachers').update({ calendar_token: newCalendarToken() }).eq('id', teacher.id).select('id').single())
+    revalidatePath('/settings')
+    return { ok: replacing ? 'New link made — the old one has stopped working. Add the new one to your calendar.' : 'Your calendar link is ready.' }
+  })
+}
+
+/** Switch the link off altogether. */
+export async function removeCalendarLink(): Promise<ActionState> {
+  return handle(async () => {
+    const teacher = await requireTeacher()
+    must(await db().from('teachers').update({ calendar_token: null }).eq('id', teacher.id).select('id').single())
+    revalidatePath('/settings')
+    return { ok: 'Calendar link switched off.' }
   })
 }

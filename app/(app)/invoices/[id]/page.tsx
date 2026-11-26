@@ -1,13 +1,15 @@
 // =============================================================================
-// invoices/[id]/page.tsx — one invoice: status actions (email, sent, paid,
-// void, reopen), bill-to & dates, line items, payment details and delete.
+// invoices/[id]/page.tsx — one invoice, kept simple (Hannah's call):
+// left: the lines (lessons just listed; "+ Add an item" accordion);
+// right: status & sending, who it's for and the dates (edit behind an
+// accordion), payment details, emails sent, delete.
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db, must, requireTeacher } from '@/lib/db'
 import { fullName, money } from '@/lib/format'
-import { fmtDate, fmtTz, monthBounds, todayISO } from '@/lib/dates'
+import { fmtDate, fmtTz, todayISO } from '@/lib/dates'
 import { displayStatus, isEditable } from '@/lib/invoices'
 import { productOptions } from '@/lib/products'
 import { availableCredits } from '@/lib/credits'
@@ -73,6 +75,11 @@ export default async function InvoicePage({ params, searchParams }: PageProps<'/
         }
         actions={
           <Link className="btn btn-secondary" href={`/invoices/${id}/print`}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M6 9V2h12v7" />
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+              <rect x="6" y="14" width="12" height="8" />
+            </svg>
             Print / PDF
           </Link>
         }
@@ -108,47 +115,11 @@ export default async function InvoicePage({ params, searchParams }: PageProps<'/
             total={Number(inv.total)}
             currency={c}
             editable={editable}
-            hasStudent={!!inv.student_id}
-            lessonPeriod={monthBounds(inv.issue_date)}
             products={editable && has(teacher, 'equipment') ? await productOptions(teacher) : undefined}
             examFees={editable && inv.student_id && has(teacher, 'exams') ? await pendingExamFees(teacher.id, inv.student_id) : undefined}
             hire={editable && inv.student_id && has(teacher, 'library') ? await pendingHire(teacher, inv.student_id, inv.issue_date) : undefined}
           />
 
-          {/* ---- Bill-to, dates and notes ---- */}
-          <Card title="Invoice details">
-            {editable ? (
-              <ActionForm action={updateInvoice.bind(null, id)}>
-                <div className="form-grid">
-                  <TextField label="Bill to" name="bill_to_name" defaultValue={inv.bill_to_name} required />
-                  <TextField label="Email" name="bill_to_email" type="email" defaultValue={inv.bill_to_email} hint="Where the invoice is emailed." />
-                  <TextArea label="Address" name="bill_to_address" defaultValue={inv.bill_to_address} wrapClass="full" style={{ minHeight: 80 }} />
-                  <TextField label="Issue date" name="issue_date" type="date" defaultValue={inv.issue_date} required />
-                  <TextField label="Due date" name="due_date" type="date" defaultValue={inv.due_date ?? ''} />
-                  <TextArea label="Note on the invoice" name="notes" defaultValue={inv.notes} wrapClass="full" hint="Optional — e.g. “Thank you! Autumn term fees.”" />
-                </div>
-                <div className="form-actions">
-                  <SubmitButton>Save details</SubmitButton>
-                </div>
-              </ActionForm>
-            ) : (
-              <>
-                <ul className="list">
-                  <li>
-                    <strong>{inv.bill_to_name || 'No name'}</strong>
-                    {inv.bill_to_email && <div className="small">{inv.bill_to_email}</div>}
-                    {inv.bill_to_address && <div className="small" style={{ whiteSpace: 'pre-line' }}>{inv.bill_to_address}</div>}
-                  </li>
-                  <li>
-                    Issued {fmtDate(inv.issue_date)}
-                    {inv.due_date && ` · due ${fmtDate(inv.due_date)}`}
-                  </li>
-                  {inv.notes && <li style={{ whiteSpace: 'pre-line' }}>{inv.notes}</li>}
-                </ul>
-                <p className="small muted">This invoice is {inv.status}. Reopen it as a draft if you need to change anything.</p>
-              </>
-            )}
-          </Card>
         </div>
 
         <div className="stack">
@@ -174,7 +145,7 @@ export default async function InvoicePage({ params, searchParams }: PageProps<'/
                     confirm={
                       inv.bill_to_email
                         ? `Email invoice ${inv.number} to ${inv.bill_to_email}?`
-                        : 'There’s no email address on this invoice yet — add one under “Invoice details” first.'
+                        : 'There’s no email address on this invoice yet — add one under “Edit these details” first.'
                     }
                     className="btn"
                   >
@@ -231,6 +202,44 @@ export default async function InvoicePage({ params, searchParams }: PageProps<'/
                 )}
               </div>
             </div>
+          </Card>
+
+          {/* ---- Who it's for and the dates (edit behind an accordion) ---- */}
+          <Card title="Invoice for">
+            <ul className="list">
+              <li>
+                <strong>{inv.bill_to_name || 'No name'}</strong>
+                {inv.bill_to_email ? <div className="small">{inv.bill_to_email}</div> : <div className="small" style={{ color: 'var(--coral-ink)' }}>No email address yet</div>}
+                {inv.bill_to_address && <div className="small" style={{ whiteSpace: 'pre-line' }}>{inv.bill_to_address}</div>}
+              </li>
+              <li className="small">
+                Issued {fmtDate(inv.issue_date)}
+                {inv.due_date && ` · due ${fmtDate(inv.due_date)}`}
+              </li>
+              {inv.notes && <li className="small" style={{ whiteSpace: 'pre-line' }}>{inv.notes}</li>}
+            </ul>
+            {editable ? (
+              <details className="accordion" open={!inv.bill_to_email}>
+                <summary>Edit these details</summary>
+                <div className="accordion-body">
+                  <ActionForm action={updateInvoice.bind(null, id)}>
+                    <TextField label="Bill to" name="bill_to_name" defaultValue={inv.bill_to_name} required />
+                    <TextField label="Email" name="bill_to_email" type="email" defaultValue={inv.bill_to_email} hint="Where the invoice is emailed." />
+                    <TextArea label="Address" name="bill_to_address" defaultValue={inv.bill_to_address} style={{ minHeight: 70 }} />
+                    <div className="form-grid">
+                      <TextField label="Issue date" name="issue_date" type="date" defaultValue={inv.issue_date} required />
+                      <TextField label="Due date" name="due_date" type="date" defaultValue={inv.due_date ?? ''} />
+                    </div>
+                    <TextArea label="Note on the invoice" name="notes" defaultValue={inv.notes} hint="Optional — e.g. “Thank you! Autumn term fees.”" />
+                    <SubmitButton>Save details</SubmitButton>
+                  </ActionForm>
+                </div>
+              </details>
+            ) : (
+              <p className="small muted" style={{ marginBottom: 0 }}>
+                This invoice is {inv.status}. Reopen it as a draft if you need to change anything.
+              </p>
+            )}
           </Card>
 
           {/* ---- What the invoice says about paying ---- */}

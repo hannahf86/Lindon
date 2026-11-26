@@ -8,7 +8,8 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 
-const PUBLIC_PATHS = ['/login', '/signup', '/api/auth', '/api/cron']
+// /api/calendar: calendar apps can't sign in; the long random token in the URL is the key
+const PUBLIC_PATHS = ['/login', '/signup', '/api/auth', '/api/cron', '/api/calendar']
 
 export default auth((req) => {
   const { pathname } = req.nextUrl

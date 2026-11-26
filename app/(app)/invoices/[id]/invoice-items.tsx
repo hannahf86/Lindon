@@ -1,24 +1,33 @@
 // =============================================================================
-// invoices/[id]/invoice-items.tsx — the invoice's lines
+// invoices/[id]/invoice-items.tsx — the invoice's lines (simplified, Hannah's
+// call)
 //
-// Editable invoices (draft / sent): each line is its own small form (description,
-// quantity, price, kind) with Save and Remove, plus add-ons waiting for this
-// pupil (exam fees, instrument hire), an "Add item" form and an "Add uninvoiced
-// lessons" form underneath.
-// Locked invoices (paid / void): a plain read-only table.
+// · Lessons are just listed (date, description, amount) — never edited here;
+//   lessons are managed through the schedule.
+// · Other lines (items, exam fees, hire) can be changed or removed behind a
+//   small "Edit" accordion while the invoice is editable. Make-up credits can
+//   be taken off.
+// · "+ Add an item" is an accordion, closed until needed; inside it, the
+//   teacher's saved items (Invoice items feature) and a one-off item form.
+// · Exam fees / hire waiting for this pupil appear underneath when there are any.
+// Paid and void invoices show the same list with no editing.
 // =============================================================================
 import type { InvoiceItem } from '@/lib/database.types'
 import type { PendingExamFee, PendingHire } from '@/lib/addons'
 import { money } from '@/lib/format'
-import { KIND_OPTIONS } from '@/lib/invoices'
 import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
 import { Badge, Card, MoneyField, Segmented, TextField } from '@/components/ui'
-import { addExamFeeToInvoice, addHireToInvoice, addItem, addUninvoicedLessons, deleteItem, updateItem } from '../actions'
+import { addExamFeeToInvoice, addHireToInvoice, addItem, deleteItem, updateItem } from '../actions'
 import { addProductToInvoice } from '@/app/(app)/equipment/actions'
 import { Picker, type PickerOption } from '@/components/pickers'
 
+const KIND_LABEL: Record<string, string> = { lesson: 'Lesson', equipment: 'Item', exam: 'Exam', hire: 'Hire', other: 'Other', credit: 'Make-up credit' }
 const KIND_TONES = { lesson: 'sky', equipment: 'butter', exam: 'sky', hire: 'butter', other: 'purple', credit: 'teal' } as const
-const kindLabel = (k: string) => (k === 'credit' ? 'Make-up credit' : KIND_OPTIONS.find((o) => o.value === k)?.label)
+/** What a new one-off line can be (lessons come from the schedule). */
+const ADD_KINDS = [
+  { value: 'equipment', label: 'Item' },
+  { value: 'other', label: 'Other' },
+]
 
 /** Currency symbol for the money inputs (e.g. "£" for GBP). */
 function symbolFor(currency: string): string {
@@ -35,9 +44,7 @@ export function InvoiceItems(props: {
   total: number
   currency: string
   editable: boolean
-  hasStudent: boolean
-  lessonPeriod: [string, string]
-  /** Equipment the teacher sells — shown as a quick "add from your list" form */
+  /** Saved items the teacher sells (Invoice items feature) */
   products?: PickerOption[]
   /** Exam fees and hire for this pupil that aren't on an invoice yet */
   examFees?: PendingExamFee[]
@@ -50,108 +57,116 @@ export function InvoiceItems(props: {
     <>
       {/* ---- Lines ---- */}
       <Card title="Items">
-        {items.length === 0 && <p className="muted">No items yet. Add lessons or equipment below.</p>}
-
-        {/* Read-only table for paid / void invoices */}
-        {!props.editable && items.length > 0 && (
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Description</th>
-                  <th>Type</th>
-                  <th className="right">Qty</th>
-                  <th className="right">Price</th>
-                  <th className="right">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((it) => (
-                  <tr key={it.id}>
-                    <td>{it.description}</td>
-                    <td>
-                      <Badge tone={KIND_TONES[it.kind]}>{kindLabel(it.kind)}</Badge>
-                    </td>
-                    <td className="right">{Number(it.quantity)}</td>
-                    <td className="right nowrap">{money(it.unit_price, c)}</td>
-                    <td className="right nowrap">{money(it.amount, c)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td colSpan={4}>Total</td>
-                  <td className="right nowrap">{money(props.total, c)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-
-        {/* Inline edit forms for draft / sent invoices */}
-        {props.editable && items.length > 0 && (
-          <ul className="list">
-            {items.map((it) =>
-              it.kind === 'credit' ? (
-                /* Make-up credit lines aren't edited — remove one and the credit goes back to the pupil's balance */
-                <li key={it.id} className="spread">
-                  <span>
-                    <Badge tone="teal">Make-up credit</Badge> {it.description} · <strong>{money(it.amount, c)}</strong>
+        {items.length === 0 ? (
+          <p className="muted">Nothing on this invoice yet.</p>
+        ) : (
+          <ul className="inv-lines">
+            {items.map((it) => (
+              <li key={it.id} className="inv-line">
+                <div className="inv-line-main">
+                  <span className="inv-line-desc">
+                    {it.kind !== 'lesson' && (
+                      <>
+                        <Badge tone={KIND_TONES[it.kind]}>{KIND_LABEL[it.kind]}</Badge>{' '}
+                      </>
+                    )}
+                    {it.description}
+                    {Number(it.quantity) !== 1 && (
+                      <span className="small muted">
+                        {' '}
+                        · {Number(it.quantity)} × {money(it.unit_price, c)}
+                      </span>
+                    )}
                   </span>
-                  <ConfirmButton
-                    action={deleteItem.bind(null, invoiceId, it.id)}
-                    confirm="Take this credit off the invoice? It goes back to the pupil's credit balance for a later invoice."
-                    className="btn btn-ghost btn-sm"
-                  >
-                    Remove
-                  </ConfirmButton>
-                </li>
-              ) : (
-              <li key={it.id}>
-                <ActionForm action={updateItem.bind(null, invoiceId, it.id)}>
-                  <TextField label="Description" name="description" id={`desc-${it.id}`} defaultValue={it.description} required />
-                  <div className="row" style={{ alignItems: 'flex-end' }}>
-                    <div style={{ width: 90 }}>
-                      <TextField label="Qty" name="quantity" id={`qty-${it.id}`} defaultValue={String(Number(it.quantity))} inputMode="decimal" />
-                    </div>
-                    <div style={{ width: 130 }}>
-                      <MoneyField label="Price each" name="unit_price" id={`price-${it.id}`} symbol={symbol} defaultValue={Number(it.unit_price).toFixed(2)} />
-                    </div>
-                    <Segmented label="Type" name="kind" options={KIND_OPTIONS} defaultValue={it.kind} />
-                  </div>
-                  <div className="spread">
-                    <span>
-                      <span className="muted small">Amount </span>
-                      <strong>{money(it.amount, c)}</strong>
-                      {it.lesson_id && <span className="small muted"> · linked to a lesson</span>}
-                    </span>
-                    <SubmitButton className="btn btn-secondary btn-sm">Save</SubmitButton>
-                  </div>
-                </ActionForm>
-                {/* Kept outside the edit form — forms can't be nested */}
-                <div style={{ marginTop: 6, textAlign: 'right' }}>
-                  <ConfirmButton
-                    action={deleteItem.bind(null, invoiceId, it.id)}
-                    confirm={`Remove “${it.description}” from this invoice?${it.lesson_id ? ' The lesson can be added to an invoice again later.' : ''}`}
-                    className="btn btn-ghost btn-sm"
-                  >
-                    Remove
-                  </ConfirmButton>
+                  <strong className="nowrap">{money(it.amount, c)}</strong>
                 </div>
+
+                {/* ---- Editing: never for lessons; credits can only be taken off ---- */}
+                {props.editable && it.kind === 'credit' && (
+                  <div className="inv-line-tools">
+                    <ConfirmButton
+                      action={deleteItem.bind(null, invoiceId, it.id)}
+                      confirm="Take this credit off the invoice? It goes back to the pupil's credit balance for a later invoice."
+                      className="link-btn"
+                    >
+                      Remove
+                    </ConfirmButton>
+                  </div>
+                )}
+                {props.editable && it.kind !== 'lesson' && it.kind !== 'credit' && (
+                  <details className="inv-line-edit">
+                    <summary className="link-btn">Edit</summary>
+                    <ActionForm action={updateItem.bind(null, invoiceId, it.id)}>
+                      {/* The type stays as it is */}
+                      <input type="hidden" name="kind" value={it.kind} />
+                      <TextField label="Description" name="description" id={`desc-${it.id}`} defaultValue={it.description} required />
+                      <div className="row" style={{ alignItems: 'flex-end' }}>
+                        <div style={{ width: 90 }}>
+                          <TextField label="Qty" name="quantity" id={`qty-${it.id}`} defaultValue={String(Number(it.quantity))} inputMode="decimal" />
+                        </div>
+                        <div style={{ width: 140 }}>
+                          <MoneyField label="Price each" name="unit_price" id={`price-${it.id}`} symbol={symbol} defaultValue={Number(it.unit_price).toFixed(2)} />
+                        </div>
+                        <SubmitButton className="btn btn-secondary btn-sm">Save</SubmitButton>
+                      </div>
+                    </ActionForm>
+                    {/* Kept outside the edit form — forms can't be nested */}
+                    <ConfirmButton action={deleteItem.bind(null, invoiceId, it.id)} confirm={`Remove “${it.description}” from this invoice?`} className="link-btn">
+                      Remove from invoice
+                    </ConfirmButton>
+                  </details>
+                )}
               </li>
-              ),
-            )}
-            <li className="spread" style={{ fontWeight: 900, fontSize: '1.15rem' }}>
-              <span>Total</span>
-              <span>{money(props.total, c)}</span>
+            ))}
+            <li className="inv-line inv-total">
+              <div className="inv-line-main">
+                <span>Total</span>
+                <span>{money(props.total, c)}</span>
+              </div>
             </li>
           </ul>
+        )}
+
+        {/* ---- + Add an item (accordion) ---- */}
+        {props.editable && (
+          <details className="accordion">
+            <summary>+ Add an item</summary>
+            <div className="accordion-body">
+              {props.products && props.products.length > 0 && (
+                <ActionForm action={addProductToInvoice.bind(null, invoiceId)} resetOnSuccess>
+                  <Picker name="product_id" label="From your saved items" options={props.products} />
+                  <div className="row" style={{ alignItems: 'flex-end' }}>
+                    <div style={{ width: 120 }}>
+                      <TextField label="How many" name="quantity" id="product-quantity" defaultValue="1" inputMode="numeric" />
+                    </div>
+                    <SubmitButton className="btn btn-secondary" pendingText="Adding…">
+                      Add to invoice
+                    </SubmitButton>
+                  </div>
+                </ActionForm>
+              )}
+              <ActionForm action={addItem.bind(null, invoiceId)} resetOnSuccess>
+                {props.products && props.products.length > 0 && <h4 style={{ margin: '8px 0 0' }}>…or something else</h4>}
+                <Segmented label="Type" name="kind" options={ADD_KINDS} defaultValue="equipment" hint="Item covers strings, books, reeds, rosin and the like." />
+                <TextField label="Description" name="description" id="new-description" placeholder="e.g. Set of violin strings" required />
+                <div className="row" style={{ alignItems: 'flex-end' }}>
+                  <div style={{ width: 120 }}>
+                    <TextField label="Quantity" name="quantity" id="new-quantity" defaultValue="1" inputMode="decimal" />
+                  </div>
+                  <div style={{ width: 150 }}>
+                    <MoneyField label="Price each" name="unit_price" id="new-unit_price" symbol={symbol} placeholder="0.00" required />
+                  </div>
+                  <SubmitButton pendingText="Adding…">Add item</SubmitButton>
+                </div>
+              </ActionForm>
+            </div>
+          </details>
         )}
       </Card>
 
       {/* ---- Add-ons waiting for this pupil: exam fees and instrument hire ---- */}
       {props.editable && !!(props.examFees?.length || props.hire?.length) && (
-        <Card title="Add-ons to bill">
+        <Card title="Waiting to be billed">
           <ul className="list">
             {props.examFees?.map((f) => (
               <li key={f.examId} className="spread">
@@ -179,61 +194,6 @@ export function InvoiceItems(props: {
             ))}
           </ul>
         </Card>
-      )}
-
-      {props.editable && (
-        <div className="grid grid-2">
-          {/* ---- Add an item (equipment / other) ---- */}
-          <Card title="Add an item">
-            <ActionForm action={addItem.bind(null, invoiceId)} resetOnSuccess>
-              <Segmented
-                label="Type"
-                name="kind"
-                options={KIND_OPTIONS}
-                defaultValue="equipment"
-                hint="Equipment covers strings, books, reeds, rosin and the like."
-              />
-              <TextField label="Description" name="description" id="new-description" placeholder="e.g. Set of violin strings (Dominant 4/4)" required />
-              <div className="form-grid">
-                <TextField label="Quantity" name="quantity" id="new-quantity" defaultValue="1" inputMode="decimal" />
-                <MoneyField label="Price each" name="unit_price" id="new-unit_price" symbol={symbol} placeholder="0.00" required />
-              </div>
-              <SubmitButton pendingText="Adding…">Add item</SubmitButton>
-            </ActionForm>
-          </Card>
-
-          {/* ---- Add from the equipment you sell (stock updates automatically) ---- */}
-          {props.products && props.products.length > 0 && (
-            <Card title="Add from your items">
-              <ActionForm action={addProductToInvoice.bind(null, invoiceId)} resetOnSuccess>
-                <Picker name="product_id" label="Item" options={props.products} />
-                <TextField label="How many" name="quantity" id="product-quantity" defaultValue="1" inputMode="numeric" />
-                <SubmitButton pendingText="Adding…">Add to invoice</SubmitButton>
-              </ActionForm>
-            </Card>
-          )}
-
-          {/* ---- Pull in any lessons not yet billed ---- */}
-          <Card title="Add uninvoiced lessons">
-            {props.hasStudent ? (
-              <ActionForm action={addUninvoicedLessons.bind(null, invoiceId)}>
-                <p className="small muted" style={{ margin: 0 }}>
-                  Adds this student’s chargeable lessons in these dates that aren’t on another invoice yet — handy if you booked extra lessons after
-                  making the invoice.
-                </p>
-                <div className="form-grid">
-                  <TextField label="From" name="from" id="lessons-from" type="date" defaultValue={props.lessonPeriod[0]} />
-                  <TextField label="To" name="to" id="lessons-to" type="date" defaultValue={props.lessonPeriod[1]} />
-                </div>
-                <SubmitButton className="btn btn-secondary" pendingText="Checking…">
-                  Add uninvoiced lessons
-                </SubmitButton>
-              </ActionForm>
-            ) : (
-              <p className="muted">This invoice isn’t linked to a student, so there are no lessons to pull in.</p>
-            )}
-          </Card>
-        </div>
       )}
     </>
   )

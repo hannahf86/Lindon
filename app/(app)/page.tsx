@@ -194,10 +194,10 @@ export default async function DashboardPage({ searchParams }: PageProps<'/'>) {
             options={monthOptions(today).map((o) => ({ value: `${o.value}-01`, label: o.label }))}
             keep={{ view: 'month' }}
           />
-          {/* Google Calendar push comes later */}
-          <button type="button" className="btn btn-secondary btn-sm" disabled title="Coming soon">
-            Connect to calendar <Badge>Coming soon</Badge>
-          </button>
+          {/* Opens the private calendar link in Settings (Google / Apple / Outlook) */}
+          <Link href="/settings?tab=studio#calendar" className="btn btn-secondary btn-sm">
+            Connect to calendar
+          </Link>
         </div>
         {/* ‹ previous · this day / week / month · next › */}
         <CalendarNav basePath="/" period={period} />
