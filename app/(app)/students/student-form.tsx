@@ -1,6 +1,9 @@
 // =============================================================================
 // students/student-form.tsx — the add / edit student form
 // Instruments and level are free text (typed by the teacher, no dropdowns).
+// Adding a child: their parent or guardian is filled in on the same form
+// (the card disappears when "Adult" is picked). Editing: parents are managed
+// on the student's page.
 // =============================================================================
 import Link from 'next/link'
 import type { Student } from '@/lib/database.types'
@@ -59,10 +62,21 @@ export function StudentForm(props: {
         </div>
       </Card>
 
-      {/* ---- Children: point to parents instead ---- */}
-      <div className="alert alert-info child-only">
-        Children are contacted through their parents or guardians — you can add them on the next page after saving.
-      </div>
+      {/* ---- Children: their parent or guardian (hidden by CSS while "Adult" is selected) ---- */}
+      {s ? (
+        <div className="alert alert-info child-only">Children are contacted through their parents or guardians — add or edit them on the student’s page.</div>
+      ) : (
+        <Card title="Parent or guardian" className="child-only">
+          <p className="muted small">Reminders and invoices for children go to them. You can add a second parent later on the student’s page.</p>
+          <div className="form-grid">
+            <TextField label="First name" name="parent_first_name" autoComplete="off" />
+            <TextField label="Last name" name="parent_last_name" autoComplete="off" />
+            <TextField label="Email" name="parent_email" type="email" autoComplete="off" hint="If this parent is already on file (a brother or sister), they’re linked rather than added twice." />
+            <TextField label="Phone" name="parent_phone" type="tel" autoComplete="off" />
+            <TextField label="Relationship" name="parent_relationship" placeholder="e.g. Mum, Dad, Grandparent" autoComplete="off" wrapClass="full" hint="Optional" />
+          </div>
+        </Card>
+      )}
 
       {/* ---- Preferences & notes ---- */}
       <Card title="Notes & preferences">

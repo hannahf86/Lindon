@@ -34,13 +34,51 @@ function readStudent(fd: FormData) {
   }
 }
 
-// ---- Create ------------------------------------------------------------------------
+/**
+ * The new-student form's parent fields (children only). Checked BEFORE the
+ * student is saved, so a mistake here doesn't leave a child with no parent.
+ */
+function readParent(fd: FormData) {
+  const first_name = str(fd, 'parent_first_name')
+  const email = str(fd, 'parent_email').toLowerCase()
+  const phone = str(fd, 'parent_phone')
+  if (!first_name) throw new FormError('Add a parent or guardian’s first name — reminders and invoices for children go to them.')
+  if (!email && !phone) throw new FormError('Add the parent’s email or phone number so you can reach them.')
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new FormError(`"${email}" doesn’t look like an email address.`)
+  return { first_name, last_name: str(fd, 'parent_last_name'), email, phone, relationship: str(fd, 'parent_relationship') }
+}
+
+// ---- Create (children: their parent too, on the same form) -----------------------------
 export async function createStudent(_: ActionState, fd: FormData): Promise<ActionState> {
   let id = ''
   const result = await handle(async () => {
     const teacher = await requireTeacher()
-    const row = must(await db().from('students').insert({ ...readStudent(fd), teacher_id: teacher.id }).select('id').single())
+    const student = readStudent(fd)
+    const parent = student.is_minor ? readParent(fd) : null
+    const row = must(await db().from('students').insert({ ...student, teacher_id: teacher.id }).select('id').single())
     id = row.id
+
+    if (parent) {
+      // Siblings: a parent already on file with the same email is reused, not duplicated
+      const { data: existing } = parent.email
+        ? await db().from('guardians').select('id').eq('teacher_id', teacher.id).ilike('email', parent.email.replace(/[%_\\]/g, '\\$&')).limit(1).maybeSingle()
+        : { data: null }
+      const guardianId =
+        existing?.id ??
+        must(
+          await db()
+            .from('guardians')
+            .insert({ teacher_id: teacher.id, first_name: parent.first_name, last_name: parent.last_name, email: parent.email, phone: parent.phone })
+            .select('id')
+            .single(),
+        ).id
+      must(
+        await db()
+          .from('student_guardians')
+          .insert({ teacher_id: teacher.id, student_id: id, guardian_id: guardianId, relationship: parent.relationship, is_primary: true, receives_emails: true })
+          .select('student_id'),
+      )
+    }
   })
   if (result?.error) return result
   revalidatePath('/students')
