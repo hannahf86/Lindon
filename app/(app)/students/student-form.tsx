@@ -1,9 +1,9 @@
 // =============================================================================
 // students/student-form.tsx — the add / edit student form
 // Instruments and level are free text (typed by the teacher, no dropdowns).
-// Adding a child: their parent or guardian is filled in on the same form
-// (the card disappears when "Adult" is picked). Editing: parents are managed
-// on the student's page.
+// Children: their parents or guardians are on the same form, both when adding
+// and editing (the card disappears when "Adult" is picked). Editing shows each
+// linked parent's details plus an optional "add another parent".
 // =============================================================================
 import Link from 'next/link'
 import type { Student } from '@/lib/database.types'
@@ -17,8 +17,11 @@ export function StudentForm(props: {
   student?: Student
   instrumentSuggestions: string[]
   cancelHref: string
+  /** Parents already linked (editing a child) */
+  parents?: ParentRow[]
 }) {
   const s = props.student
+  const parents = props.parents ?? []
   return (
     <ActionForm action={props.action}>
       {/* ---- About the student ---- */}
@@ -62,21 +65,25 @@ export function StudentForm(props: {
         </div>
       </Card>
 
-      {/* ---- Children: their parent or guardian (hidden by CSS while "Adult" is selected) ---- */}
-      {s ? (
-        <div className="alert alert-info child-only">Children are contacted through their parents or guardians — add or edit them on the student’s page.</div>
-      ) : (
-        <Card title="Parent or guardian" className="child-only">
-          <p className="muted small">Reminders and invoices for children go to them. You can add a second parent later on the student’s page.</p>
-          <div className="form-grid">
-            <TextField label="First name" name="parent_first_name" autoComplete="off" />
-            <TextField label="Last name" name="parent_last_name" autoComplete="off" />
-            <TextField label="Email" name="parent_email" type="email" autoComplete="off" hint="If this parent is already on file (a brother or sister), they’re linked rather than added twice." />
-            <TextField label="Phone" name="parent_phone" type="tel" autoComplete="off" />
-            <TextField label="Relationship" name="parent_relationship" placeholder="e.g. Mum, Dad, Grandparent" autoComplete="off" wrapClass="full" hint="Optional" />
-          </div>
-        </Card>
-      )}
+      {/* ---- Children: parents or guardians (hidden by CSS while "Adult" is selected) ---- */}
+      <Card title={parents.length > 1 ? 'Parents or guardians' : 'Parent or guardian'} className="child-only">
+        <p className="muted small">
+          Reminders and invoices for children go to them.
+          {parents.length > 0 && ' Changes to a parent apply to all their children. To unlink one, use the parent’s pop-up on the student’s page.'}
+        </p>
+        {parents.map((g, i) => (
+          <fieldset key={g.guardian_id} className="parent-set">
+            <legend className="field-label">{i === 0 ? 'Main contact' : `Parent ${i + 1}`}</legend>
+            <input type="hidden" name={`parent_${i}_id`} value={g.guardian_id} />
+            <ParentFields i={i} g={g} />
+          </fieldset>
+        ))}
+        {/* A blank set: required when adding a child, optional "add another" when editing */}
+        <fieldset className="parent-set">
+          {parents.length > 0 && <legend className="field-label">Add another parent (optional)</legend>}
+          <ParentFields i={parents.length} />
+        </fieldset>
+      </Card>
 
       {/* ---- Preferences & notes ---- */}
       <Card title="Notes & preferences">
@@ -93,5 +100,29 @@ export function StudentForm(props: {
         </Link>
       </div>
     </ActionForm>
+  )
+}
+
+// ---- One parent's fields (numbered so several can sit in one form) ----------------------
+export type ParentRow = { guardian_id: string; first_name: string; last_name: string; email: string; phone: string; relationship: string }
+
+function ParentFields({ i, g }: { i: number; g?: ParentRow }) {
+  const n = (f: string) => `parent_${i}_${f}`
+  return (
+    <div className="form-grid">
+      <TextField label="First name" name={n('first_name')} id={n('first_name')} defaultValue={g?.first_name} autoComplete="off" />
+      <TextField label="Last name" name={n('last_name')} id={n('last_name')} defaultValue={g?.last_name} autoComplete="off" />
+      <TextField
+        label="Email"
+        name={n('email')}
+        id={n('email')}
+        type="email"
+        defaultValue={g?.email}
+        autoComplete="off"
+        hint={g ? undefined : 'If this parent is already on file (a brother or sister), they’re linked rather than added twice.'}
+      />
+      <TextField label="Phone" name={n('phone')} id={n('phone')} type="tel" defaultValue={g?.phone} autoComplete="off" />
+      <TextField label="Relationship" name={n('relationship')} id={n('relationship')} defaultValue={g?.relationship} placeholder="e.g. Mum, Dad, Grandparent" autoComplete="off" wrapClass="full" hint="Optional" />
+    </div>
   )
 }

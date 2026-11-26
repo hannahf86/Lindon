@@ -508,3 +508,12 @@ button.month-cell:focus-visible { outline: 3px solid var(--teal); outline-offset
 /* Dashboard quick-action buttons: Figma size 313 x 64 */
 .dash-actions { gap: 16px; }
 .dash-actions .btn { min-height: 64px; font-size: 1.15rem; border-radius: 10px; }
+
+/* Parent sets on the student form */
+.parent-set { border: 0; padding: 0; margin: 0 0 18px; min-width: 0; }
+.parent-set + .parent-set { padding-top: 16px; border-top: 1px solid var(--line-soft); }
+.parent-set > .field-label { margin-bottom: 8px; }
+
+/* Schedule → Free slots: booking form on the left, slots list on the right */
+.split.split-form-first { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+@media (max-width: 1000px) { .split.split-form-first { grid-template-columns: 1fr; } }

@@ -2,7 +2,8 @@
 // schedule/slots/page.tsx — Schedule → Free slots: every pupil's regular lesson (and any older unbooked slot), grouped by day,
 // with booked / available / paused status, overlap warnings, and the
 // "add a slot" form. /schedule/slots?student=<id> preselects that student.
-// All table columns are left-aligned (Hannah's call).
+// Layout: the booking form on the left, the slots by day on the right
+// (Hannah's call). All table columns are left-aligned.
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -89,8 +90,22 @@ export default async function SlotsPage({ searchParams }: PageProps<'/schedule/s
         <Stat label="Weekly value" value={money(weeklyIncome, teacher.currency)} note="if every booked slot runs" tone="purple" />
       </div>
 
-      <div className="split">
-        {/* ---- Timetable, grouped by day ---- */}
+      <div className="split split-form-first">
+        {/* ---- Book a lesson (left, the main thing on this page) ---- */}
+        <Card title={preStudent ? `Book a lesson for ${fullName(preStudent)}` : 'Book a regular lesson'} id="add">
+          {preStudent && <p className="small muted">Pick the day and time — {preStudent.first_name} is already chosen below.</p>}
+          <SlotForm
+            action={createSlot}
+            students={students}
+            studentId={preStudent?.id ?? null}
+            defaultInstrument={preStudent?.instruments[0] ?? ''}
+            instrumentSuggestions={instruments}
+            locationSuggestions={locations}
+            currencySymbol={currencySymbol(teacher.currency)}
+          />
+        </Card>
+
+        {/* ---- Free slots & bookings, grouped by day (right) ---- */}
         <div className="stack">
           {slots.length === 0 ? (
             <Card>
@@ -189,19 +204,6 @@ export default async function SlotsPage({ searchParams }: PageProps<'/schedule/s
           )}
         </div>
 
-        {/* ---- Add a slot ---- */}
-        <Card title={preStudent ? `Book a lesson for ${fullName(preStudent)}` : 'Book a regular lesson'} id="add">
-          {preStudent && <p className="small muted">Pick the day and time — {preStudent.first_name} is already chosen below.</p>}
-          <SlotForm
-            action={createSlot}
-            students={students}
-            studentId={preStudent?.id ?? null}
-            defaultInstrument={preStudent?.instruments[0] ?? ''}
-            instrumentSuggestions={instruments}
-            locationSuggestions={locations}
-            currencySymbol={currencySymbol(teacher.currency)}
-          />
-        </Card>
       </div>
     </>
   )
