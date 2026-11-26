@@ -18,7 +18,9 @@ const ERRORS: Record<string, string> = {
   CredentialsSignin:
     "That email and password don't match. Check them and try again — or use “Email me a sign-in link” below, then set a new password. (After 10 wrong tries, password sign-in pauses for 15 minutes.)",
   Verification: 'That sign-in link has expired or was already used. Request a new one below.',
-  EmailSignin: "We couldn't send the sign-in email. Please try again.",
+  EmailSignin: "We couldn't send the sign-in email. Please try again in a minute — if it keeps happening, let us know.",
+  // Auth.js reports a failed email send (e.g. the mail service refusing it) as a configuration error
+  Configuration: "We couldn't send the sign-in email just now. Please try again in a minute — if it keeps happening, let us know.",
 }
 
 export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
