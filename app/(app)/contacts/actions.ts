@@ -5,6 +5,7 @@
 // (students/[id]); adding a new one lives in students/actions.ts. Every query is scoped to the
 // signed-in teacher; composite foreign keys stop cross-teacher links.
 // =============================================================================
+import { refreshBillTo, studentsOfGuardian } from '@/lib/invoice-contacts'
 import { revalidatePath } from 'next/cache'
 import { db, must, requireTeacher } from '@/lib/db'
 import { all, bool, handle, required, str, FormError, type ActionState } from '@/lib/forms'
@@ -57,7 +58,10 @@ export async function updateGuardian(id: string, _: ActionState, fd: FormData): 
   return handle(async () => {
     const teacher = await requireTeacher()
     must(await db().from('guardians').update(readGuardian(fd)).eq('id', id).eq('teacher_id', teacher.id).select('id').single())
+    // Unpaid invoices follow the new name / email / address
+    await refreshBillTo(teacher.id, await studentsOfGuardian(teacher.id, id))
     revalidatePath('/students', 'layout')
+    revalidatePath('/invoices', 'layout')
     return { ok: 'Contact saved.' }
   })
 }

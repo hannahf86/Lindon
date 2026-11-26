@@ -15,6 +15,7 @@ import { fmtDate, todayISO } from '@/lib/dates'
 import { displayStatus } from '@/lib/invoices'
 import { StatusBadge } from '@/components/ui'
 import { PrintButton } from './print-button'
+import { PaidButton } from '../paid-button'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -25,7 +26,7 @@ async function findInvoice(ctx: FamilyContext, id: string) {
     if (link.studentIds.length === 0) continue
     const { data } = await db()
       .from('invoices')
-      .select('id, number, student_id, bill_to_name, bill_to_email, bill_to_address, issue_date, due_date, status, paid_on, payment_method, notes, total')
+      .select('id, number, student_id, bill_to_name, bill_to_email, bill_to_address, issue_date, due_date, status, paid_on, payment_method, notes, total, family_paid_at')
       .eq('id', id)
       .eq('teacher_id', link.teacher.id)
       .in('student_id', link.studentIds)
@@ -85,8 +86,17 @@ export default async function FamilyInvoicePage({ params }: PageProps<'/family/i
         <Link className="back" href="/family/invoices">
           ← All invoices
         </Link>
-        <span className="row">
+        <span className="row" style={{ gap: 10 }}>
           <StatusBadge status={status} />
+          {/* "I've paid" — tells the teacher, who confirms */}
+          <PaidButton
+            invoiceId={inv.id}
+            number={inv.number}
+            amount={money(inv.total, c)}
+            status={inv.status}
+            familyPaidAt={inv.family_paid_at}
+            teacherName={t.display_name || t.business_name || 'your teacher'}
+          />
           <PrintButton />
         </span>
       </div>

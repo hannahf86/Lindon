@@ -609,3 +609,11 @@ button.month-cell:focus-visible { outline: 3px solid var(--teal); outline-offset
 .unread-bell { display: inline-flex; align-items: center; gap: 3px; background: var(--coral); color: var(--ink); border: 2px solid #fff; border-radius: 999px; padding: 1px 8px 1px 6px; font-size: 0.75rem; font-weight: 900; line-height: 1.4; box-shadow: 0 1px 4px rgb(35 48 58 / 0.25); animation: bell-pop 0.4s ease-out; }
 @keyframes bell-pop { 0% { transform: scale(0.6); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .unread-bell { animation: none; } }
+
+/* Invoices list: roomier rows and bigger quick-action buttons */
+.inv-table td { padding-top: 18px; padding-bottom: 18px; vertical-align: middle; }
+.inv-actions { gap: 8px; }
+.inv-actions-row { gap: 10px; }
+.inv-actions .btn-sm { padding: 10px 20px; font-size: 0.92rem; }
+.inv-actions .input-sm { padding: 9px 12px; font-size: 0.9rem; min-width: 140px; }
+.inv-actions .small { max-width: 320px; text-align: right; }

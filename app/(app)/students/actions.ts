@@ -9,6 +9,7 @@ import { db, must, requireTeacher } from '@/lib/db'
 import { bool, date, handle, num, oneOf, ref, required, str, FormError, type ActionState } from '@/lib/forms'
 import { ageFrom, splitList } from '@/lib/format'
 import { bookRegularLesson, readRegularLesson } from '@/lib/regular-lesson'
+import { refreshBillTo } from '@/lib/invoice-contacts'
 
 const STATUSES = ['active', 'paused', 'left'] as const
 
@@ -129,9 +130,12 @@ export async function updateStudent(id: string, _: ActionState, fd: FormData): P
       const { count } = await db().from('student_guardians').select('guardian_id', { count: 'exact', head: true }).eq('teacher_id', teacher.id).eq('student_id', id).eq('is_primary', true)
       await saveParents(teacher.id, id, parents, (count ?? 0) > 0)
     }
+    // Unpaid invoices follow any change to the pupil's or parents' details
+    await refreshBillTo(teacher.id, [id])
   })
   if (result?.error) return result
   revalidatePath('/students')
+  revalidatePath('/invoices', 'layout')
   revalidatePath(`/students/${id}`)
   revalidatePath('/schedule', 'layout')
   redirect(`/students/${id}`)

@@ -129,6 +129,12 @@ export default async function InvoicePage({ params, searchParams }: PageProps<'/
               <div>
                 <StatusBadge status={status} />
                 {inv.sent_at && <div className="small muted" style={{ marginTop: 6 }}>Sent {fmtTz(inv.sent_at, tz, 'd MMM yyyy, HH:mm')}</div>}
+                {inv.status === 'sent' && inv.family_paid_at && (
+                  <div className="alert alert-info small" style={{ marginTop: 10, marginBottom: 0 }}>
+                    <strong>The family says they paid</strong> on {fmtTz(inv.family_paid_at, tz, 'd MMM')}
+                    {inv.family_paid_note && <>: “{inv.family_paid_note}”</>}. Check it’s arrived, then mark it paid.
+                  </div>
+                )}
                 {inv.status === 'paid' && (
                   <div className="small" style={{ marginTop: 6 }}>
                     Paid {inv.paid_on ? fmtDate(inv.paid_on) : ''}

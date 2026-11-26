@@ -33,6 +33,7 @@ export async function sendOverdueInvoiceReminders(now = new Date()): Promise<Inv
         .eq('teacher_id', teacher.id)
         .eq('status', 'sent')
         .is('auto_reminder_sent_at', null)
+        .is('family_paid_at', null) // the family says it's paid — teacher to confirm
         .not('due_date', 'is', null)
         .lte('due_date', cutoff),
     )

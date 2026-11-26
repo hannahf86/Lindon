@@ -188,6 +188,9 @@ export type Invoice = Timestamps & {
   total: number
   /** When the automatic overdue reminder went out (auto-invoicing on) */
   auto_reminder_sent_at: string | null
+  /** The family said "I've paid" (teacher still confirms) */
+  family_paid_at: string | null
+  family_paid_note: string
 }
 
 export type InvoiceItem = {

@@ -11,6 +11,7 @@ import { requireFamily, type FamilyLink } from '@/lib/family'
 import { money } from '@/lib/format'
 import { fmtDate, todayISO } from '@/lib/dates'
 import { displayStatus } from '@/lib/invoices'
+import { PaidButton } from './paid-button'
 import { Card, EmptyState, PageHeader, StatusBadge } from '@/components/ui'
 import { pupilNames, studioLine } from '../_lib/family-data'
 
@@ -21,7 +22,7 @@ async function invoicesFor(link: FamilyLink) {
   return must(
     await db()
       .from('invoices')
-      .select('id, number, student_id, issue_date, due_date, total, status')
+      .select('id, number, student_id, issue_date, due_date, total, status, family_paid_at')
       .eq('teacher_id', link.teacher.id)
       .in('student_id', link.studentIds)
       .in('status', ['sent', 'paid'])
@@ -61,6 +62,9 @@ export default async function FamilyInvoicesPage() {
                         <th>Due</th>
                         <th className="right">Total</th>
                         <th>Status</th>
+                        <th>
+                          <span className="sr-only">Pay</span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -77,6 +81,18 @@ export default async function FamilyInvoicesPage() {
                           <td className="right nowrap">{money(inv.total, link.teacher.currency)}</td>
                           <td>
                             <StatusBadge status={displayStatus(inv, today)} />
+                          </td>
+                          {/* ---- I've paid ---- */}
+                          <td style={{ maxWidth: 260 }}>
+                            <PaidButton
+                              invoiceId={inv.id}
+                              number={inv.number}
+                              amount={money(inv.total, link.teacher.currency)}
+                              status={inv.status}
+                              familyPaidAt={inv.family_paid_at}
+                              teacherName={link.teacher.display_name || link.teacher.business_name || 'your teacher'}
+                              size="sm"
+                            />
                           </td>
                         </tr>
                       ))}

@@ -14,7 +14,7 @@ import { fullName, money } from '@/lib/format'
 import { fmtDate, monthBounds, monthOptions, todayISO } from '@/lib/dates'
 import { billingMonth, displayStatus } from '@/lib/invoices'
 import { has } from '@/lib/features'
-import { Card, EmptyState, PageHeader, Stat, StatusBadge, TextField } from '@/components/ui'
+import { Badge, Card, EmptyState, PageHeader, Stat, StatusBadge, TextField } from '@/components/ui'
 import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
 import { ModalButton } from '@/components/modal'
 import { InvoiceRowActions } from './invoice-row-actions'
@@ -37,7 +37,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<'/invoice
     // Invoices issued in the chosen month
     db()
       .from('invoices')
-      .select('id, number, bill_to_name, bill_to_email, issue_date, due_date, status, total, paid_on, students(first_name, last_name)')
+      .select('id, number, bill_to_name, bill_to_email, issue_date, due_date, status, total, paid_on, family_paid_at, family_paid_note, students(first_name, last_name)')
       .eq('teacher_id', teacher.id)
       .gte('issue_date', from)
       .lte('issue_date', to)
@@ -146,7 +146,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<'/invoice
           </EmptyState>
         ) : (
           <div className="table-wrap">
-            <table className="table">
+            <table className="table inv-table">
               <thead>
                 <tr>
                   <th>Student name</th>
@@ -174,6 +174,12 @@ export default async function InvoicesPage({ searchParams }: PageProps<'/invoice
                         <StatusBadge status={status} />
                         {inv.status === 'paid' && inv.paid_on && <div className="small muted">{fmtDate(inv.paid_on, 'd MMM')}</div>}
                         {inv.status === 'sent' && inv.due_date && <div className="small muted">Due {fmtDate(inv.due_date, 'd MMM')}</div>}
+                        {inv.status === 'sent' && inv.family_paid_at && (
+                          <div style={{ marginTop: 4 }} title={inv.family_paid_note || undefined}>
+                            <Badge tone="butter">Family says paid {fmtDate(inv.family_paid_at.slice(0, 10), 'd MMM')}</Badge>
+                            {inv.family_paid_note && <div className="small muted">“{inv.family_paid_note}”</div>}
+                          </div>
+                        )}
                       </td>
                       {/* ---- Quick actions: main button + "More…" dropdown ---- */}
                       <td className="right">
