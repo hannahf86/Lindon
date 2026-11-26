@@ -1,7 +1,8 @@
 // =============================================================================
 // app/(app)/page.tsx — the dashboard (Hannah's wireframe)
 //
-// Tip of the day at the very top (switchable in Settings). Then: Income this
+// Tip of the day and a funny teaching quote at the very top (each switchable
+// in Settings; families never see the quote). Then: Income this
 // month · Free time · quick actions (Add a new student, Edit schedule). Then
 // a compact calendar with the month dropdown and "Connect to calendar"
 // (Google Calendar is coming later) on the left, Day · Week · Month pills on
@@ -18,6 +19,7 @@ import { requireTeacher } from '@/lib/db'
 import { loadDashboard } from '@/lib/dashboard'
 import { has } from '@/lib/features'
 import { TipOfTheDay } from '@/components/tip-of-the-day'
+import { QuoteOfTheDay } from '@/components/quote-of-the-day'
 import { MonthPicker } from '@/components/month-picker'
 import { fmtDate, fmtTz, monthOptions, todayISO } from '@/lib/dates'
 import { dayName, fullName, hhmm, money } from '@/lib/format'
@@ -102,8 +104,13 @@ export default async function DashboardPage({ searchParams }: PageProps<'/'>) {
 
   return (
     <>
-      {/* ---- Tip of the day (same for everyone, changes daily; switch in Settings) ---- */}
-      {has(teacher, 'daily_tip') && <TipOfTheDay date={today} />}
+      {/* ---- Tip + funny quote of the day (same for everyone, change daily; switches in Settings) ---- */}
+      {(has(teacher, 'daily_tip') || has(teacher, 'daily_quote')) && (
+        <div className="dash-daily">
+          {has(teacher, 'daily_tip') && <TipOfTheDay date={today} />}
+          {has(teacher, 'daily_quote') && <QuoteOfTheDay date={today} />}
+        </div>
+      )}
 
       {/* ---- Top row: income, free slots, quick actions ---- */}
       <div className="dash-top">

@@ -46,6 +46,11 @@ export const FEATURES = [
     label: 'Tip of the day',
     description: 'A short practice tip at the top of your dashboard, different each day.',
   },
+  {
+    key: 'daily_quote',
+    label: 'Funny quote of the day',
+    description: 'A light-hearted quote about teaching music at the top of your dashboard. Families never see it.',
+  },
 ] as const
 
 export type FeatureKey = (typeof FEATURES)[number]['key']
