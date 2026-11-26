@@ -6,6 +6,7 @@
 import type { CalendarEvent } from '@/lib/database.types'
 import { EVENT_KINDS } from '@/lib/events'
 import { Segmented, TextArea, TextField } from '@/components/ui'
+import { TimeField } from '@/components/time-field'
 
 export function EventFields({ event, date, hideDate }: { event?: CalendarEvent; date?: string; hideDate?: boolean }) {
   return (
@@ -18,8 +19,8 @@ export function EventFields({ event, date, hideDate }: { event?: CalendarEvent; 
         ) : (
           <TextField label="Date" name="event_date" type="date" defaultValue={event?.event_date ?? date ?? ''} required wrapClass="full" />
         )}
-        <TextField label="Starts" name="starts" defaultValue={event?.starts?.slice(0, 5) ?? ''} placeholder="e.g. 18:00" autoComplete="off" hint="Leave both times empty for all day." />
-        <TextField label="Ends" name="ends" defaultValue={event?.ends?.slice(0, 5) ?? ''} placeholder="e.g. 20:00" autoComplete="off" />
+        <TimeField label="Starts" name="starts" defaultValue={event?.starts} emptyLabel="All day" hint="Leave on “All day” for no times." />
+        <TimeField label="Ends" name="ends" defaultValue={event?.ends} emptyLabel="No end time" />
         <TextField label="Location" name="location" defaultValue={event?.location ?? ''} placeholder="e.g. St Olave’s Church" wrapClass="full" />
       </div>
       <TextArea label="Notes" name="notes" defaultValue={event?.notes ?? ''} rows={3} style={{ minHeight: 70 }} placeholder="Anything to remember — what to bring, who’s playing…" />

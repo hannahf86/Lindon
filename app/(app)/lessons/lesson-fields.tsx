@@ -1,12 +1,13 @@
 // =============================================================================
 // lessons/lesson-fields.tsx — the lesson detail fields shared by the
-// "one-off lesson" form and the lesson page's edit form: date, typed start
-// time, length (dropdown), price, instrument and location. Status and
+// "one-off lesson" form and the lesson page's edit form: date, start time
+// (15-minute steps), length (dropdown), price, instrument and location. Status and
 // "chargeable" are only shown when editing an existing lesson.
 // =============================================================================
 import type { Lesson } from '@/lib/database.types'
 import { utcToZonedParts } from '@/lib/dates'
 import { MoneyField, Segmented, SelectField, TextField, Toggle } from '@/components/ui'
+import { TimeField } from '@/components/time-field'
 import { attendanceOptions, lengthOptions } from '@/lib/lessons'
 import { SuggestField } from '@/components/pickers'
 import { LocationSelect } from '@/components/location-select'
@@ -33,7 +34,7 @@ export function LessonFields(props: {
       {/* ---- When ---- */}
       <div className="form-grid">
         <TextField label="Date" name="date" type="date" defaultValue={local?.date ?? d.date ?? ''} required />
-        <TextField label="Start time" name="time" defaultValue={local?.time ?? d.time ?? ''} placeholder="e.g. 16:30 or 4:30pm" required autoComplete="off" />
+        <TimeField label="Start time" name="time" defaultValue={local?.time ?? d.time ?? ''} required />
         <SelectField
           label="Lesson length"
           name="duration_minutes"

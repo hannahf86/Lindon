@@ -4,7 +4,9 @@
 // PageHeader · Card · Field · TextField · TextArea · SelectField · MoneyField ·
 // Segmented · SlidePill · Toggle · Badge · StatusBadge · EmptyState · Stat
 //
-// House rule: no dropdown menus, with ONE exception: lesson length (SelectField).
+// House rule: no dropdown menus, except where Hannah has asked for one: lesson
+// length, start times in 15-minute steps (components/time-field), months and
+// locations (SelectField underneath).
 // Other fixed choices use <Segmented> (radio pills); everything else
 // (instruments, times, boards, grades) is typed by the teacher.
 // =============================================================================

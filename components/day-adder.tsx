@@ -18,6 +18,7 @@ import { useRouter } from 'next/navigation'
 import type { ActionState } from '@/lib/forms'
 import { lengthOptions } from '@/lib/lessons'
 import { MoneyField, SelectField, TextField } from '@/components/ui'
+import { TimeField } from '@/components/time-field'
 import { EventFields } from '@/components/event-fields'
 import { LocationSelect } from '@/components/location-select'
 import { addLessonFromCalendar } from '@/app/(app)/lessons/actions'
@@ -159,7 +160,7 @@ function LessonForm(props: { date: string; students: AdderStudent[]; locations: 
 
       {/* ---- Lesson details: re-filled whenever the student changes ---- */}
       <div className="form-grid" key={studentId}>
-        <TextField label="Start time" name="time" defaultValue={s?.time ?? ''} placeholder="e.g. 16:30 or 4:30pm" required autoComplete="off" />
+        <TimeField label="Start time" name="time" defaultValue={s?.time ?? ''} required />
         <SelectField label="Lesson length" name="duration_minutes" options={lengthOptions(s?.duration ?? undefined)} defaultValue={String(s?.duration ?? 30)} />
         <MoneyField label="Price" name="price" symbol={props.currencySymbol} defaultValue={s?.price != null ? s.price.toFixed(2) : ''} placeholder="0.00" />
         <TextField label="Instrument" name="instrument" defaultValue={s?.instrument ?? ''} placeholder="e.g. Piano" autoComplete="off" />

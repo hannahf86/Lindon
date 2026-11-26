@@ -17,7 +17,9 @@ import { bookingSummary, currencySymbol, endTime, findOverlaps } from '@/lib/les
 import { instrumentSuggestions, studentOptions } from '@/lib/queries'
 import { Badge, Card, EmptyState, PageHeader, Stat } from '@/components/ui'
 import { SlotForm } from './slot-form'
-import { createSlot } from './actions'
+import { createSlot, deleteSlot } from './actions'
+import { ConfirmButton } from '@/components/forms'
+import { RowMenu } from '@/components/row-menu'
 
 export const metadata: Metadata = { title: 'Free slots' }
 
@@ -161,7 +163,7 @@ export default async function SlotsPage({ searchParams }: PageProps<'/schedule/s
                           <th>Price</th>
                           <th>Status</th>
                           <th>
-                            <span className="sr-only">Edit</span>
+                            <span className="sr-only">Actions</span>
                           </th>
                         </tr>
                       </thead>
@@ -221,10 +223,20 @@ export default async function SlotsPage({ searchParams }: PageProps<'/schedule/s
                                   }[bookingState(s)]
                                 )}
                               </td>
-                              <td>
-                                <Link className="btn btn-ghost btn-sm" href={`/schedule/slots/${s.id}`}>
-                                  Edit
-                                </Link>
+                              {/* ---- Row menu: edit · delete ---- */}
+                              <td className="row-actions">
+                                <RowMenu label={`Options for ${dayName(s.day_of_week)} ${hhmm(s.start_time)}`}>
+                                  <Link role="menuitem" href={`/schedule/slots/${s.id}`}>
+                                    Edit
+                                  </Link>
+                                  <ConfirmButton
+                                    action={deleteSlot.bind(null, s.id)}
+                                    confirm={`Delete the ${dayName(s.day_of_week)} ${hhmm(s.start_time)} slot${s.students ? ` (${fullName(s.students)})` : ''}? Lessons already made from it are kept. This can't be undone — you can switch the slot off instead (Edit → Slot is running).`}
+                                    className="danger"
+                                  >
+                                    Delete
+                                  </ConfirmButton>
+                                </RowMenu>
                               </td>
                             </tr>
                           )

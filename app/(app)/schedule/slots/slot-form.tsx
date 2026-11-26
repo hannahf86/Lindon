@@ -1,7 +1,7 @@
 // =============================================================================
 // schedule/slots/slot-form.tsx — the add / edit time slot form
-// Day is a row of pills; length is a dropdown; start time and price are typed
-// ("4:30pm" or "16:30" both work). The student is chosen from a Picker, or left as
+// Day is a row of pills; start time (15-minute steps) and length are
+// dropdowns; price is typed. The student is chosen from a Picker, or left as
 // "Unbooked / available". Location is a dropdown of the teacher's saved
 // locations, with "add a new location" (components/location-select.tsx).
 // =============================================================================
@@ -14,6 +14,7 @@ import { lengthOptions, repeatOptions } from '@/lib/lessons'
 import { ActionForm, SubmitButton } from '@/components/forms'
 import { Picker, type PickerOption } from '@/components/pickers'
 import { MoneyField, Segmented, SelectField, TextArea, TextField, Toggle } from '@/components/ui'
+import { TimeField } from '@/components/time-field'
 import { SuggestField } from '@/components/pickers'
 import { LocationSelect } from '@/components/location-select'
 
@@ -52,14 +53,7 @@ export function SlotForm(props: {
         defaultValue={String(s?.day_of_week ?? props.defaultDay ?? 1)}
       />
       <div className="form-grid">
-        <TextField
-          label="Start time"
-          name="start_time"
-          defaultValue={s ? hhmm(s.start_time) : ''}
-          placeholder="e.g. 16:30 or 4:30pm"
-          required
-          autoComplete="off"
-        />
+        <TimeField label="Start time" name="start_time" defaultValue={s ? hhmm(s.start_time) : ''} required />
         <SelectField
           label="Lesson length"
           name="duration_minutes"

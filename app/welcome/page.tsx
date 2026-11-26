@@ -28,6 +28,7 @@ import type { Teacher } from '@/lib/database.types'
 import { LogoMark } from '@/components/logo'
 import { ActionForm, SubmitButton } from '@/components/forms'
 import { Card, MoneyField, Segmented, SelectField, SlidePill, TextArea, TextField } from '@/components/ui'
+import { TimeField } from '@/components/time-field'
 import { TeachingHoursEditor } from '@/components/teaching-hours'
 import { ChargingFields, FeatureToggles } from '@/components/feature-fields'
 import { addStudent, finishOnboarding, saveCharging, saveDetails, saveFeatures } from './actions'
@@ -273,10 +274,10 @@ async function StepStudents({ teacher }: { teacher: Teacher }) {
             {/* Their regular lesson — leave the time empty to book it later */}
             <div className="form-section">
               <h3 style={{ margin: '0 0 4px' }}>Their lesson</h3>
-              <p className="small muted" style={{ margin: '0 0 10px' }}>Leave the time empty to book it later from Schedule.</p>
+              <p className="small muted" style={{ margin: '0 0 10px' }}>Leave the time on “Not yet” to book it later from Schedule.</p>
               <Segmented label="Day" name="lesson_day" options={DAY_SHORT.map((d, i) => ({ value: String(i + 1), label: d }))} defaultValue="6" />
               <div className="form-grid">
-                <TextField label="Time" name="lesson_time" placeholder="e.g. 9:30 or 4:30pm" autoComplete="off" />
+                <TimeField label="Time" name="lesson_time" emptyLabel="Not yet" />
                 <SelectField label="Lesson length" name="duration_minutes" options={lengthOptions()} defaultValue="30" />
                 <MoneyField label="Price per lesson" name="price" symbol={currencySymbol(teacher.currency)} placeholder="0.00" />
                 <TextField label="First lesson" name="first_lesson" type="date" defaultValue={todayISO(teacher.timezone)} hint="Moves to the next lesson day if needed." />

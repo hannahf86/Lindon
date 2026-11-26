@@ -10,7 +10,8 @@ import { DAY_SHORT, dayName, duration, hhmm } from '@/lib/format'
 import { minutesOf } from '@/lib/lessons'
 import type { Teacher } from '@/lib/database.types'
 import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
-import { Card, Segmented, TextField } from '@/components/ui'
+import { Card, Segmented } from '@/components/ui'
+import { TimeField } from '@/components/time-field'
 import { addTeachingHours, removeTeachingHours } from '@/app/(app)/schedule/hours/actions'
 
 export async function TeachingHoursEditor({ teacher }: { teacher: Teacher }) {
@@ -24,8 +25,8 @@ export async function TeachingHoursEditor({ teacher }: { teacher: Teacher }) {
         <ActionForm action={addTeachingHours}>
           <Segmented label="Day" name="day_of_week" options={DAY_SHORT.map((d, i) => ({ value: String(i + 1), label: d }))} defaultValue="6" />
           <div className="form-grid">
-            <TextField label="From" name="starts" placeholder="e.g. 9:00" required autoComplete="off" />
-            <TextField label="To" name="ends" placeholder="e.g. 17:00 or 5pm" required autoComplete="off" />
+            <TimeField label="From" name="starts" required />
+            <TimeField label="To" name="ends" required />
           </div>
           <p className="small muted" style={{ margin: 0 }}>
             Teach in two chunks on the same day (say 9–12 and 2–6)? Add each one separately.
