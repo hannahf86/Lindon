@@ -5,6 +5,7 @@
 // who they are, which pupils they're linked to, the latest message, unread
 // count and whether they have a family login. "New message" opens a picker
 // of everyone you may message (parents + adult pupils — never a child).
+// "Announcement" sends one message to every active pupil's family at once.
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -17,7 +18,8 @@ import { ModalButton } from '@/components/modal'
 import { Picker } from '@/components/pickers'
 import { Badge, Card, EmptyState, PageHeader, type Tone } from '@/components/ui'
 import type { AccessState } from '@/lib/family-invites'
-import { startConversation } from './actions'
+import { sendAnnouncement, startConversation } from './actions'
+import { announcementTargets } from '@/lib/announcements'
 import { loadInbox, messageableOptions } from './data'
 
 export const metadata: Metadata = { title: 'Messages' }
@@ -34,7 +36,7 @@ export default async function InboxPage() {
   // In-app messages switched off: this page doesn't exist for them
   if (!has(teacher, 'messaging')) notFound()
   const tz = teacher.timezone
-  const [rows, options] = await Promise.all([loadInbox(teacher.id), messageableOptions(teacher.id)])
+  const [rows, options, targets] = await Promise.all([loadInbox(teacher.id), messageableOptions(teacher.id), announcementTargets(teacher.id)])
   const today = todayISO(tz)
   // Today → "14:05", otherwise "3 Oct"
   const when = (iso: string) => (fmtTz(iso, tz, 'yyyy-MM-dd') === today ? fmtTz(iso, tz, 'HH:mm') : fmtTz(iso, tz, 'd MMM'))
@@ -61,7 +63,43 @@ export default async function InboxPage() {
 
   return (
     <>
-      <PageHeader title="Messages" subtitle="Your conversations with parents and adult pupils." actions={newMessage} />
+      <PageHeader
+        title="Messages"
+        subtitle="Your conversations with parents and adult pupils."
+        actions={
+          <>
+            {/* ---- Announcement: one message to every family ---- */}
+            {targets.length > 0 && (
+              <ModalButton label="Announcement" title="Send an announcement" className="btn btn-secondary">
+                <ActionForm action={sendAnnouncement} resetOnSuccess>
+                  <p className="small muted" style={{ margin: 0 }}>
+                    Goes to <strong>{targets.length} {targets.length === 1 ? 'family' : 'families'}</strong>: the parents of every active pupil under 18, and adult pupils
+                    themselves. Each gets it in their own conversation, with an email alert, so any replies come just to you.
+                  </p>
+                  <div className="field">
+                    <label className="field-label" htmlFor="announcement-body">
+                      Your announcement
+                    </label>
+                    <textarea
+                      id="announcement-body"
+                      name="body"
+                      className="textarea"
+                      rows={6}
+                      required
+                      maxLength={5000}
+                      placeholder="e.g. No lessons over half term (27–31 October). See you all on 3 November!"
+                    />
+                  </div>
+                  <div className="form-actions">
+                    <SubmitButton pendingText="Sending…">Send to everyone</SubmitButton>
+                  </div>
+                </ActionForm>
+              </ModalButton>
+            )}
+            {newMessage}
+          </>
+        }
+      />
 
       {/* ---- Conversation list ---- */}
       <Card>

@@ -6,6 +6,8 @@
 //                    with a parent/guardian or an ADULT pupil, then go there.
 // sendTeacherMessage reply in a conversation. Messages are permanent; the
 //                    family gets an email alert (lib/messages.ts).
+// sendAnnouncement   one message to every active pupil's family, each in
+//                    their own conversation (lib/announcements.ts).
 // Safeguarding: a conversation is never started with, or sent to, an
 // under-18 pupil directly — only through their parents.
 // =============================================================================
@@ -17,6 +19,7 @@ import { isMinor } from '@/lib/format'
 import { studioName } from '@/lib/email'
 import { conversationFor, postMessage, type ConversationTarget } from '@/lib/messages'
 import { requireFeature } from '@/lib/require-feature'
+import { announcementTargets } from '@/lib/announcements'
 
 const UUID = /^[0-9a-f-]{36}$/i
 
@@ -78,4 +81,24 @@ export async function sendTeacherMessage(conversationId: string, _: ActionState,
     revalidatePath(`/messages/${conversationId}`)
     return { ok: 'Sent.' }
   })
+}
+
+// ---- Announcement: message every active pupil's family -------------------------------------
+export async function sendAnnouncement(_: ActionState, fd: FormData): Promise<ActionState> {
+  const result = await handle(async () => {
+    const teacher = await requireFeature('messaging')
+    const body = str(fd, 'body')
+    if (!body) throw new FormError('Write your announcement first.')
+    const targets = await announcementTargets(teacher.id)
+    if (targets.length === 0) throw new FormError('There’s nobody to send it to yet — add parents to your pupils first.')
+    let sent = 0
+    for (const target of targets) {
+      const conversation = await conversationFor(teacher.id, target)
+      await postMessage({ teacher, conversation, sender: 'teacher', senderEmail: teacher.email, senderName: teacher.display_name || studioName(teacher), body })
+      sent++
+    }
+    return { ok: `Announcement sent to ${sent} ${sent === 1 ? 'family' : 'families'}.` }
+  })
+  if (result?.ok) revalidatePath('/messages', 'layout')
+  return result
 }

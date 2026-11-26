@@ -16,6 +16,7 @@ import { fmtDate, fmtTz } from '@/lib/dates'
 import { duration, fullName } from '@/lib/format'
 import { freeStartTimes, isLateNotice } from '@/lib/family-booking'
 import { Card, EmptyState, PageHeader } from '@/components/ui'
+import { has } from '@/lib/features'
 import { RescheduleChooser } from './chooser'
 
 export const metadata: Metadata = { title: 'Reschedule a lesson' }
@@ -67,9 +68,26 @@ export default async function ReschedulePage({ params }: PageProps<'/family/less
           </Card>
         ) : (
           <Card title="Choose a new time">
-            <p className="small muted" style={{ marginTop: 0 }}>
-              {teacherName(teacher)}’s free times for a {duration(lesson.duration_minutes)} lesson over the next two weeks. Need a later date, or a longer or shorter lesson? Message {teacherName(teacher)} instead.
+            <p style={{ marginTop: 0 }}>
+              {teacherName(teacher)}’s free times for a <strong>{duration(lesson.duration_minutes)}</strong> lesson over the <strong>next two weeks</strong>.
             </p>
+            {/* ---- Anything else: message the teacher (made obvious) ---- */}
+            <div className="alert alert-info spread" style={{ marginBottom: 20 }}>
+              <span>
+                <strong>Need a later date, or a longer or shorter lesson?</strong>
+                <br />
+                Message {teacherName(teacher)} and they’ll sort it out with you.
+              </span>
+              {has(teacher, 'messaging') ? (
+                <Link href="/family/messages" className="btn btn-sm">
+                  Message {teacherName(teacher).split(' ')[0]}
+                </Link>
+              ) : teacher.email ? (
+                <a href={`mailto:${teacher.email}`} className="btn btn-sm">
+                  Email {teacherName(teacher).split(' ')[0]}
+                </a>
+              ) : null}
+            </div>
             <RescheduleChooser lessonId={lesson.id} late={late} days={days.map((d) => ({ ...d, label: fmtDate(d.date, 'EEEE d MMMM') }))} />
           </Card>
         )}
