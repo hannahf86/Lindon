@@ -703,3 +703,10 @@ form:not(:has(input[name='share_who'][value='some']:checked)) .share-some-only {
 .rsvp-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
 .rsvp-row:first-of-type { border-top: 0; }
 .rsvp-name { font-weight: 800; min-width: 90px; }
+
+/* Family month view: colour key */
+.fam-key { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.key { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; }
+.key.lesson { background: var(--cal-event-bar); }
+.key.event { background: var(--accent-rose); }
+.key.holiday { background: var(--accent-sage); }

@@ -1,5 +1,6 @@
 // =============================================================================
-// app/family/lessons/page.tsx — a family's lessons: Upcoming / Past
+// app/family/lessons/page.tsx — a family's lessons: Upcoming / Past (Month is
+// its own page: lessons/month)
 //
 // ?view=past switches tabs; ?pupil=<id> narrows to one child (only accepted
 // if canSeePupil() says so). Prices are never shown here.
@@ -108,6 +109,7 @@ export default async function FamilyLessonsPage({ searchParams }: PageProps<'/fa
         <Link href={href('past', pupil)} aria-current={view === 'past' ? 'page' : undefined}>
           Past lessons
         </Link>
+        <Link href="/family/lessons/month">Month</Link>
       </nav>
 
       {/* ---- Pupil filter chips (only with more than one pupil) ---- */}
