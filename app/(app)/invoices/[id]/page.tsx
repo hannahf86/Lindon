@@ -278,14 +278,14 @@ export default async function InvoicePage({ params, searchParams }: PageProps<'/
             </Card>
           )}
 
-          {/* ---- Danger zone (drafts only) ---- */}
-          {inv.status === 'draft' && (
+          {/* ---- Danger zone (drafts and void invoices) ---- */}
+          {(inv.status === 'draft' || inv.status === 'void') && (
             <Card>
               <ConfirmButton
                 action={deleteInvoice.bind(null, id)}
-                confirm={`Delete draft ${inv.number}? Any lessons on it can be invoiced again. This can’t be undone.`}
+                confirm={`Delete ${inv.status === 'void' ? 'void invoice' : 'draft'} ${inv.number} for good? Any lessons on it can be invoiced again. This can’t be undone.`}
               >
-                Delete draft
+                Delete invoice
               </ConfirmButton>
             </Card>
           )}

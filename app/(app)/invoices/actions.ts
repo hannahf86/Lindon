@@ -423,8 +423,11 @@ export async function deleteInvoice(id: string): Promise<ActionState> {
   const result = await handle(async () => {
     const teacher = await requireTeacher()
     const inv = await ownInvoice(teacher, id)
-    if (inv.status !== 'draft') throw new FormError('Only drafts can be deleted — void this invoice instead.')
-    must(await db().from('invoices').delete().eq('id', id).eq('teacher_id', teacher.id).eq('status', 'draft').select('id'))
+    // Drafts and void invoices can go for good. Sent / paid ones are a record —
+    // void them first. Lessons on it can be invoiced again, and any make-up
+    // credits used on it go back to the pupil's balance (FK: set null).
+    if (inv.status !== 'draft' && inv.status !== 'void') throw new FormError('Sent and paid invoices can’t be deleted — void it first, then delete it.')
+    must(await db().from('invoices').delete().eq('id', id).eq('teacher_id', teacher.id).in('status', ['draft', 'void']).select('id'))
     if (inv.student_id) revalidatePath(`/students/${inv.student_id}`)
   })
   if (result?.error) return result

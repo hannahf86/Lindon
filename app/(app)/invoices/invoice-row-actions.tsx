@@ -3,17 +3,17 @@
 // invoices/invoice-row-actions.tsx — quick actions on each invoice in the list
 // (like the attendance list: one main button, plus a dropdown for the rest)
 //
-//   Draft  → [Send invoice]           ▾ Mark as paid · Mark as sent (no email)
+//   Draft  → [Send invoice]           ▾ Mark as paid · Mark as sent (no email) · Delete
 //   Sent   → [Mark paid]              ▾ Send reminder · Void
 //   Paid   → ✓ Paid                   ▾ Undo — mark unpaid
-//   Void   → (nothing)
+//   Void   →                          ▾ Delete invoice
 // Anything that emails a family asks first. "Mark paid" records today's date;
 // a different date or payment method can be set on the invoice page.
 // =============================================================================
 import { startTransition, useState } from 'react'
 import type { ActionState } from '@/lib/forms'
 import type { InvoiceStatus } from '@/lib/database.types'
-import { emailInvoice, markPaidToday, markSent, markUnpaid, sendInvoiceReminder, voidInvoice } from './actions'
+import { deleteInvoice, emailInvoice, markPaidToday, markSent, markUnpaid, sendInvoiceReminder, voidInvoice } from './actions'
 
 type Option = { key: string; label: string; run: () => Promise<ActionState>; confirm?: string }
 
@@ -38,12 +38,18 @@ export function InvoiceRowActions(props: { id: string; number: string; status: I
   const sentNoEmail: Option = { key: 'sent', label: 'Mark as sent (no email)', run: () => markSent(props.id) }
   const voided: Option = { key: 'void', label: 'Void invoice', run: () => voidInvoice(props.id), confirm: `Void invoice ${props.number}? It stays on record but no longer counts, and its lessons can be billed again.` }
   const undo: Option = { key: 'undo', label: 'Undo — mark unpaid', run: () => markUnpaid(props.id) }
+  const del: Option = { key: 'delete', label: 'Delete invoice', run: () => deleteInvoice(props.id), confirm: `Delete invoice ${props.number} for good? Any lessons on it can be invoiced again. This can’t be undone.` }
 
   const main = props.status === 'draft' ? send : props.status === 'sent' ? paid : null
   const more: Option[] =
-    props.status === 'draft' ? [{ ...paid, label: 'Mark as paid' }, sentNoEmail] : props.status === 'sent' ? [reminder, voided] : props.status === 'paid' ? [undo] : []
+    props.status === 'draft'
+      ? [{ ...paid, label: 'Mark as paid' }, sentNoEmail, del]
+      : props.status === 'sent'
+        ? [reminder, voided]
+        : props.status === 'paid'
+          ? [undo]
+          : [del] // void
 
-  if (props.status === 'void') return null
   return (
     <div className="inv-actions">
       <div className="inv-actions-row">
@@ -51,9 +57,9 @@ export function InvoiceRowActions(props: { id: string; number: string; status: I
           <button type="button" className={`btn btn-sm ${props.status === 'draft' ? '' : 'btn-secondary'}`} disabled={busy} onClick={() => go(main)}>
             {busy ? '…' : main.label}
           </button>
-        ) : (
+        ) : props.status === 'paid' ? (
           <span className="btn btn-sm att-current">✓ Paid{props.paidLabel ? ` ${props.paidLabel}` : ''}</span>
-        )}
+        ) : null}
         {more.length > 0 && (
           <select
             className="input input-sm"

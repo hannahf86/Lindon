@@ -130,11 +130,11 @@ export default async function DashboardPage({ searchParams }: PageProps<'/'>) {
           <h2>Free time</h2>
           {d.freeCount === 0 ? (
             <p className="muted" style={{ margin: 0 }}>
-              {d.hasHours ? 'Fully booked for the next two weeks.' : <>Add your <Link href="/schedule/hours">teaching hours</Link> to see free time here.</>}
+              {d.hasHours ? 'Fully booked for the rest of this week.' : <>Add your <Link href="/schedule/hours">teaching hours</Link> to see free time here.</>}
             </p>
           ) : (
             <>
-              <div className="small muted">Unbooked teaching time, next two weeks</div>
+              <div className="small muted">Unbooked teaching time, this week</div>
               <ul className="free-list">
                 {d.freeSlots.map((f) => (
                   <li key={`${f.date}-${f.from}`}>

@@ -3,8 +3,8 @@
 // fetched in parallel. All queries are scoped to the signed-in teacher and
 // all "today / this month" maths happens in the teacher's own timezone.
 //
-// Core: income this month, free time coming up (teaching hours minus booked
-// lessons and timed events), and things needing attention
+// Core: income this month, free time for the rest of this week (teaching
+// hours minus booked lessons and timed events), and things needing attention
 // (attendance to mark, overdue invoices, bookings ending, children with no
 // parent). Extras only load when their feature is on: exam deadlines and
 // overdue loans.
@@ -12,13 +12,12 @@
 import 'server-only'
 import { db, must } from './db'
 import type { Teacher } from './database.types'
-import { addDaysISO, dayBoundsUtc, fmtTz, isoWeekday, monthBounds, rangeBoundsUtc, todayISO } from './dates'
+import { addDaysISO, dayBoundsUtc, diffDays, fmtTz, isoWeekday, monthBounds, rangeBoundsUtc, todayISO, weekStartISO } from './dates'
 import { isMinor } from './format'
 import { clock, freeGaps, isCancelled, minutesOf } from './lessons'
 import { has } from './features'
 
-const FREE_DAYS = 14 // how far ahead to look for free slots
-const FREE_SHOWN = 5 // free-time blocks listed on the tile
+const FREE_SHOWN = 7 // free-time blocks listed on the tile (rest of this week only — Hannah's call)
 
 export async function loadDashboard(teacher: Teacher) {
   const t = teacher.id
@@ -27,7 +26,10 @@ export async function loadDashboard(teacher: Teacher) {
   const nowIso = new Date().toISOString()
   const [monthFrom, monthTo] = monthBounds(today)
   const [recentFrom] = dayBoundsUtc(addDaysISO(today, -14), tz)
-  const [aheadFrom, aheadTo] = rangeBoundsUtc(today, addDaysISO(today, FREE_DAYS - 1), tz)
+  // Free time: today to the end of this week (Sunday)
+  const weekEnd = addDaysISO(weekStartISO(today), 6)
+  const FREE_DAYS = diffDays(today, weekEnd) + 1
+  const [aheadFrom, aheadTo] = rangeBoundsUtc(today, weekEnd, tz)
   const horizon = addDaysISO(today, 60)
   const none = Promise.resolve([])
 
