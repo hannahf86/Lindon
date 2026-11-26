@@ -6,8 +6,9 @@
 // Core: Dashboard · Schedule · Invoices · Students, with Settings at the
 // bottom. Optional sections only appear when the teacher has that feature
 // switched on (lib/features.ts) — the server passes the list of keys in.
-// `unread` (in-app messages from families) shows as a coral pill on Messages.
+// `unread` (in-app messages from families) shows as a bell + count on Messages.
 // =============================================================================
+import { UnreadBell } from '@/components/unread-bell'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
@@ -56,11 +57,8 @@ export function Sidebar(props: { studio: string; who: string; unread?: number; f
       {item.label}
       {/* Unread messages pill — coral + ink reads on both the teal band and the white active pill */}
       {item.href === '/messages' && !!props.unread && (
-        <span
-          aria-label={`${props.unread} unread`}
-          style={{ marginLeft: 'auto', background: 'var(--coral)', color: 'var(--ink)', borderRadius: 999, padding: '1px 8px', fontSize: '0.75rem', fontWeight: 900, lineHeight: 1.5 }}
-        >
-          {props.unread > 99 ? '99+' : props.unread}
+        <span style={{ marginLeft: 'auto' }}>
+          <UnreadBell count={props.unread} />
         </span>
       )}
     </Link>

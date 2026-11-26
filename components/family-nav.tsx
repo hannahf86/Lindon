@@ -7,6 +7,7 @@
 // Styles live in app/family/layout.tsx (.fam-nav).
 // =============================================================================
 import Link from 'next/link'
+import { UnreadBell } from '@/components/unread-bell'
 import { usePathname } from 'next/navigation'
 
 const ITEMS = [
@@ -26,11 +27,7 @@ export function FamilyNav({ unread, showMessages }: { unread: number; showMessag
         <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? 'page' : undefined}>
           {item.label}
           {/* Unread badge (hidden while reading messages — they're being marked read) */}
-          {item.href === '/family/messages' && unread > 0 && !isActive(item.href) && (
-            <span className="fam-count" aria-label={`${unread} unread`}>
-              {unread}
-            </span>
-          )}
+          {item.href === '/family/messages' && !isActive(item.href) && <UnreadBell count={unread} />}
         </Link>
       ))}
     </nav>

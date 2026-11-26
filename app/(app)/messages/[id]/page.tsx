@@ -133,7 +133,7 @@ export default async function ConversationPage({ params }: PageProps<'/messages/
                   </div>
                   <div className="small muted" style={{ textAlign: mine ? 'right' : 'left', marginTop: 2, padding: '0 6px' }} title={m.sender_email}>
                     {mine ? 'You' : name} · {fmtTz(m.created_at, tz, 'EEE d MMM, HH:mm')}
-                    {mine && m.read_at && ' · Seen'}
+                    {mine && (m.seen_at ? ' · ✓ Seen' : m.read_at ? ' · Read' : '')}
                   </div>
                 </div>
               )

@@ -4,6 +4,8 @@
 // One conversation per teacher. With several teachers, tabs switch between
 // them (?t=<teacherId>, only accepted if it's one of their own links).
 // Viewing never creates a conversation; replying does (via the action).
+// Each of the teacher's messages has a "👍 Seen" button, so the family can
+// acknowledge it (a cancellation, say) without writing back.
 // Messages are a permanent record — there's no edit or delete.
 // =============================================================================
 import type { Metadata } from 'next'
@@ -11,6 +13,7 @@ import Link from 'next/link'
 import { db, must } from '@/lib/db'
 import { requireFamily, teacherName } from '@/lib/family'
 import { markRead } from '@/lib/messages'
+import { markMessageSeen } from '../actions'
 import { fmtTz } from '@/lib/dates'
 import { Card, EmptyState, PageHeader, TextArea } from '@/components/ui'
 import { ActionForm, SubmitButton } from '@/components/forms'
@@ -39,7 +42,7 @@ export default async function FamilyMessagesPage({ searchParams }: PageProps<'/f
     ? must(
         await db()
           .from('messages')
-          .select('id, sender, body, created_at')
+          .select('id, sender, body, created_at, seen_at')
           .eq('teacher_id', link.teacher.id)
           .eq('conversation_id', conversation.id)
           .order('created_at')
@@ -87,6 +90,22 @@ export default async function FamilyMessagesPage({ searchParams }: PageProps<'/f
                     {mine ? 'You' : tName} · {fmtTz(m.created_at, tz, 'EEE d MMM, HH:mm')}
                   </div>
                   {m.body}
+                  {/* ---- Teacher's messages: "Seen" without replying ---- */}
+                  {!mine && (
+                    <div className="seen-row">
+                      {m.seen_at ? (
+                        <span className="small" style={{ color: 'var(--teal-deep)', fontWeight: 800 }}>
+                          ✓ Seen
+                        </span>
+                      ) : (
+                        <ActionForm action={markMessageSeen.bind(null, link.teacher.id, m.id)} className="seen-form">
+                          <SubmitButton className="btn btn-secondary btn-sm" pendingText="…">
+                            👍 Seen
+                          </SubmitButton>
+                        </ActionForm>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}

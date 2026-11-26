@@ -381,6 +381,8 @@ export type Message = {
   sender_email: string
   body: string
   read_at: string | null
+  /** Family tapped "Seen" on this (teacher's) message */
+  seen_at: string | null
   created_at: string
 }
 
