@@ -1,6 +1,7 @@
 // =============================================================================
 // settings/page.tsx — studio profile, how you charge, features, region,
-// invoicing and reminder settings
+// invoicing and reminder settings, then teaching hours (its own forms, so it
+// sits below the main settings form rather than inside it)
 // Currency and timezone are typed (validated on save) — no dropdowns.
 // =============================================================================
 import type { Metadata } from 'next'
@@ -12,6 +13,7 @@ import { isAdmin } from '@/lib/access'
 import { ActionForm, SubmitButton } from '@/components/forms'
 import { Card, PageHeader, TextArea, TextField } from '@/components/ui'
 import { FeatureFields } from '@/components/feature-fields'
+import { TeachingHoursEditor } from '@/components/teaching-hours'
 import { updateSettings } from './actions'
 
 export const metadata: Metadata = { title: 'Settings' }
@@ -163,6 +165,15 @@ export default async function SettingsPage() {
           <SubmitButton>Save settings</SubmitButton>
         </div>
       </ActionForm>
+
+      {/* ---- Teaching hours (same editor as onboarding and Schedule → Teaching hours; saves as you go) ---- */}
+      <section id="teaching-hours" style={{ marginTop: 32 }}>
+        <h2 style={{ marginBottom: 4 }}>Teaching hours</h2>
+        <p className="small muted" style={{ marginTop: 0, marginBottom: 16 }}>
+          The hours you teach each week. Changes save straight away — no need to press Save settings.
+        </p>
+        <TeachingHoursEditor teacher={t} />
+      </section>
     </>
   )
 }

@@ -15,6 +15,7 @@ const DAYS = ['1', '2', '3', '4', '5', '6', '7'] as const
 function refresh() {
   revalidatePath('/schedule', 'layout')
   revalidatePath('/welcome')
+  revalidatePath('/settings')
   revalidatePath('/')
 }
 

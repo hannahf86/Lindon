@@ -469,3 +469,14 @@ form:not(:has(input[name='ends'][value='date']:checked)) .ends-date-only { displ
 .day.off { background: var(--line-soft); box-shadow: none; }
 .day.off .day-head span:first-child { color: var(--muted); }
 .month-cell.off { background: var(--line-soft); box-shadow: none; color: var(--muted); }
+
+/* Row "⋯" menu (components/row-menu.tsx) — e.g. edit / remove a student */
+.row-menu-btn { width: 34px; height: 34px; border-radius: 999px; border: 0; background: none; color: var(--muted); font-size: 1.4rem; line-height: 1; font-weight: 900; cursor: pointer; display: inline-grid; place-items: center; }
+.row-menu-btn:hover, .row-menu-btn[aria-expanded="true"] { background: var(--teal-wash); color: var(--teal-ink); }
+.row-menu { position: fixed; z-index: 50; min-width: 170px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: 0 10px 30px rgb(35 48 58 / 0.15); padding: 6px; display: grid; }
+.row-menu a, .row-menu button { display: block; width: 100%; text-align: left; padding: 8px 10px; border: 0; background: none; border-radius: 8px; font: inherit; font-size: 0.92rem; font-weight: 700; color: var(--ink); text-decoration: none; cursor: pointer; }
+.row-menu a:hover, .row-menu button:hover { background: var(--teal-wash); }
+.row-menu form { display: block !important; }
+.row-menu .danger { color: var(--coral-ink); }
+.row-menu .danger:hover { background: var(--coral-wash); }
+.table td.row-actions { width: 1%; text-align: right; vertical-align: middle; padding-top: 4px; padding-bottom: 4px; }

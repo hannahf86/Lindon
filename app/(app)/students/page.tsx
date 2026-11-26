@@ -1,15 +1,21 @@
 // =============================================================================
 // students/page.tsx — student list with search + status filter
+// Each row ends with a "⋯" menu: view, edit, remove.
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { db, must, requireTeacher } from '@/lib/db'
 import { fullName, isMinor } from '@/lib/format'
 import { Badge, Card, EmptyState, PageHeader, StatusBadge } from '@/components/ui'
+import { ConfirmButton } from '@/components/forms'
+import { RowMenu } from '@/components/row-menu'
+import { deleteStudent } from './actions'
 
 export const metadata: Metadata = { title: 'Students' }
 
 const FILTERS = ['active', 'paused', 'left', 'all'] as const
+// Stored status 'left' is shown to teachers as "Past"
+const FILTER_LABELS: Record<(typeof FILTERS)[number], string> = { active: 'Active', paused: 'Paused', left: 'Past', all: 'All' }
 
 export default async function StudentsPage({ searchParams }: PageProps<'/students'>) {
   const teacher = await requireTeacher()
@@ -36,7 +42,7 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
     <>
       <PageHeader
         title="Students"
-        subtitle={`${students.length} ${status === 'all' ? '' : status} student${students.length === 1 ? '' : 's'}`}
+        subtitle={`${students.length} ${status === 'all' ? '' : FILTER_LABELS[status].toLowerCase()} student${students.length === 1 ? '' : 's'}`}
         actions={
           <Link href="/students/new" className="btn">
             + Add student
@@ -49,7 +55,7 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
         <nav className="tabs" style={{ margin: 0 }} aria-label="Filter by status">
           {FILTERS.map((f) => (
             <Link key={f} href={href(f)} aria-current={f === status ? 'page' : undefined}>
-              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+              {FILTER_LABELS[f]}
             </Link>
           ))}
         </nav>
@@ -87,6 +93,9 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
                   <th>Level</th>
                   <th>Contact</th>
                   <th>Status</th>
+                  <th>
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -116,6 +125,24 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
                       </td>
                       <td>
                         <StatusBadge status={s.status} />
+                      </td>
+                      {/* ---- Row menu: view · edit · remove ---- */}
+                      <td className="row-actions">
+                        <RowMenu label={`Options for ${fullName(s)}`}>
+                          <Link role="menuitem" href={`/students/${s.id}`}>
+                            View student
+                          </Link>
+                          <Link role="menuitem" href={`/students/${s.id}/edit`}>
+                            Edit details
+                          </Link>
+                          <ConfirmButton
+                            action={deleteStudent.bind(null, s.id)}
+                            confirm={`Remove ${fullName(s)}? This deletes their lessons, bookings and parent links for good. Their invoices are kept. If they've just stopped for now, edit them and set their status to Paused or Past instead.`}
+                            className="danger"
+                          >
+                            Remove student
+                          </ConfirmButton>
+                        </RowMenu>
                       </td>
                     </tr>
                   )

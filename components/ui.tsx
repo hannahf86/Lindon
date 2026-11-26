@@ -227,7 +227,7 @@ const STATUS_TONES: Record<string, Tone> = {
 }
 
 // Friendlier wording than the stored value for a few statuses
-const STATUS_LABELS: Record<string, string> = { scheduled: 'Booked', notice_given: 'Notice given', teacher_cancelled: 'Teacher cancelled' }
+const STATUS_LABELS: Record<string, string> = { left: 'Past', scheduled: 'Booked', notice_given: 'Notice given', teacher_cancelled: 'Teacher cancelled' }
 
 export function StatusBadge({ status }: { status: string }) {
   return <Badge tone={STATUS_TONES[status] ?? 'plain'}>{STATUS_LABELS[status] ?? humanise(status)}</Badge>

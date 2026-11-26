@@ -522,7 +522,7 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
           <Card>
             <ConfirmButton
               action={deleteStudent.bind(null, id)}
-              confirm={`Delete ${fullName(s)}? This also deletes their lessons, loans and exams. Invoices are kept. This can't be undone — consider setting them to "Left" instead.`}
+              confirm={`Delete ${fullName(s)}? This also deletes their lessons, loans and exams. Invoices are kept. This can't be undone — consider setting them to "Past" instead.`}
             >
               Delete student
             </ConfirmButton>

@@ -45,7 +45,7 @@ export function StudentForm(props: {
           </div>
           <TextField label="Level" name="level" defaultValue={s?.level} placeholder="e.g. Grade 3, Beginner, Diploma prep" />
           <TextField label="Started lessons" name="start_date" type="date" defaultValue={s?.start_date ?? ''} />
-          <Segmented label="Status" name="status" options={['active', 'paused', 'left']} defaultValue={s?.status ?? 'active'} className="full" />
+          <Segmented label="Status" name="status" options={[{ value: 'active', label: 'Active' }, { value: 'paused', label: 'Paused' }, { value: 'left', label: 'Past' }]} defaultValue={s?.status ?? 'active'} className="full" />
         </div>
       </Card>
 
