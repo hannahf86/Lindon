@@ -15,7 +15,7 @@
 //
 // freeStartTimes() — when a lesson of this length could start: the teacher's
 //   teaching hours minus lessons going ahead and timed events, in 15-minute
-//   steps, from 24 hours from now, for the next few weeks. Other pupils'
+//   steps, from 24 hours from now, for the next two weeks. Other pupils'
 //   names never leave the server — only times.
 // isStartFree() — the same check for one chosen time (re-checked on save).
 // =============================================================================
@@ -25,7 +25,7 @@ import { addDaysISO, fmtTz, isoWeekday, rangeBoundsUtc, todayISO, zonedToUtc } f
 import { clock, freeGaps, isCancelled, minutesOf, type Span } from './lessons'
 
 export const NOTICE_HOURS = 24
-const DAYS_AHEAD = 28
+const DAYS_AHEAD = 14 // two weeks — longer, and families message the teacher (Hannah's call)
 const STEP = 15
 
 /** Less than 24 hours until the lesson? */
