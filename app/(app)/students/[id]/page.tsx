@@ -163,10 +163,6 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
                         <Link href={`/schedule/slots/${sl.id}?from=/students/${id}`} style={{ textDecoration: 'none' }}>
                           <Badge tone="coral">Booking ended — rebook?</Badge>
                         </Link>
-                      ) : !sl.ends_on ? (
-                        <Link href={`/schedule/slots/${sl.id}?from=/students/${id}`} style={{ textDecoration: 'none' }}>
-                          <Badge tone="coral">Set an end date</Badge>
-                        </Link>
                       ) : null}
                       {/* ---- Edit / end this booking ---- */}
                       <div className="row" style={{ gap: 14, marginTop: 6 }}>

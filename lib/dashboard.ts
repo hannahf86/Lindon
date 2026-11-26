@@ -3,7 +3,8 @@
 // fetched in parallel. All queries are scoped to the signed-in teacher and
 // all "today / this month" maths happens in the teacher's own timezone.
 //
-// Core: income this month, free slots coming up, and things needing attention
+// Core: income this month, free time coming up (teaching hours minus booked
+// lessons), and things needing attention
 // (attendance to mark, overdue invoices, bookings ending, children with no
 // parent). Extras only load when their feature is on: exam deadlines and
 // overdue loans.
@@ -12,12 +13,12 @@ import 'server-only'
 import { db, must } from './db'
 import type { Teacher } from './database.types'
 import { addDaysISO, dayBoundsUtc, fmtTz, isoWeekday, monthBounds, rangeBoundsUtc, todayISO } from './dates'
-import { hhmm, isMinor } from './format'
-import { isBookingDate } from './lessons'
+import { isMinor } from './format'
+import { clock, freeGaps, isCancelled, minutesOf } from './lessons'
 import { has } from './features'
 
 const FREE_DAYS = 14 // how far ahead to look for free slots
-const FREE_SHOWN = 5
+const FREE_SHOWN = 5 // free-time blocks listed on the tile
 
 export async function loadDashboard(teacher: Teacher) {
   const t = teacher.id
@@ -30,7 +31,7 @@ export async function loadDashboard(teacher: Teacher) {
   const horizon = addDaysISO(today, 60)
   const none = Promise.resolve([])
 
-  const [studentCount, paidThisMonth, unpaid, slots, upcoming, needAttendance, minors, endingBookings, exams, overdueLoans] = await Promise.all([
+  const [studentCount, paidThisMonth, unpaid, hours, upcoming, needAttendance, minors, endingBookings, exams, overdueLoans] = await Promise.all([
     // ---- Any students at all? (first-run guidance) ----
     db().from('students').select('id', { count: 'exact', head: true }).eq('teacher_id', t),
 
@@ -46,15 +47,9 @@ export async function loadDashboard(teacher: Teacher) {
       .order('due_date', { ascending: true, nullsFirst: false })
       .then(must),
 
-    // ---- Running time slots + lessons in the next fortnight (for free slots) ----
-    db()
-      .from('time_slots')
-      .select('id, day_of_week, start_time, label, student_id, starts_on, ends_on, repeat_weeks, skip_dates')
-      .eq('teacher_id', t)
-      .eq('active', true)
-      .order('start_time')
-      .then(must),
-    db().from('lessons').select('starts_at').eq('teacher_id', t).gte('starts_at', aheadFrom).lt('starts_at', aheadTo).then(must),
+    // ---- Teaching hours + lessons in the next fortnight (for free time) ----
+    db().from('teaching_hours').select('day_of_week, starts, ends').eq('teacher_id', t).then(must),
+    db().from('lessons').select('starts_at, duration_minutes, status').eq('teacher_id', t).gte('starts_at', aheadFrom).lt('starts_at', aheadTo).then(must),
 
     // ---- Past 14 days' lessons with attendance not marked ----
     db()
@@ -111,15 +106,22 @@ export async function loadDashboard(teacher: Teacher) {
       : none,
   ])
 
-  // ---- Free slots: a running slot with nobody booked that date, and no lesson at that time ----
-  const busy = new Set(upcoming.map((l) => fmtTz(l.starts_at, tz, 'yyyy-MM-dd HH:mm')))
-  const freeSlots: { slotId: string; date: string; time: string; label: string }[] = []
+  // ---- Free time: teaching hours minus lessons going ahead, day by day ----
+  const freeSlots: { date: string; from: string; to: string }[] = []
   for (let i = 0; i < FREE_DAYS; i++) {
     const d = addDaysISO(today, i)
-    for (const s of slots) {
-      if (s.day_of_week !== isoWeekday(d) || busy.has(`${d} ${hhmm(s.start_time)}`)) continue
-      if (s.student_id && isBookingDate(s, d)) continue
-      freeSlots.push({ slotId: s.id, date: d, time: hhmm(s.start_time), label: s.label })
+    const dayHours = hours.filter((h) => h.day_of_week === isoWeekday(d))
+    if (dayHours.length === 0) continue
+    const busy = upcoming
+      .filter((l) => !isCancelled(l.status) && fmtTz(l.starts_at, tz, 'yyyy-MM-dd') === d)
+      .map((l) => {
+        const from = minutesOf(fmtTz(l.starts_at, tz, 'HH:mm'))
+        return { from, to: from + l.duration_minutes }
+      })
+    for (const g of freeGaps(dayHours, busy)) {
+      // Today: only time still to come
+      if (d === today && g.to <= minutesOf(fmtTz(nowIso, tz, 'HH:mm'))) continue
+      freeSlots.push({ date: d, from: clock(g.from), to: clock(g.to) })
     }
   }
 
@@ -136,6 +138,7 @@ export async function loadDashboard(teacher: Teacher) {
     overdueInvoices: unpaid.filter((inv) => inv.due_date && inv.due_date < today),
     freeSlots: freeSlots.slice(0, FREE_SHOWN),
     freeCount: freeSlots.length,
+    hasHours: hours.length > 0,
     needAttendance,
     endingBookings,
     minorsWithoutParent: minors.filter((s) => isMinor(s) && s.student_guardians.length === 0),

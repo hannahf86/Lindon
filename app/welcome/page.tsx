@@ -6,8 +6,10 @@
 //   2 Charging & payment — in advance / in arrears, auto-invoicing, payment
 //                          terms and how families pay you
 //   3 Reminders & features
-//   4 Your timetable     — weekly slots you teach (skippable)
-//   5 Your students      — first pupils, with a parent for children (skippable)
+//   4 Teaching hours     — the blocks of time you teach, e.g. Sat 9–5 (skippable)
+//   5 Your students      — first pupils, with a parent for children and their
+//                          regular lesson: day, time, length, price, how often,
+//                          first lesson and an optional end (skippable)
 //   6 All set            — what's next; "Go to your dashboard" finishes
 // Shown until finished (teachers.onboarded_at); everything here can be changed
 // later in Settings, Schedule and Students. Outside the (app) group, so no
@@ -20,17 +22,19 @@ import { redirect } from 'next/navigation'
 import { db, must, requireTeacher } from '@/lib/db'
 import { hasPassword, MIN_PASSWORD_LENGTH } from '@/lib/passwords'
 import { currencySymbol, DAY_SHORT, dayName, duration, fullName, hhmm, money } from '@/lib/format'
-import { lengthOptions } from '@/lib/lessons'
+import { todayISO } from '@/lib/dates'
+import { frequencyText, lengthOptions, REPEAT_OPTIONS } from '@/lib/lessons'
 import type { Teacher } from '@/lib/database.types'
 import { LogoMark } from '@/components/logo'
-import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
+import { ActionForm, SubmitButton } from '@/components/forms'
 import { Card, MoneyField, Segmented, SelectField, SlidePill, TextArea, TextField } from '@/components/ui'
+import { TeachingHoursEditor } from '@/components/teaching-hours'
 import { ChargingFields, FeatureToggles } from '@/components/feature-fields'
-import { addSlot, addStudent, finishOnboarding, removeSlot, saveCharging, saveDetails, saveFeatures } from './actions'
+import { addStudent, finishOnboarding, saveCharging, saveDetails, saveFeatures } from './actions'
 
 export const metadata: Metadata = { title: 'Welcome' }
 
-const STEPS = ['You & your studio', 'Charging & payment', 'Reminders & features', 'Your timetable', 'Your students', 'All set'] as const
+const STEPS = ['You & your studio', 'Charging & payment', 'Reminders & features', 'Teaching hours', 'Your students', 'All set'] as const
 
 export default async function WelcomePage({ searchParams }: PageProps<'/welcome'>) {
   const teacher = await requireTeacher()
@@ -199,69 +203,25 @@ function StepFeatures({ teacher }: { teacher: Teacher }) {
           <FeatureToggles teacher={teacher} />
         </Card>
         <StepNav back={2}>
-          <SubmitButton pendingText="Saving…">Next: your timetable →</SubmitButton>
+          <SubmitButton pendingText="Saving…">Next: teaching hours →</SubmitButton>
         </StepNav>
       </ActionForm>
     </>
   )
 }
 
-// ---- 4. Timetable ------------------------------------------------------------------------------------------
+// ---- 4. Teaching hours -----------------------------------------------------------------------------------
 async function StepTimetable({ teacher }: { teacher: Teacher }) {
-  const slots = must(
-    await db().from('time_slots').select('id, day_of_week, start_time, duration_minutes, price, label, student_id').eq('teacher_id', teacher.id).order('day_of_week').order('start_time'),
-  )
+  const { count } = await db().from('teaching_hours').select('id', { count: 'exact', head: true }).eq('teacher_id', teacher.id)
   return (
     <>
-      <StepHead title="Your timetable">
-        Add the weekly slots you teach — for example Tuesday 4:30pm, 30 minutes. You’ll book pupils into them afterwards from Schedule.
+      <StepHead title="Your teaching hours">
+        Add the blocks of time you teach — for example Saturday 9:00 to 17:00. Lessons are booked inside these hours, and anything left over shows as free time.
       </StepHead>
-      <div className="grid grid-2" style={{ alignItems: 'start' }}>
-        <Card title="Add a slot">
-          <ActionForm action={addSlot}>
-            <Segmented label="Day" name="day_of_week" options={DAY_SHORT.map((d, i) => ({ value: String(i + 1), label: d }))} defaultValue="1" />
-            <div className="form-grid">
-              <TextField label="Start time" name="start_time" placeholder="e.g. 16:30 or 4:30pm" required autoComplete="off" />
-              <SelectField label="Lesson length" name="duration_minutes" options={lengthOptions()} defaultValue="30" />
-              <MoneyField label="Price per lesson" name="price" symbol={currencySymbol(teacher.currency)} placeholder="0.00" />
-              <TextField label="Label" name="label" placeholder="e.g. After school" hint="Optional" />
-            </div>
-            <SubmitButton className="btn btn-secondary" pendingText="Adding…">
-              Add slot
-            </SubmitButton>
-          </ActionForm>
-        </Card>
-        <Card title={`Your slots (${slots.length})`}>
-          {slots.length === 0 ? (
-            <p className="muted">None yet.</p>
-          ) : (
-            <ul className="list">
-              {slots.map((s) => (
-                <li key={s.id} className="spread">
-                  <span>
-                    <strong>
-                      {dayName(s.day_of_week, true)} {hhmm(s.start_time)}
-                    </strong>
-                    <span className="small muted">
-                      {' '}
-                      · {duration(s.duration_minutes)} · {money(s.price, teacher.currency)}
-                      {s.label && ` · ${s.label}`}
-                    </span>
-                  </span>
-                  {!s.student_id && (
-                    <ConfirmButton action={removeSlot.bind(null, s.id)} confirm="Remove this slot?" className="link-btn">
-                      Remove
-                    </ConfirmButton>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
+      <TeachingHoursEditor teacher={teacher} />
       <StepNav back={3}>
         <Link href="/welcome?step=5" className="btn">
-          {slots.length ? 'Next: your students →' : 'Skip for now →'}
+          {count ? 'Next: your students →' : 'Skip for now →'}
         </Link>
       </StepNav>
     </>
@@ -273,14 +233,14 @@ async function StepStudents({ teacher }: { teacher: Teacher }) {
   const students = must(
     await db()
       .from('students')
-      .select('id, first_name, last_name, is_minor, instruments, student_guardians(guardians(first_name, last_name))')
+      .select('id, first_name, last_name, is_minor, instruments, student_guardians(guardians(first_name, last_name)), time_slots(day_of_week, start_time, duration_minutes, price, repeat_weeks, ends_on)')
       .eq('teacher_id', teacher.id)
       .order('created_at'),
   )
   return (
     <>
       <StepHead title="Your students">
-        Add a few pupils to get going — you can add the rest, and more details, from Students later. Children are contacted through a parent or guardian.
+        Add a few pupils with their regular lesson — you can add the rest, and more details, from Students later. Children are contacted through a parent or guardian.
       </StepHead>
       <div className="grid grid-2" style={{ alignItems: 'start' }}>
         <Card title="Add a student">
@@ -309,6 +269,32 @@ async function StepStudents({ teacher }: { teacher: Teacher }) {
             <div className="adult-only">
               <TextField label="Email" name="email" type="email" hint="Reminders and invoices go here." />
             </div>
+
+            {/* Their regular lesson — leave the time empty to book it later */}
+            <div className="form-section">
+              <h3 style={{ margin: '0 0 4px' }}>Their lesson</h3>
+              <p className="small muted" style={{ margin: '0 0 10px' }}>Leave the time empty to book it later from Schedule.</p>
+              <Segmented label="Day" name="lesson_day" options={DAY_SHORT.map((d, i) => ({ value: String(i + 1), label: d }))} defaultValue="6" />
+              <div className="form-grid">
+                <TextField label="Time" name="lesson_time" placeholder="e.g. 9:30 or 4:30pm" autoComplete="off" />
+                <SelectField label="Lesson length" name="duration_minutes" options={lengthOptions()} defaultValue="30" />
+                <MoneyField label="Price per lesson" name="price" symbol={currencySymbol(teacher.currency)} placeholder="0.00" />
+                <TextField label="First lesson" name="first_lesson" type="date" defaultValue={todayISO(teacher.timezone)} hint="Moves to the next lesson day if needed." />
+              </div>
+              <Segmented label="How often" name="repeat_weeks" options={REPEAT_OPTIONS} defaultValue="1" />
+              <SlidePill
+                label="Ends"
+                name="ends"
+                options={[
+                  { value: 'never', label: 'Keeps going' },
+                  { value: 'date', label: 'On a date' },
+                ]}
+                defaultValue="never"
+              />
+              <div className="ends-date-only">
+                <TextField label="Last lesson" name="ends_on" type="date" />
+              </div>
+            </div>
             <SubmitButton className="btn btn-secondary" pendingText="Adding…">
               Add student
             </SubmitButton>
@@ -321,11 +307,17 @@ async function StepStudents({ teacher }: { teacher: Teacher }) {
             <ul className="list">
               {students.map((s) => {
                 const parent = s.student_guardians[0]?.guardians
+                const lesson = s.time_slots[0]
                 return (
                   <li key={s.id}>
                     <strong>{fullName(s)}</strong>
                     <div className="small muted">
                       {[s.is_minor ? 'Child' : 'Adult', s.instruments.join(', '), parent ? `parent: ${fullName(parent)}` : ''].filter(Boolean).join(' · ')}
+                    </div>
+                    <div className="small">
+                      {lesson
+                        ? `${dayName(lesson.day_of_week)} ${hhmm(lesson.start_time)} · ${duration(lesson.duration_minutes)} · ${money(lesson.price, teacher.currency)} · ${frequencyText(lesson.repeat_weeks)}${lesson.ends_on ? '' : ', no end date'}`
+                        : 'No lesson booked yet'}
                     </div>
                   </li>
                 )
@@ -346,7 +338,7 @@ async function StepStudents({ teacher }: { teacher: Teacher }) {
 // ---- 6. All set ------------------------------------------------------------------------------------------------
 async function StepDone({ teacher }: { teacher: Teacher }) {
   const [{ count: slotCount }, { count: studentCount }] = await Promise.all([
-    db().from('time_slots').select('id', { count: 'exact', head: true }).eq('teacher_id', teacher.id),
+    db().from('time_slots').select('id', { count: 'exact', head: true }).eq('teacher_id', teacher.id).not('student_id', 'is', null),
     db().from('students').select('id', { count: 'exact', head: true }).eq('teacher_id', teacher.id),
   ])
   return (
@@ -355,10 +347,12 @@ async function StepDone({ teacher }: { teacher: Teacher }) {
       <Card>
         <ul className="list">
           <li>
-            <strong>Book pupils into your slots</strong>
+            <strong>Your calendar</strong>
             <div className="small muted">
-              {slotCount ? `You have ${slotCount} slot${slotCount === 1 ? '' : 's'}.` : 'Add your slots first.'} In Schedule → Time slots, pick a slot, choose
-              the pupil and how many weeks — their lessons appear on your calendar.
+              {slotCount
+                ? `${slotCount} regular lesson${slotCount === 1 ? ' is' : 's are'} booked and on your calendar.`
+                : 'Lessons you book appear on your calendar.'}{' '}
+              Time inside your teaching hours that isn’t booked shows as free. To book or change a pupil’s regular lesson later, use Schedule → Bookings.
             </div>
           </li>
           <li>

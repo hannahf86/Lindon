@@ -132,6 +132,40 @@ export function bookingSummary(b: BookingLike): string {
   return `${freq} · ${range}`
 }
 
+// ---- Free time inside teaching hours ------------------------------------------
+export type Span = { from: number; to: number } // minutes after midnight
+
+/**
+ * The free gaps in a day: teaching-hours blocks minus busy spans (lessons).
+ * Gaps shorter than `minMinutes` are dropped (too short to teach in).
+ */
+export function freeGaps(hours: { starts: string; ends: string }[], busy: Span[], minMinutes = 15): Span[] {
+  const sortedBusy = [...busy].sort((a, b) => a.from - b.from)
+  const out: Span[] = []
+  for (const h of [...hours].sort((a, b) => a.starts.localeCompare(b.starts))) {
+    let cursor = minutesOf(h.starts)
+    const end = minutesOf(h.ends)
+    for (const b of sortedBusy) {
+      if (b.to <= cursor || b.from >= end) continue
+      if (b.from - cursor >= minMinutes) out.push({ from: cursor, to: b.from })
+      cursor = Math.max(cursor, b.to)
+    }
+    if (end - cursor >= minMinutes) out.push({ from: cursor, to: end })
+  }
+  return out
+}
+
+/** 600 → "10:00" */
+export function clock(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+}
+
+/** Does a lesson (start + length) sit wholly inside one of the day's teaching-hours blocks? */
+export function withinHours(hours: { starts: string; ends: string }[], start: string, durationMinutes: number): boolean {
+  const s = minutesOf(start)
+  return hours.some((h) => s >= minutesOf(h.starts) && s + durationMinutes <= minutesOf(h.ends))
+}
+
 // ---- Overlapping slots -------------------------------------------------------
 type SlotLike = { id: string; day_of_week: number; start_time: string; duration_minutes: number; active: boolean } & Partial<BookingLike> & {
   student_id?: string | null

@@ -13,7 +13,7 @@ import { Card, PageHeader } from '@/components/ui'
 import { SlotForm } from '../slot-form'
 import { deleteSlot, updateSlot } from '../actions'
 
-export const metadata: Metadata = { title: 'Edit time slot' }
+export const metadata: Metadata = { title: 'Edit booking' }
 
 export default async function EditSlotPage({ params, searchParams }: PageProps<'/schedule/slots/[id]'>) {
   const { id } = await params
@@ -44,7 +44,7 @@ export default async function EditSlotPage({ params, searchParams }: PageProps<'
 
   return (
     <>
-      <PageHeader title={`Edit slot: ${title}`} back={from ? { href: from, label: 'Back to pupil' } : { href: '/schedule/slots', label: 'Schedule · Time slots' }} />
+      <PageHeader title={`Edit booking: ${title}`} back={from ? { href: from, label: 'Back to pupil' } : { href: '/schedule/slots', label: 'Schedule · Bookings' }} />
 
       {/* ---- Slot form ---- */}
       <Card>

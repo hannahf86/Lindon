@@ -461,3 +461,11 @@ a.dv-title:hover { color: var(--teal-ink); text-decoration: underline; }
 .onboard-steps li.done .dot { background: var(--teal-wash); color: var(--teal-ink); }
 .onboard-nav { justify-content: space-between; margin-top: 8px; }
 @media (max-width: 700px) { .onboard-steps li:not(.current) .lbl { display: none; } }
+
+/* Onboarding student form: the "last lesson" date only when "On a date" is chosen */
+form:not(:has(input[name='ends'][value='date']:checked)) .ends-date-only { display: none; }
+
+/* Calendar: days with no teaching hours */
+.day.off { background: var(--line-soft); box-shadow: none; }
+.day.off .day-head span:first-child { color: var(--muted); }
+.month-cell.off { background: var(--line-soft); box-shadow: none; color: var(--muted); }

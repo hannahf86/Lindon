@@ -5,8 +5,10 @@
 //   1 saveDetails   — name, studio, reply email, phone + a password
 //   2 saveCharging  — in advance / arrears, auto-invoicing, terms, how to pay
 //   3 saveFeatures  — lesson reminders + optional features
-//   4 addSlot / removeSlot       — the weekly timetable (free slots)
-//   5 addStudent                 — first pupils (+ a parent for children)
+//   4 (teaching hours — schedule/hours/actions.ts, shared with Schedule)
+//   5 addStudent                 — first pupils (+ a parent for children), each
+//                                  with their regular lesson (day, time, length,
+//                                  price, how often, start and optional end)
 //   6 finishOnboarding           — marks onboarding done, opens the dashboard
 // Each save moves on to the next step. Everything is the signed-in teacher's
 // own data; ids from forms are re-checked against teacher_id.
@@ -14,10 +16,14 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { db, must, requireTeacher } from '@/lib/db'
-import { handle, int, num, oneOf, parseTime, required, str, FormError, type ActionState } from '@/lib/forms'
+import { date, handle, int, num, oneOf, parseTime, required, str, FormError, type ActionState } from '@/lib/forms'
 import { splitList } from '@/lib/format'
 import { readChargingFields, readFeatureToggles } from '@/lib/feature-form'
 import { hasPassword, MIN_PASSWORD_LENGTH, setPassword } from '@/lib/passwords'
+import { todayISO } from '@/lib/dates'
+import { alignToWeekday } from '@/lib/lessons'
+import { checkBooking } from '@/lib/booking-check'
+import { syncSlotLessons } from '@/lib/bookings'
 
 const EMAIL = /^\S+@\S+\.\S+$/
 
@@ -82,40 +88,8 @@ export async function saveFeatures(_: ActionState, fd: FormData): Promise<Action
   redirect('/welcome?step=4')
 }
 
-// ---- 4. Timetable: free weekly slots --------------------------------------------------------------
 const DAYS = ['1', '2', '3', '4', '5', '6', '7'] as const
-
-export async function addSlot(_: ActionState, fd: FormData): Promise<ActionState> {
-  return handle(async () => {
-    const teacher = await requireTeacher()
-    must(
-      await db()
-        .from('time_slots')
-        .insert({
-          teacher_id: teacher.id,
-          day_of_week: Number(oneOf(fd, 'day_of_week', DAYS, '1')),
-          start_time: parseTime(required(fd, 'start_time', 'Start time'), 'Start time'),
-          duration_minutes: int(fd, 'duration_minutes', 'Lesson length', { min: 5, max: 600 }),
-          price: num(fd, 'price', 'Price', { min: 0, fallback: 0 }),
-          label: str(fd, 'label'),
-          active: true,
-        })
-        .select('id'),
-    )
-    revalidatePath('/welcome')
-    return { ok: 'Slot added. Add another, or carry on.' }
-  })
-}
-
-export async function removeSlot(id: string): Promise<ActionState> {
-  return handle(async () => {
-    const teacher = await requireTeacher()
-    // Only an unbooked slot — booked ones are managed from Schedule
-    must(await db().from('time_slots').delete().eq('id', id).eq('teacher_id', teacher.id).is('student_id', null).select('id'))
-    revalidatePath('/welcome')
-    return null
-  })
-}
+const REPEATS = ['1', '2', '3', '4'] as const
 
 // ---- 5. First students (+ a parent for children) ------------------------------------------------
 export async function addStudent(_: ActionState, fd: FormData): Promise<ActionState> {
@@ -126,6 +100,39 @@ export async function addStudent(_: ActionState, fd: FormData): Promise<ActionSt
     if (email && !EMAIL.test(email)) throw new FormError(`"${email}" doesn't look like an email address.`)
     const parentFirst = str(fd, 'parent_first_name')
     if (child && !parentFirst) throw new FormError('Add a parent or guardian’s name — reminders and invoices for children go to them.')
+    const instruments = splitList(str(fd, 'instruments'))
+
+    // ---- Their regular lesson (optional: leave the time empty to book later) ----
+    const rawTime = str(fd, 'lesson_time')
+    let lesson: {
+      day_of_week: number
+      start_time: string
+      duration_minutes: number
+      price: number
+      repeat_weeks: number
+      starts_on: string
+      ends_on: string | null
+      skip_dates: string[]
+    } | null = null
+    if (rawTime) {
+      const day_of_week = Number(oneOf(fd, 'lesson_day', DAYS, '1'))
+      const starts_on = alignToWeekday(date(fd, 'first_lesson') ?? todayISO(teacher.timezone), day_of_week)
+      const ends_on = str(fd, 'ends') === 'date' ? date(fd, 'ends_on') : null
+      if (str(fd, 'ends') === 'date' && !ends_on) throw new FormError('Pick the date of their last lesson — or choose “Keeps going”.')
+      if (ends_on && ends_on < starts_on) throw new FormError('The last lesson is before the first lesson.')
+      lesson = {
+        day_of_week,
+        start_time: parseTime(rawTime, 'Lesson time').slice(0, 5),
+        duration_minutes: int(fd, 'duration_minutes', 'Lesson length', { min: 5, max: 600 }),
+        price: num(fd, 'price', 'Price', { min: 0, fallback: 0 }),
+        repeat_weeks: Number(oneOf(fd, 'repeat_weeks', REPEATS, '1')),
+        starts_on,
+        ends_on,
+        skip_dates: [],
+      }
+      // Inside teaching hours, and not clashing with another pupil — before anything is saved
+      await checkBooking(teacher, lesson)
+    }
 
     const student = must(
       await db()
@@ -136,7 +143,7 @@ export async function addStudent(_: ActionState, fd: FormData): Promise<ActionSt
           last_name: str(fd, 'last_name'),
           is_minor: child,
           email: child ? '' : email,
-          instruments: splitList(str(fd, 'instruments')),
+          instruments,
           status: 'active',
           reminders_enabled: true,
         })
@@ -159,8 +166,20 @@ export async function addStudent(_: ActionState, fd: FormData): Promise<ActionSt
           .select('student_id'),
       )
     }
+    // ---- Book their regular lesson and make the lessons ----
+    if (lesson) {
+      const slot = must(
+        await db()
+          .from('time_slots')
+          .insert({ ...lesson, teacher_id: teacher.id, student_id: student.id, instrument: instruments[0] ?? '', active: true })
+          .select('*')
+          .single(),
+      )
+      await syncSlotLessons(teacher, slot, slot.starts_on ?? undefined)
+    }
     revalidatePath('/welcome')
-    return { ok: `${student.first_name} added. Add another, or carry on.` }
+    revalidatePath('/schedule', 'layout')
+    return { ok: `${student.first_name} added${lesson ? ' and booked in' : ''}. Add another, or carry on.` }
   })
 }
 

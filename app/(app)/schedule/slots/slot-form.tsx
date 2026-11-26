@@ -82,12 +82,12 @@ export function SlotForm(props: {
       <div className="booking-only form-section">
         <h3 style={{ marginBottom: 4 }}>Booking</h3>
         <p className="small muted" style={{ margin: '0 0 12px' }}>
-          Lessons are added to the schedule for these dates only — book a half term at a time, then extend it.
+          Leave “Last lesson” empty for lessons that keep going until you end the booking, or set an end date (e.g. the end of term).
         </p>
         <div className="form-grid">
           <TextField label="First lesson" name="starts_on" type="date" defaultValue={s?.starts_on ?? props.defaultStartsOn ?? ''} hint="Leave blank for the next one." />
           <Segmented label="How often" name="repeat_weeks" options={REPEAT_OPTIONS} defaultValue={String(s?.repeat_weeks ?? 1)} />
-          <TextField label="Last lesson" name="ends_on" type="date" defaultValue={s?.ends_on ?? ''} hint="Pick from the calendar…" />
+          <TextField label="Last lesson" name="ends_on" type="date" defaultValue={s?.ends_on ?? ''} hint="Optional — empty means no end date." />
           <TextField label="…or number of lessons" name="lesson_count" inputMode="numeric" placeholder="e.g. 6" hint="Fills in the last lesson date for you." />
           <TextField
             label="Weeks off (no lesson)"

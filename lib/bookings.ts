@@ -1,9 +1,10 @@
 // =============================================================================
 // lib/bookings.ts — keep a slot's lessons in step with its booking
 //
-// A booking = the pupil in a time slot, from a first lesson date to a last
-// lesson date, every N weeks, minus any skipped dates. Nothing repeats
-// forever: lessons only exist up to the booking's end date.
+// A booking = the pupil in a time slot, from a first lesson date, every N
+// weeks, minus any skipped dates — up to a last lesson date, or with no end.
+// Bookings with no end only have lessons made OPEN_ENDED_WEEKS ahead;
+// extendOpenBookings() (daily, from the cron job) keeps that window topped up.
 //
 // syncSlotLessons() makes the slot's lessons (from a given date onwards)
 // match the booking exactly:
@@ -15,24 +16,29 @@
 // =============================================================================
 import 'server-only'
 import { db, must } from './db'
-import { todayISO, utcToZonedParts, zonedToUtc } from './dates'
+import { addDaysISO, todayISO, utcToZonedParts, zonedToUtc } from './dates'
 import { bookingDates } from './lessons'
 import type { Teacher, TimeSlot } from './database.types'
 
 export type SyncResult = { created: number; updated: number; removed: number; keptInvoiced: number }
+
+/** How far ahead lessons are made for a booking with no end date. */
+export const OPEN_ENDED_WEEKS = 26
 
 export async function syncSlotLessons(teacher: Teacher, slot: TimeSlot, fromDate?: string): Promise<SyncResult> {
   const tz = teacher.timezone
   const result: SyncResult = { created: 0, updated: 0, removed: 0, keptInvoiced: 0 }
   const from = fromDate ?? todayISO(tz)
 
-  // Older open-ended bookings (no end date yet) are left alone until one is set
-  if (slot.student_id && slot.active && !slot.ends_on) return result
+  // Very old bookings with no first-lesson date are left alone until edited
+  if (slot.student_id && slot.active && !slot.starts_on) return result
 
   // ---- The dates the booking says should have lessons ----
-  const booked = slot.student_id && slot.active && slot.starts_on && slot.ends_on
+  // (no end date: up to OPEN_ENDED_WEEKS from today, extended daily)
+  const booked = slot.student_id && slot.active && slot.starts_on
   const startFrom = booked && slot.starts_on! > from ? slot.starts_on! : from
-  const desired = booked ? bookingDates(slot, startFrom, slot.ends_on!) : []
+  const until = slot.ends_on ?? addDaysISO(todayISO(tz), OPEN_ENDED_WEEKS * 7)
+  const desired = booked ? bookingDates(slot, startFrom, until) : []
   const wanted = new Set(desired)
 
   // ---- The slot's existing lessons from `from` onwards ----
@@ -126,4 +132,28 @@ export function syncMessage(r: SyncResult): string {
   let msg = parts.length ? parts.join(', ') + '.' : 'Lessons already matched — nothing to change.'
   if (r.keptInvoiced) msg += ` ${r.keptInvoiced} lesson${r.keptInvoiced === 1 ? ' is' : 's are'} outside the booking now but already invoiced, so ${r.keptInvoiced === 1 ? 'it was' : 'they were'} kept — check the invoice.`
   return msg
+}
+
+// ---- Keep bookings with no end date topped up (daily, from the cron job) ----------
+export async function extendOpenBookings(): Promise<{ bookings: number; created: number; errors: string[] }> {
+  const out = { bookings: 0, created: 0, errors: [] as string[] }
+  const slots = must(
+    await db().from('time_slots').select('*').eq('active', true).not('student_id', 'is', null).not('starts_on', 'is', null).is('ends_on', null),
+  )
+  const teacherIds = [...new Set(slots.map((s) => s.teacher_id))]
+  if (teacherIds.length === 0) return out
+  const teachers = new Map(must(await db().from('teachers').select('*').in('id', teacherIds)).map((t) => [t.id, t]))
+  for (const slot of slots) {
+    const teacher = teachers.get(slot.teacher_id)
+    if (!teacher) continue
+    try {
+      // Only look from the last made lesson onwards, so past/marked lessons are never revisited
+      const r = await syncSlotLessons(teacher, slot, todayISO(teacher.timezone))
+      out.bookings++
+      out.created += r.created
+    } catch (e) {
+      out.errors.push((e as Error).message)
+    }
+  }
+  return out
 }

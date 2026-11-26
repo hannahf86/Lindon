@@ -1,5 +1,5 @@
 // =============================================================================
-// schedule/slots/page.tsx — the weekly timetable (Schedule → Time slots tab): every time slot grouped by day,
+// schedule/slots/page.tsx — Schedule → Bookings: every pupil's regular lesson (and any older unbooked slot), grouped by day,
 // with booked / available / paused status, overlap warnings, and the
 // "add a slot" form. /schedule/slots?student=<id> preselects that student.
 // =============================================================================
@@ -15,7 +15,7 @@ import { Badge, Card, EmptyState, PageHeader, Stat } from '@/components/ui'
 import { SlotForm } from './slot-form'
 import { createSlot } from './actions'
 
-export const metadata: Metadata = { title: 'Time slots' }
+export const metadata: Metadata = { title: 'Bookings' }
 
 export default async function SlotsPage({ searchParams }: PageProps<'/schedule/slots'>) {
   const teacher = await requireTeacher()
@@ -56,8 +56,8 @@ export default async function SlotsPage({ searchParams }: PageProps<'/schedule/s
   return (
     <>
       <PageHeader
-        title="Time slots"
-        subtitle="Your weekly timetable. Book a pupil into a slot for a set stretch (e.g. a half term) and their lessons are added to the schedule."
+        title="Schedule"
+        subtitle="Each pupil’s regular lesson: day, time, length, price and how often. Lessons keep going until the end date — or for good if there isn’t one."
       />
       <ScheduleTabs current="slots" />
 
@@ -91,7 +91,7 @@ export default async function SlotsPage({ searchParams }: PageProps<'/schedule/s
         <div className="stack">
           {slots.length === 0 ? (
             <Card>
-              <EmptyState title="No time slots yet">Add your regular weekly teaching times using the form — you can book students into them now or later.</EmptyState>
+              <EmptyState title="No bookings yet">Book a pupil’s regular lesson using the form.</EmptyState>
             </Card>
           ) : (
             [1, 2, 3, 4, 5, 6, 7].map((day) => {
@@ -187,7 +187,7 @@ export default async function SlotsPage({ searchParams }: PageProps<'/schedule/s
         </div>
 
         {/* ---- Add a slot ---- */}
-        <Card title={preStudent ? `Book a slot for ${fullName(preStudent)}` : 'Add a slot'} id="add">
+        <Card title={preStudent ? `Book a lesson for ${fullName(preStudent)}` : 'Book a regular lesson'} id="add">
           {preStudent && <p className="small muted">Pick the day and time — {preStudent.first_name} is already chosen below.</p>}
           <SlotForm
             action={createSlot}

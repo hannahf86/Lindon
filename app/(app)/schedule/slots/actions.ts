@@ -43,9 +43,9 @@ function readSlot(fd: FormData, timeZone: string) {
   const skip_dates = [...parseDateList(str(fd, 'skip_dates'))].sort()
   const count = str(fd, 'lesson_count') ? int(fd, 'lesson_count', 'Number of lessons', { min: 1, max: 200 }) : null
   const ends_on = count ? endAfterLessons(starts_on, count, repeat_weeks, skip_dates) : date(fd, 'ends_on')
-  if (!ends_on) throw new FormError('When does this booking end? Pick the last lesson date, or type a number of lessons.')
-  if (ends_on < starts_on) throw new FormError('The last lesson is before the first lesson.')
-  if (diffDays(starts_on, ends_on) > 7 * 60) throw new FormError('That booking is over a year long — book a term or half term at a time.')
+  // No end date = keeps going (lessons made six months ahead, topped up daily)
+  if (ends_on && ends_on < starts_on) throw new FormError('The last lesson is before the first lesson.')
+  if (ends_on && diffDays(starts_on, ends_on) > 7 * 260) throw new FormError('That end date is more than five years away — leave it empty for “no end date” instead.')
   return { ...base, starts_on, ends_on, repeat_weeks, skip_dates }
 }
 

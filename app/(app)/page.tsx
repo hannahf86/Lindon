@@ -1,7 +1,7 @@
 // =============================================================================
 // app/(app)/page.tsx — the dashboard (Hannah's wireframe)
 //
-// Top row: Income this month · Free slots · quick actions (Add a new student,
+// Top row: Income this month · Free time · quick actions (Add a new student,
 // Edit schedule). Then the calendar with a month dropdown and Day · Week ·
 // Month pills (month view by default), a "Connect to calendar" button (Google
 // Calendar is coming later), and a short "Needs attention" list underneath —
@@ -114,19 +114,20 @@ export default async function DashboardPage({ searchParams }: PageProps<'/'>) {
         </section>
 
         <section className="dash-tile">
-          <h2>Free slots</h2>
+          <h2>Free time</h2>
           {d.freeCount === 0 ? (
-            <p className="muted" style={{ margin: 0 }}>Fully booked for the next two weeks.</p>
+            <p className="muted" style={{ margin: 0 }}>
+              {d.hasHours ? 'Fully booked for the next two weeks.' : <>Add your <Link href="/schedule/hours">teaching hours</Link> to see free time here.</>}
+            </p>
           ) : (
             <>
-              <div className="small muted">{d.freeCount} in the next two weeks</div>
+              <div className="small muted">Unbooked teaching time, next two weeks</div>
               <ul className="free-list">
                 {d.freeSlots.map((f) => (
-                  <li key={`${f.slotId}-${f.date}`}>
-                    <Link href={`/schedule/slots/${f.slotId}`}>
-                      {fmtDate(f.date, 'EEE d MMM')} · {f.time}
+                  <li key={`${f.date}-${f.from}`}>
+                    <Link href={`/?view=day&date=${f.date}`}>
+                      {fmtDate(f.date, 'EEE d MMM')} · {f.from}–{f.to}
                     </Link>
-                    {f.label && <span className="small muted"> · {f.label}</span>}
                   </li>
                 ))}
               </ul>

@@ -286,6 +286,15 @@ export type LessonCredit = {
 }
 
 /** A teacher asking to join while sign-ups are invite-only. */
+export type TeachingHours = {
+  id: string
+  teacher_id: string
+  day_of_week: number // ISO 1 = Monday … 7 = Sunday
+  starts: string // "HH:MM:SS"
+  ends: string
+  created_at: string
+}
+
 export type UserPassword = {
   user_id: string
   hash: string
@@ -391,6 +400,7 @@ export type Database = {
       products: Table<Product, 'teacher_id' | 'name'>
       access_requests: Table<AccessRequest, 'email'>
       user_passwords: Table<UserPassword, 'user_id' | 'hash'>
+      teaching_hours: Table<TeachingHours, 'teacher_id' | 'day_of_week' | 'starts' | 'ends'>
       lesson_credits: Table<
         LessonCredit,
         'teacher_id' | 'student_id' | 'amount' | 'reason',

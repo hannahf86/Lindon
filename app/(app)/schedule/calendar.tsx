@@ -7,15 +7,16 @@
 // · <LessonCalendar>   — fetches and draws lessons, free slots and (when the
 //   exams feature is on) exams, with optional totals for the period on top
 //
-// Lessons are shown in the teacher's timezone and coloured by status; running
-// slots with nobody booked on a date show faintly as "Free"; a pupil's last
-// booked lesson is marked so it's easy to see when to rebook.
+// Lessons are shown in the teacher's timezone and coloured by status. Time
+// inside the teacher's teaching hours that isn't booked shows faintly as
+// "Free"; days with no teaching hours are greyed out as "Not a teaching day".
+// A pupil's last booked lesson is marked so it's easy to see when to rebook.
 // =============================================================================
 import Link from 'next/link'
 import { db, must } from '@/lib/db'
 import { duration, fullName, hhmm, label, money } from '@/lib/format'
 import { addDaysISO, fmtDate, fmtTz, isDateISO, isoWeekday, monthBounds, rangeBoundsUtc, utcToZonedParts, weekStartISO } from '@/lib/dates'
-import { endTime, isBookingDate, isCancelled } from '@/lib/lessons'
+import { clock, endTime, freeGaps, isCancelled, minutesOf, type Span } from '@/lib/lessons'
 import { has, usesCredits } from '@/lib/features'
 import type { Teacher } from '@/lib/database.types'
 import { Badge, Card, EmptyState, Stat, StatusBadge } from '@/components/ui'
@@ -100,7 +101,7 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
   for (let d = p.gridFrom; d <= p.gridTo; d = addDaysISO(d, 1)) gridDays.push(d)
   const [fromUtc, toUtc] = rangeBoundsUtc(p.gridFrom, p.gridTo, tz)
 
-  const [lessons, exams, slots] = await Promise.all([
+  const [lessons, exams, slots, teachHours] = await Promise.all([
     db()
       .from('lessons')
       .select('id, starts_at, duration_minutes, price, status, chargeable, instrument, location, time_slot_id, students(id, first_name, last_name)')
@@ -120,13 +121,8 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
           .order('exam_time')
           .then(must)
       : Promise.resolve([]),
-    db()
-      .from('time_slots')
-      .select('id, day_of_week, start_time, duration_minutes, label, location, student_id, starts_on, ends_on, repeat_weeks, skip_dates')
-      .eq('teacher_id', t)
-      .eq('active', true)
-      .order('start_time')
-      .then(must),
+    db().from('time_slots').select('id, student_id, ends_on').eq('teacher_id', t).eq('active', true).not('student_id', 'is', null).then(must),
+    db().from('teaching_hours').select('day_of_week, starts, ends').eq('teacher_id', t).order('starts').then(must),
   ])
 
   // Group lessons by their local (teacher-timezone) date
@@ -151,11 +147,19 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
   const slotEnds = new Map(slots.filter((s) => s.student_id && s.ends_on).map((s) => [s.id, s.ends_on]))
   const isLastLesson = (l: (typeof lessons)[number], d: string) => !!l.time_slot_id && slotEnds.get(l.time_slot_id) === d
 
-  /** Free slots on a date: nobody booked (or the booking doesn't cover it) and no lesson at that time. */
-  const freeOn = (d: string, dayLessons: typeof lessons) => {
-    const busy = new Set(dayLessons.map((l) => fmtTz(l.starts_at, tz, 'HH:mm')))
-    return slots.filter((s) => s.day_of_week === isoWeekday(d) && !busy.has(hhmm(s.start_time)) && (!s.student_id || !isBookingDate(s, d)))
+  /** Teaching hours that day (none = not a teaching day). */
+  const hoursOn = (d: string) => teachHours.filter((h) => h.day_of_week === isoWeekday(d))
+  /** Free time on a date: teaching hours minus lessons that are going ahead. */
+  const freeOn = (d: string, dayLessons: typeof lessons): Span[] => {
+    const busy = dayLessons
+      .filter((l) => !isCancelled(l.status))
+      .map((l) => {
+        const from = minutesOf(fmtTz(l.starts_at, tz, 'HH:mm'))
+        return { from, to: from + l.duration_minutes }
+      })
+    return freeGaps(hoursOn(d), busy)
   }
+  const freeLabel = (g: Span) => `${clock(g.from)}–${clock(g.to)}`
 
   return (
     <>
@@ -179,12 +183,14 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
           const rows = [
             ...dayLessons.map((l) => ({ kind: 'lesson' as const, time: fmtTz(l.starts_at, tz, 'HH:mm'), l })),
             ...dayExams.map((e) => ({ kind: 'exam' as const, time: e.exam_time ? hhmm(e.exam_time) : '00:00', e })),
-            ...dayFree.map((s) => ({ kind: 'free' as const, time: hhmm(s.start_time), s })),
+            ...dayFree.map((g) => ({ kind: 'free' as const, time: clock(g.from), g })),
           ].sort((a, b) => a.time.localeCompare(b.time))
           return (
             <Card>
               {rows.length === 0 ? (
-                <EmptyState title="Nothing booked">No lessons or free slots on this day.</EmptyState>
+                <EmptyState title={hoursOn(p.anchor).length ? 'Nothing booked' : 'Not a teaching day'}>
+                  {hoursOn(p.anchor).length ? 'No lessons on this day.' : 'You don’t have teaching hours on this day. Add some under Schedule → Teaching hours.'}
+                </EmptyState>
               ) : (
                 <ul className="dayview">
                   {rows.map((r) =>
@@ -230,16 +236,16 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
                         </Link>
                       </li>
                     ) : (
-                      <li key={r.s.id} className="dv-row slot">
+                      <li key={`free-${r.g.from}`} className="dv-row slot">
                         <div className="dv-time">
                           {r.time}
-                          <span>{endTime(r.time, r.s.duration_minutes)}</span>
+                          <span>{clock(r.g.to)}</span>
                         </div>
                         <div className="dv-body">
-                          <span className="dv-title muted">Free slot</span>
-                          <div className="small muted">{[r.s.label, r.s.location].filter(Boolean).join(' · ') || 'Nobody booked on this date'}</div>
+                          <span className="dv-title muted">Free</span>
+                          <div className="small muted">{freeLabel(r.g)} · free to book</div>
                         </div>
-                        <Link href={`/schedule/slots/${r.s.id}`} className="btn btn-ghost btn-sm">
+                        <Link href="/schedule/slots" className="btn btn-ghost btn-sm">
                           Book a pupil
                         </Link>
                       </li>
@@ -260,8 +266,9 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
             const dayLessons = byDay.get(d) ?? []
             const dayExams = exams.filter((e) => e.exam_date === d)
             const dayFree = freeOn(d, dayLessons)
+            const off = hoursOn(d).length === 0
             return (
-              <section key={d} className={`day ${d === today ? 'today' : ''}`} aria-label={fmtDate(d, 'EEEE d MMMM')}>
+              <section key={d} className={`day ${d === today ? 'today' : ''} ${off ? 'off' : ''}`} aria-label={fmtDate(d, 'EEEE d MMMM')}>
                 <Link href={href('day', d)} className="day-head">
                   <span>{fmtDate(d, 'EEE')}</span>
                   <span className="small muted">{fmtDate(d, 'd MMM')}</span>
@@ -294,15 +301,16 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
                   </Link>
                 ))}
 
-                {/* Free slots */}
-                {dayFree.map((s) => (
-                  <Link key={s.id} href={`/schedule/slots/${s.id}`} className="event slot" title="Free on this date — click to book a pupil">
-                    <div className="event-time">{hhmm(s.start_time)}</div>
-                    <div className="small muted">Free{s.label ? ` · ${s.label}` : ''}</div>
+                {/* Free time inside teaching hours */}
+                {dayFree.map((g) => (
+                  <Link key={`free-${g.from}`} href="/schedule/slots" className="event slot" title="Free to book — click to book a pupil">
+                    <div className="event-time">{freeLabel(g)}</div>
+                    <div className="small muted">Free</div>
                   </Link>
                 ))}
 
-                {dayLessons.length + dayExams.length + dayFree.length === 0 && <p className="small muted">Nothing booked</p>}
+                {off && dayLessons.length + dayExams.length === 0 && <p className="small muted">Not a teaching day</p>}
+                {!off && dayLessons.length + dayExams.length + dayFree.length === 0 && <p className="small muted">Fully booked</p>}
               </section>
             )
           })}
@@ -328,7 +336,7 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
               <Link
                 key={d}
                 href={href('day', d)}
-                className={`month-cell ${outside ? 'outside' : ''} ${d === today ? 'today' : ''}`}
+                className={`month-cell ${outside ? 'outside' : ''} ${d === today ? 'today' : ''} ${hoursOn(d).length === 0 ? 'off' : ''}`}
                 aria-label={`${fmtDate(d, 'EEEE d MMMM')}: ${dayLessons.length} lesson${dayLessons.length === 1 ? '' : 's'}`}
               >
                 <div className="month-date">{fmtDate(d, 'd')}</div>
