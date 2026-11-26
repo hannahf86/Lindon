@@ -11,6 +11,7 @@ import { money } from './format'
 import { fmtDate } from './dates'
 import { sendEmail, signature, studioName } from './email'
 import { invoiceEmail } from './email-templates'
+import { invoicePdf } from './invoice-pdf'
 import type { Invoice, Teacher } from './database.types'
 
 export type InvoiceSendResult = { ok: true; to: string } | { ok: false; error: string }
@@ -44,9 +45,19 @@ export async function sendInvoice(teacher: Teacher, inv: Invoice, opts: { remind
     reminder: opts.reminder,
     brand: teacher.invoice_color,
     accent: teacher.invoice_accent,
+    logo: teacher.logo_url || undefined,
   })
 
-  const res = await sendEmail({ teacher, to: [inv.bill_to_email], email, kind: 'invoice', invoiceId: inv.id })
+  // The branded PDF goes with it (if it can't be made, the email still goes)
+  const pdf = await invoicePdf(teacher, inv).catch(() => null)
+  const res = await sendEmail({
+    teacher,
+    to: [inv.bill_to_email],
+    email,
+    kind: 'invoice',
+    invoiceId: inv.id,
+    attachments: pdf ? [{ filename: `Invoice ${inv.number}.pdf`, content: Buffer.from(pdf) }] : undefined,
+  })
   if (res.error || res.sent === 0) return { ok: false, error: `The email didn’t send: ${res.error ?? 'unknown problem'}.` }
 
   if (inv.status === 'draft') {

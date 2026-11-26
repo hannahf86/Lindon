@@ -82,6 +82,8 @@ export default async function PrintInvoicePage({ params }: PageProps<'/invoices/
         {/* Studio + invoice number */}
         <header className="spread" style={{ alignItems: 'flex-start', borderBottom: '6px solid var(--butter)', paddingBottom: 20, marginBottom: 24 }}>
           <div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {teacher.logo_url && <img src={teacher.logo_url} alt="" style={{ maxHeight: 64, maxWidth: 200, marginBottom: 10, display: 'block' }} />}
             <div style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--teal-ink)' }}>{studio}</div>
             {teacher.business_name && teacher.display_name && <div>{teacher.display_name}</div>}
             {teacher.address && <div className="small" style={{ whiteSpace: 'pre-line' }}>{teacher.address}</div>}

@@ -112,3 +112,42 @@ export async function removeCalendarLink(): Promise<ActionState> {
     return { ok: 'Calendar link switched off.' }
   })
 }
+
+// ---- Logo (Settings → Invoicing) -------------------------------------------------------------
+const LOGO_MAX = 900 * 1024 // stays under the 1 MB server-action limit
+
+/** Upload a PNG / JPG logo to the public "logos" bucket and use it on invoices. */
+export async function uploadLogo(_: ActionState, fd: FormData): Promise<ActionState> {
+  return handle(async () => {
+    const teacher = await requireTeacher()
+    const file = fd.get('logo')
+    if (!(file instanceof File) || file.size === 0) throw new FormError('Choose a logo file first.')
+    if (!['image/png', 'image/jpeg'].includes(file.type)) throw new FormError('Your logo needs to be a PNG or JPG image.')
+    if (file.size > LOGO_MAX) throw new FormError('That image is too big — please use one under 900 KB.')
+    const ext = file.type === 'image/png' ? 'png' : 'jpg'
+    const path = `${teacher.id}/logo-${newCalendarToken().slice(0, 12)}.${ext}`
+    const { error } = await db().storage.from('logos').upload(path, Buffer.from(await file.arrayBuffer()), { contentType: file.type, upsert: false })
+    if (error) throw new FormError(`The logo couldn’t be uploaded (${error.message}).`)
+    const url = db().storage.from('logos').getPublicUrl(path).data.publicUrl
+    await removeLogoFile(teacher.logo_url)
+    must(await db().from('teachers').update({ logo_url: url }).eq('id', teacher.id).select('id').single())
+    revalidatePath('/', 'layout')
+    return { ok: 'Logo saved — it’ll appear on your invoices.' }
+  })
+}
+
+export async function removeLogo(): Promise<ActionState> {
+  return handle(async () => {
+    const teacher = await requireTeacher()
+    await removeLogoFile(teacher.logo_url)
+    must(await db().from('teachers').update({ logo_url: '' }).eq('id', teacher.id).select('id').single())
+    revalidatePath('/', 'layout')
+    return { ok: 'Logo removed.' }
+  })
+}
+
+/** Delete the old file from storage (best effort). */
+async function removeLogoFile(url: string | null | undefined) {
+  const path = url?.split('/storage/v1/object/public/logos/')[1]
+  if (path) await db().storage.from('logos').remove([decodeURIComponent(path)])
+}

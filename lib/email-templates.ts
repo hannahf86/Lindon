@@ -31,13 +31,13 @@ export function paragraphs(s: string): string {
 }
 
 /** Shared shell: purple header band with the studio name, white card, footer. */
-export function layout(opts: { studio: string; heading: string; bodyHtml: string; footer?: string; brand?: string; accent?: string }): string {
+export function layout(opts: { studio: string; heading: string; bodyHtml: string; footer?: string; brand?: string; accent?: string; logo?: string }): string {
   return `<!doctype html><html><body style="margin:0;padding:0;background:#FAF7F2;font-family:Nunito,'Segoe UI',Helvetica,Arial,sans-serif;color:${INK}">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAF7F2;padding:24px 12px">
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:20px;overflow:hidden">
 <tr><td style="background:${opts.brand ?? TEAL_INK};padding:22px 28px">
-<div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#ffffff;opacity:.9">${esc(opts.studio)}</div>
+${opts.logo ? `<img src="${esc(opts.logo)}" alt="${esc(opts.studio)}" style="display:block;max-height:56px;max-width:160px;background:#ffffff;border-radius:8px;padding:6px;margin:0 0 10px" />` : ''}<div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#ffffff;opacity:.9">${esc(opts.studio)}</div>
 <div style="font-size:24px;font-weight:900;color:#ffffff;margin-top:4px">${esc(opts.heading)}</div>
 </td></tr>
 <tr><td style="height:6px;background:${opts.accent ?? BUTTER};font-size:0;line-height:0">&nbsp;</td></tr>
@@ -136,9 +136,10 @@ export function invoiceEmail(opts: {
   signature: string
   /** A gentle "this is still unpaid" version */
   reminder?: boolean
-  /** The teacher's invoice branding colours (Settings → Invoicing) */
+  /** The teacher's invoice branding colours and logo (Settings → Invoicing) */
   brand?: string
   accent?: string
+  logo?: string
 }): Email {
   const lineRows = opts.lines
     .map(
@@ -163,6 +164,7 @@ export function invoiceEmail(opts: {
       footer: opts.footer,
       brand: opts.brand,
       accent: opts.accent,
+      logo: opts.logo,
       bodyHtml:
         (intro ? `<p style="margin:0 0 16px;line-height:1.55">${esc(intro)}</p>` : '') +
         detailTable([

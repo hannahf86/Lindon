@@ -49,6 +49,8 @@ export async function sendEmail(opts: {
   kind: EmailKind
   lessonId?: string
   invoiceId?: string
+  /** e.g. the invoice PDF — sent per recipient, since batch sends can't attach */
+  attachments?: { filename: string; content: Buffer }[]
 }): Promise<SendResult> {
   const recipients = [...new Set(opts.to.map((e) => e.trim().toLowerCase()).filter((e) => /\S+@\S+\.\S+/.test(e)))]
   if (recipients.length === 0) return { sent: 0, failed: 0, error: 'No email addresses to send to.' }
@@ -58,8 +60,26 @@ export async function sendEmail(opts: {
   try {
     const from = fromAddress(opts.teacher)
     const replyTo = opts.teacher.email || undefined
+    if (opts.attachments?.length) {
+      for (const to of recipients) {
+        const { error: sendError } = await client().emails.send({
+          from,
+          to,
+          replyTo,
+          subject: opts.email.subject,
+          html: opts.email.html,
+          text: opts.email.text,
+          attachments: opts.attachments,
+        })
+        if (sendError) {
+          error = sendError.message
+          break
+        }
+        sent++
+      }
+    }
     // Resend batch accepts up to 100 messages per call
-    for (let i = 0; i < recipients.length; i += 100) {
+    for (let i = 0; !opts.attachments?.length && i < recipients.length; i += 100) {
       const chunk = recipients.slice(i, i + 100)
       const { error: batchError } = await client().batch.send(
         chunk.map((to) => ({

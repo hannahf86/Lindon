@@ -27,7 +27,7 @@ import { TeachingHoursEditor } from '@/components/teaching-hours'
 import { TagInput } from '@/components/pickers'
 import { CopyField } from '@/components/copy-field'
 import { calendarFeedUrl } from '@/lib/calendar-feed'
-import { makeCalendarLink, removeCalendarLink, updateSettings } from './actions'
+import { makeCalendarLink, removeCalendarLink, removeLogo, updateSettings, uploadLogo } from './actions'
 
 export const metadata: Metadata = { title: 'Settings' }
 
@@ -192,6 +192,7 @@ function StudioTab({ teacher: t }: { teacher: T }) {
 function InvoicingTab({ teacher: t }: { teacher: T }) {
   const nextNumberPreview = `${t.invoice_prefix}${String(t.next_invoice_number).padStart(4, '0')}`
   return (
+    <>
     <TabForm section="invoicing">
       <Card title="How you charge">
         <ChargingFields teacher={t} />
@@ -262,6 +263,36 @@ function InvoicingTab({ teacher: t }: { teacher: T }) {
         </div>
       </Card>
     </TabForm>
+
+    {/* ---- Logo (its own form: a file upload) ---- */}
+    <section id="logo" style={{ marginTop: 32 }}>
+      <Card title="Logo">
+        <p className="small muted" style={{ marginTop: 0 }}>
+          Shown at the top of your PDF invoices, printed invoices and invoice emails. A PNG or JPG under 900 KB; a wide logo with a transparent or white background works best.
+        </p>
+        {t.logo_url ? (
+          <div className="row" style={{ gap: 16, alignItems: 'center', marginBottom: 14 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={t.logo_url} alt="Your logo" style={{ maxHeight: 64, maxWidth: 200, borderRadius: 8, border: '1px solid var(--card-border)', padding: 6, background: '#fff' }} />
+            <ConfirmButton action={removeLogo} confirm="Remove your logo from invoices?" className="btn btn-ghost btn-sm">
+              Remove
+            </ConfirmButton>
+          </div>
+        ) : null}
+        <ActionForm action={uploadLogo} resetOnSuccess>
+          <div className="field">
+            <label className="field-label" htmlFor="f-logo">
+              {t.logo_url ? 'Replace your logo' : 'Upload your logo'}
+            </label>
+            <input id="f-logo" name="logo" type="file" accept="image/png,image/jpeg" className="input" required />
+          </div>
+          <div className="form-actions">
+            <SubmitButton pendingText="Uploading…">Save logo</SubmitButton>
+          </div>
+        </ActionForm>
+      </Card>
+    </section>
+    </>
   )
 }
 

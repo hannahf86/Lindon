@@ -97,6 +97,9 @@ export default async function FamilyInvoicePage({ params }: PageProps<'/family/i
             familyPaidAt={inv.family_paid_at}
             teacherName={t.display_name || t.business_name || 'your teacher'}
           />
+          <a className="btn btn-secondary" href={`/family/invoices/${inv.id}/pdf`} target="_blank" rel="noopener">
+            Download PDF
+          </a>
           <PrintButton />
         </span>
       </div>
