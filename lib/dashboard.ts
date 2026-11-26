@@ -143,8 +143,21 @@ export async function loadDashboard(teacher: Teacher) {
   const inWindow = (d: string | null) => !!d && d >= today && d <= horizon
   const upcomingExams = exams.filter((e) => inWindow(e.exam_date) || (e.status === 'planned' && inWindow(e.entry_deadline)))
 
+  // ---- Items families say they've returned (teacher to confirm) ----
+  const familyReturns = has(teacher, 'library')
+    ? must(
+        await db()
+          .from('loans')
+          .select('id, item_id, library_items(title), students(first_name, last_name)')
+          .eq('teacher_id', t)
+          .is('returned_on', null)
+          .not('family_returned_at', 'is', null),
+      )
+    : []
+
   return {
     today,
+    familyReturns,
     hasStudents: (studentCount.count ?? 0) > 0,
     income: paidThisMonth.reduce((sum, inv) => sum + Number(inv.total), 0),
     paidCount: paidThisMonth.length,

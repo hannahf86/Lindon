@@ -15,7 +15,7 @@ import { has, usesCredits } from '@/lib/features'
 import { addLessonLines, billToFor, isEditable, ITEM_KINDS, nextPosition } from '@/lib/invoices'
 import { applyCredits } from '@/lib/credits'
 import { createMonthlyInvoices } from '@/lib/monthly-invoices'
-import { addExamFeeLine, addHireLines } from '@/lib/addons'
+import { addExamFeeLine, addHireLines, addDepositLine } from '@/lib/addons'
 import type { Teacher } from '@/lib/database.types'
 
 // ---- Shared helpers ------------------------------------------------------------------
@@ -205,6 +205,18 @@ export async function addHireToInvoice(invoiceId: string, loanId: string, month:
     if (!added) throw new FormError('That hire fee is already on an invoice for this month.')
     refresh(invoiceId, inv.student_id)
     return { ok: 'Hire fee added.' }
+  })
+}
+
+export async function addDepositToInvoice(invoiceId: string, loanId: string): Promise<ActionState> {
+  return handle(async () => {
+    const teacher = await requireTeacher()
+    if (!has(teacher, 'library')) throw new FormError('Library & hire is switched off in Settings.')
+    const inv = await editableInvoice(teacher, invoiceId)
+    if (!inv.student_id) throw new FormError('This invoice isn’t linked to a pupil.')
+    if (!(await addDepositLine(teacher, invoiceId, inv.student_id, loanId))) throw new FormError('That deposit is already billed or paid.')
+    refresh(invoiceId, inv.student_id)
+    return { ok: 'Deposit added.' }
   })
 }
 

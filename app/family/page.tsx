@@ -17,6 +17,9 @@ import { displayStatus } from '@/lib/invoices'
 import { Badge, Card, EmptyState, StatusBadge } from '@/components/ui'
 import { familyUnread, pupilNames, studioLine } from './_lib/family-data'
 import { TeacherContact } from '@/components/teacher-contact'
+import { ModalButton } from '@/components/modal'
+import { ActionForm, SubmitButton } from '@/components/forms'
+import { familySaysReturned } from './actions'
 import { familyEvents } from '@/lib/event-sharing'
 import { has } from '@/lib/features'
 
@@ -62,7 +65,7 @@ async function loadLink(link: FamilyLink) {
       .then(must),
     !libraryOn ? Promise.resolve([]) : db()
       .from('loans')
-      .select('id, student_id, lent_on, due_on, hire_fee, library_items(title, kind)')
+      .select('id, student_id, lent_on, due_on, hire_fee, deposit, family_returned_at, library_items(title, kind)')
       .eq('teacher_id', t)
       .in('student_id', ids)
       .is('returned_on', null)
@@ -257,7 +260,31 @@ function TeacherSection({ link, data }: { link: FamilyLink; data: Awaited<Return
                           {l.library_items?.kind && ` · ${l.library_items.kind}`}
                           {who(l.student_id) && ` · ${who(l.student_id)}`}
                           {l.hire_fee ? ` · ${money(l.hire_fee, c)} a month` : ''}
+                          {Number(l.deposit) > 0 ? ` · ${money(l.deposit!, c)} deposit` : ''}
                         </span>
+                        {/* ---- "I've returned it" (the teacher confirms) ---- */}
+                        <div style={{ marginTop: 6 }}>
+                          {l.family_returned_at ? (
+                            <span className="small" style={{ color: 'var(--teal-deep)', fontWeight: 800 }}>
+                              ✓ You said it’s back — waiting for your teacher to confirm
+                            </span>
+                          ) : (
+                            <ModalButton label="I’ve returned it" title={`Returned ${l.library_items?.title ?? 'this item'}?`} className="btn btn-secondary btn-sm">
+                              <ActionForm action={familySaysReturned.bind(null, l.id)}>
+                                <p style={{ margin: 0 }}>We’ll let your teacher know so they can check it and confirm.</p>
+                                <div className="field">
+                                  <label className="field-label" htmlFor={`ret-${l.id}`}>
+                                    Note (optional)
+                                  </label>
+                                  <input id={`ret-${l.id}`} name="note" className="input" maxLength={500} placeholder="e.g. Handed back at Saturday’s lesson" />
+                                </div>
+                                <div className="form-actions">
+                                  <SubmitButton pendingText="Sending…">Yes, it’s returned</SubmitButton>
+                                </div>
+                              </ActionForm>
+                            </ModalButton>
+                          )}
+                        </div>
                       </span>
                       {l.due_on ? (
                         <Badge tone={overdue ? 'coral' : 'sky'}>

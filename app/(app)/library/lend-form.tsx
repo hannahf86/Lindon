@@ -2,7 +2,8 @@
 // library/lend-form.tsx — "lend an item to a student" form
 // Used on the library list (choose item + student) and on an item's own page
 // (item fixed, choose student). Lent date defaults to today; due date optional.
-// A monthly hire fee makes it paid hire; blank means a free loan.
+// A monthly hire fee makes it paid hire; blank means a free loan. An optional
+// refundable deposit can be added too.
 // =============================================================================
 import { ActionForm, SubmitButton } from '@/components/forms'
 import { Picker, type PickerOption } from '@/components/pickers'
@@ -35,6 +36,13 @@ export function LendForm(props: {
           symbol={props.currencySymbol}
           placeholder="0.00"
           hint="Leave empty for a free loan. Added to their monthly invoice until it’s returned."
+        />
+        <MoneyField
+          label="Deposit"
+          name="deposit"
+          symbol={props.currencySymbol}
+          placeholder="0.00"
+          hint="Optional and refundable. Add it to their next invoice, or mark it paid if they pay another way."
         />
         <TextField label="Notes" name="notes" placeholder="e.g. Includes bow and rosin" />
       </div>

@@ -90,6 +90,7 @@ export async function lendItem(_: ActionState, fd: FormData): Promise<ActionStat
         lent_on: lentOn,
         due_on: dueOn,
         hire_fee: optionalNum(fd, 'hire_fee', 'Monthly hire fee'),
+        deposit: optionalNum(fd, 'deposit', 'Deposit'),
         notes: str(fd, 'notes'),
       })
       .select('id')
@@ -124,18 +125,38 @@ export async function updateHireFee(loanId: string, _: ActionState, fd: FormData
   })
 }
 
-// ---- Return ----------------------------------------------------------------------------
-export async function returnLoan(loanId: string): Promise<ActionState> {
-  const teacher = await requireFeature('library')
-  const row = must(
-    await db()
-      .from('loans')
-      .update({ returned_on: todayISO(teacher.timezone) })
-      .eq('id', loanId)
-      .eq('teacher_id', teacher.id)
-      .is('returned_on', null)
-      .select('item_id'),
-  )
-  revalidateLibrary(row[0]?.item_id)
-  return { ok: 'Marked as returned.' }
+// ---- Return (with what happened to any deposit) -------------------------------------------------
+export async function returnLoan(loanId: string, _: ActionState, fd: FormData): Promise<ActionState> {
+  return handle(async () => {
+    const teacher = await requireFeature('library')
+    const { data: loan } = await db().from('loans').select('id, item_id, deposit').eq('id', loanId).eq('teacher_id', teacher.id).is('returned_on', null).maybeSingle()
+    if (!loan) throw new FormError('That loan has already been returned.')
+    const hasDeposit = Number(loan.deposit) > 0
+    const outcome = hasDeposit ? str(fd, 'deposit_outcome') : ''
+    if (hasDeposit && outcome !== 'returned' && outcome !== 'kept') throw new FormError('Say whether the deposit was given back or kept.')
+    must(
+      await db()
+        .from('loans')
+        .update({
+          returned_on: todayISO(teacher.timezone),
+          ...(hasDeposit ? { deposit_outcome: outcome as 'returned' | 'kept', deposit_note: str(fd, 'deposit_note') } : {}),
+        })
+        .eq('id', loanId)
+        .eq('teacher_id', teacher.id)
+        .select('id'),
+    )
+    revalidateLibrary(loan.item_id)
+    revalidatePath('/family', 'layout')
+    return { ok: 'Marked as returned.' }
+  })
+}
+
+// ---- Deposit paid another way (cash, bank transfer) -----------------------------------------------
+export async function markDepositPaid(loanId: string): Promise<ActionState> {
+  return handle(async () => {
+    const teacher = await requireFeature('library')
+    const row = must(await db().from('loans').update({ deposit_paid_on: todayISO(teacher.timezone) }).eq('id', loanId).eq('teacher_id', teacher.id).select('item_id').single())
+    revalidateLibrary(row.item_id)
+    return { ok: 'Deposit marked as paid.' }
+  })
 }

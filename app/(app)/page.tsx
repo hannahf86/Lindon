@@ -100,6 +100,12 @@ export default async function DashboardPage({ searchParams }: PageProps<'/'>) {
       href: `/exams/${e.id}`,
       tone: 'butter' as const,
     })),
+    ...d.familyReturns.map((l) => ({
+      key: `ret-${l.id}`,
+      text: <>Returned? · {l.library_items?.title ?? 'Item'} · {fullName(l.students)} says it’s back</>,
+      href: `/library/${l.item_id}`,
+      tone: 'butter' as const,
+    })),
     ...d.overdueLoans.map((l) => ({ key: `loan-${l.id}`, text: <>Overdue return · {l.library_items?.title ?? 'Item'} · {fullName(l.students)}</>, href: `/library/${l.item_id}`, tone: 'coral' as const })),
   ]
 

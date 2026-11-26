@@ -13,7 +13,7 @@ import { fmtDate, fmtTz, todayISO } from '@/lib/dates'
 import { displayStatus, isEditable } from '@/lib/invoices'
 import { productOptions } from '@/lib/products'
 import { availableCredits } from '@/lib/credits'
-import { pendingExamFees, pendingHire } from '@/lib/addons'
+import { pendingDeposits, pendingExamFees, pendingHire } from '@/lib/addons'
 import { has, usesCredits } from '@/lib/features'
 import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
 import { Card, PageHeader, StatusBadge, TextArea, TextField } from '@/components/ui'
@@ -123,6 +123,7 @@ export default async function InvoicePage({ params, searchParams }: PageProps<'/
             products={editable && has(teacher, 'equipment') ? await productOptions(teacher) : undefined}
             examFees={editable && inv.student_id && has(teacher, 'exams') ? await pendingExamFees(teacher.id, inv.student_id) : undefined}
             hire={editable && inv.student_id && has(teacher, 'library') ? await pendingHire(teacher, inv.student_id, inv.issue_date) : undefined}
+            deposits={editable && inv.student_id && has(teacher, 'library') ? await pendingDeposits(teacher, inv.student_id) : undefined}
           />
 
         </div>

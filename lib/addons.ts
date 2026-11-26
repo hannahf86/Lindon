@@ -145,3 +145,37 @@ export async function addExamFeeLine(teacher: Teacher, invoiceId: string, studen
       .select('id'),
   )
 }
+
+// ---- Loan deposits waiting to be billed ----------------------------------------------------------
+export type PendingDeposit = { loanId: string; description: string; amount: number }
+
+/** Deposits on this pupil's open loans that aren't on an invoice and haven't been paid another way. */
+export async function pendingDeposits(teacher: Teacher, studentId: string): Promise<PendingDeposit[]> {
+  const loans = must(
+    await db()
+      .from('loans')
+      .select('id, deposit, library_items(title)')
+      .eq('teacher_id', teacher.id)
+      .eq('student_id', studentId)
+      .is('returned_on', null)
+      .gt('deposit', 0)
+      .eq('deposit_invoiced', false)
+      .is('deposit_paid_on', null),
+  )
+  return loans.map((l) => ({ loanId: l.id, description: `Deposit: ${l.library_items?.title ?? 'loan'} (refundable)`, amount: Number(l.deposit) }))
+}
+
+/** Put one deposit on an invoice and remember it's been billed. */
+export async function addDepositLine(teacher: Teacher, invoiceId: string, studentId: string, loanId: string): Promise<boolean> {
+  const pending = (await pendingDeposits(teacher, studentId)).find((d) => d.loanId === loanId)
+  if (!pending) return false
+  const position = await nextPosition(teacher.id, invoiceId)
+  must(
+    await db()
+      .from('invoice_items')
+      .insert({ teacher_id: teacher.id, invoice_id: invoiceId, kind: 'other', description: pending.description, quantity: 1, unit_price: pending.amount, loan_id: loanId, position })
+      .select('id'),
+  )
+  must(await db().from('loans').update({ deposit_invoiced: true }).eq('id', loanId).eq('teacher_id', teacher.id).select('id'))
+  return true
+}

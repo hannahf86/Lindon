@@ -10,8 +10,8 @@ import { fullName, money } from '@/lib/format'
 import { fmtDate, todayISO } from '@/lib/dates'
 import { distinctValues, studentOptions } from '@/lib/queries'
 import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
-import { Badge, Card, MoneyField, PageHeader } from '@/components/ui'
-import { deleteItem, returnLoan, updateHireFee, updateItem } from '../actions'
+import { Badge, Card, MoneyField, PageHeader, Segmented, TextField } from '@/components/ui'
+import { deleteItem, markDepositPaid, returnLoan, updateHireFee, updateItem } from '../actions'
 import { ItemForm } from '../item-form'
 import { LendForm } from '../lend-form'
 import { currencySymbol, loanState } from '../helpers'
@@ -94,9 +94,56 @@ export default async function LibraryItemPage({ params, searchParams }: PageProp
                   )}
                   {open.notes && <div className="small">{open.notes}</div>}
                 </div>
-                <ConfirmButton action={returnLoan.bind(null, open.id)} confirm={`Mark “${item.title}” as returned today?`} className="btn btn-sm">
-                  Mark returned
-                </ConfirmButton>
+              </div>
+
+              {/* ---- The family says it's back ---- */}
+              {open.family_returned_at && (
+                <div className="alert alert-info small" style={{ marginTop: 12 }}>
+                  <strong>The family says it’s been returned</strong> ({fmtDate(open.family_returned_at.slice(0, 10), 'd MMM')})
+                  {open.family_return_note && <>: “{open.family_return_note}”</>}. Check it, then mark it returned below.
+                </div>
+              )}
+
+              {/* ---- Deposit ---- */}
+              {Number(open.deposit) > 0 && (
+                <div className="form-section">
+                  <div className="spread">
+                    <span>
+                      <strong>Deposit {money(open.deposit!, teacher.currency)}</strong>
+                      <div className="small muted">
+                        {open.deposit_paid_on ? `Paid ${fmtDate(open.deposit_paid_on, 'd MMM')}` : open.deposit_invoiced ? 'On an invoice' : 'Not paid yet — add it to their next invoice (it’ll be waiting on the invoice page), or mark it paid'}
+                      </div>
+                    </span>
+                    {!open.deposit_paid_on && !open.deposit_invoiced && (
+                      <ConfirmButton action={markDepositPaid.bind(null, open.id)} confirm="Mark the deposit as paid (cash or bank transfer)?" className="btn btn-secondary btn-sm">
+                        Mark paid
+                      </ConfirmButton>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ---- Mark returned (and what happened to the deposit) ---- */}
+              <div className="form-section">
+                <ActionForm action={returnLoan.bind(null, open.id)}>
+                  {Number(open.deposit) > 0 && (
+                    <>
+                      <Segmented
+                        label="The deposit"
+                        name="deposit_outcome"
+                        options={[
+                          { value: 'returned', label: 'Given back' },
+                          { value: 'kept', label: 'Kept' },
+                        ]}
+                        defaultValue="returned"
+                      />
+                      <TextField label="Note about the deposit" name="deposit_note" placeholder="e.g. Kept £10 for a broken string" />
+                    </>
+                  )}
+                  <SubmitButton className="btn btn-sm" pendingText="Saving…">
+                    Mark returned today
+                  </SubmitButton>
+                </ActionForm>
               </div>
               {/* ---- Free loan or paid hire ---- */}
               <div className="form-section">

@@ -13,11 +13,11 @@
 // Paid and void invoices show the same list with no editing.
 // =============================================================================
 import type { InvoiceItem } from '@/lib/database.types'
-import type { PendingExamFee, PendingHire } from '@/lib/addons'
+import type { PendingDeposit, PendingExamFee, PendingHire } from '@/lib/addons'
 import { money } from '@/lib/format'
 import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
 import { Badge, Card, MoneyField, Segmented, TextField } from '@/components/ui'
-import { addExamFeeToInvoice, addHireToInvoice, addItem, deleteItem, updateItem } from '../actions'
+import { addDepositToInvoice, addExamFeeToInvoice, addHireToInvoice, addItem, deleteItem, updateItem } from '../actions'
 import { addProductToInvoice } from '@/app/(app)/equipment/actions'
 import { Picker, type PickerOption } from '@/components/pickers'
 
@@ -49,6 +49,8 @@ export function InvoiceItems(props: {
   /** Exam fees and hire for this pupil that aren't on an invoice yet */
   examFees?: PendingExamFee[]
   hire?: PendingHire[]
+  /** Loan deposits not billed or paid yet */
+  deposits?: PendingDeposit[]
 }) {
   const { invoiceId, items, currency: c } = props
   const symbol = symbolFor(c)
@@ -165,7 +167,7 @@ export function InvoiceItems(props: {
       </Card>
 
       {/* ---- Add-ons waiting for this pupil: exam fees and instrument hire ---- */}
-      {props.editable && !!(props.examFees?.length || props.hire?.length) && (
+      {props.editable && !!(props.examFees?.length || props.hire?.length || props.deposits?.length) && (
         <Card title="Waiting to be billed">
           <ul className="list">
             {props.examFees?.map((f) => (
@@ -186,6 +188,18 @@ export function InvoiceItems(props: {
                   <Badge tone="butter">Hire</Badge> {h.description} · <strong>{money(h.amount, c)}</strong>
                 </span>
                 <ActionForm action={addHireToInvoice.bind(null, invoiceId, h.loanId, h.month)} className="row">
+                  <SubmitButton className="btn btn-secondary btn-sm" pendingText="Adding…">
+                    Add
+                  </SubmitButton>
+                </ActionForm>
+              </li>
+            ))}
+            {props.deposits?.map((d) => (
+              <li key={d.loanId} className="spread">
+                <span>
+                  <Badge tone="purple">Deposit</Badge> {d.description} · <strong>{money(d.amount, c)}</strong>
+                </span>
+                <ActionForm action={addDepositToInvoice.bind(null, invoiceId, d.loanId)} className="row">
                   <SubmitButton className="btn btn-secondary btn-sm" pendingText="Adding…">
                     Add
                   </SubmitButton>

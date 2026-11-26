@@ -255,6 +255,15 @@ export type Loan = Timestamps & {
   /** Monthly fee while out on paid hire; null means a free loan */
   hire_fee: number | null
   notes: string
+  /** Refundable deposit (null = none), how it was paid, and what happened to it */
+  deposit: number | null
+  deposit_invoiced: boolean
+  deposit_paid_on: string | null
+  deposit_outcome: 'returned' | 'kept' | null
+  deposit_note: string
+  /** The family said "I've returned it" (teacher still confirms) */
+  family_returned_at: string | null
+  family_return_note: string
 }
 
 export type Exam = Timestamps & {
