@@ -85,7 +85,7 @@ export type CalendarPeriod = ReturnType<typeof calendarPeriod>
 const calHref = (basePath: string, v: CalendarView, date: string) => `${basePath}?view=${v}&date=${date}`
 
 // ---- ‹ Previous · period · Next › (click through days, weeks or months) -------------------
-export function CalendarNav({ basePath, period }: { basePath: string; period: CalendarPeriod }) {
+export function CalendarNav({ basePath, period, className }: { basePath: string; period: CalendarPeriod; className?: string }) {
   const word = period.view === 'day' ? 'day' : period.view === 'week' ? 'week' : 'month'
   const label =
     period.view === 'day'
@@ -94,7 +94,7 @@ export function CalendarNav({ basePath, period }: { basePath: string; period: Ca
         ? `${fmtDate(period.periodFrom, 'd MMM')} – ${fmtDate(period.periodTo, 'd MMM')}`
         : fmtDate(period.monthStart, 'MMMM yyyy')
   return (
-    <nav className="cal-nav" aria-label={`Change ${word}`}>
+    <nav className={`cal-nav ${className ?? ''}`} aria-label={`Change ${word}`}>
       <Link className="cal-nav-arrow" href={calHref(basePath, period.view, period.prev)} aria-label={`Previous ${word}`}>
         ‹
       </Link>
@@ -125,7 +125,15 @@ export function CalendarSwitch({ basePath, period }: { basePath: string; period:
 }
 
 // ---- The calendar itself -----------------------------------------------------------------
-export async function LessonCalendar(props: { teacher: Teacher; period: CalendarPeriod; today: string; basePath: string; showTotals?: boolean }) {
+export async function LessonCalendar(props: {
+  teacher: Teacher
+  period: CalendarPeriod
+  today: string
+  basePath: string
+  showTotals?: boolean
+  /** Shown between the totals and the calendar itself (e.g. ‹ › and Day · Week · Month) */
+  toolbar?: React.ReactNode
+}) {
   const { teacher, period: p, today, basePath } = props
   const tz = teacher.timezone
   const t = teacher.id
@@ -217,12 +225,15 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
     <DayAdder students={adderStudents} locations={teacher.locations} currencySymbol={currencySymbol(teacher.currency)} dayHref={basePath}>
       {/* ---- Totals for the period ---- */}
       {props.showTotals && (
-        <div className="grid grid-3" style={{ marginBottom: 20 }}>
+        <div className="grid grid-3" style={{ marginBottom: 28 }}>
           <Stat label="Lessons" value={taught.length} note={cancelled ? `plus ${cancelled} cancelled` : periodWord} tone="teal" />
           <Stat label="Teaching time" value={duration(Math.round(hours * 60))} note={`${hours.toFixed(1)} hours`} tone="butter" />
           <Stat label="Expected income" value={money(income, teacher.currency)} note="chargeable lessons, not cancelled" tone="purple" />
         </div>
       )}
+
+      {/* ---- Toolbar, right above the calendar ---- */}
+      {props.toolbar}
 
       {/* ================================================================
           DAY VIEW — one roomy timeline with full details

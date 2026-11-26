@@ -533,3 +533,8 @@ button.month-cell:focus-visible { outline: 3px solid var(--teal); outline-offset
 .brand-preview { margin-top: 14px; border: 2px solid var(--line); border-radius: 14px; overflow: hidden; max-width: 420px; }
 .brand-preview-head { background: var(--brand); color: #fff; font-weight: 900; padding: 12px 14px; }
 .brand-preview-stripe { height: 6px; background: var(--brand-accent); }
+
+/* Schedule: roomier bar above the calendar; arrows on the left */
+.cal-bar.cal-bar-roomy { margin-bottom: 20px; gap: 16px; }
+.cal-nav.cal-nav-start { margin-left: 0; }
+.cal-nav-start .cal-nav-label { min-width: 160px; }

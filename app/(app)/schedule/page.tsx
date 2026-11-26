@@ -4,7 +4,9 @@
 // /schedule?view=day|week|month&date=YYYY-MM-DD  (week is the default; the old
 // ?week=YYYY-MM-DD links still work). The calendar itself is
 // schedule/calendar.tsx, shared with the dashboard; this page adds the
-// previous / next buttons, the Calendar · Time slots tabs and period totals.
+// Calendar · Teaching hours · Free slots tabs and the period totals, then a
+// bar right above the calendar: ‹ previous · this day/week/month · next › on
+// the left, Day · Week · Month on the right.
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -12,7 +14,7 @@ import { requireTeacher } from '@/lib/db'
 import { todayISO } from '@/lib/dates'
 import { PageHeader } from '@/components/ui'
 import { ScheduleTabs } from './tabs'
-import { CalendarSwitch, LessonCalendar, calendarPeriod } from './calendar'
+import { CalendarNav, CalendarSwitch, LessonCalendar, calendarPeriod } from './calendar'
 
 export const metadata: Metadata = { title: 'Schedule' }
 
@@ -20,7 +22,6 @@ export default async function SchedulePage({ searchParams }: PageProps<'/schedul
   const teacher = await requireTeacher()
   const today = todayISO(teacher.timezone)
   const period = calendarPeriod(await searchParams, today)
-  const href = (date: string) => `/schedule?view=${period.view}&date=${date}`
 
   return (
     <>
@@ -28,33 +29,31 @@ export default async function SchedulePage({ searchParams }: PageProps<'/schedul
         title="Schedule"
         subtitle={period.title}
         actions={
-          <>
-            {/* ---- Previous / today / next ---- */}
-            <Link className="btn btn-secondary" href={href(period.prev)}>
-              ← Previous
-            </Link>
-            {!period.isCurrent && (
-              <Link className="btn btn-secondary" href={href(today)}>
-                {period.todayLabel}
-              </Link>
-            )}
-            <Link className="btn btn-secondary" href={href(period.next)}>
-              Next →
-            </Link>
-            <Link className="btn" href="/lessons/new">
-              + One-off lesson
-            </Link>
-          </>
+          <Link className="btn" href="/lessons/new">
+            + One-off lesson
+          </Link>
         }
       />
 
-      {/* ---- Calendar / Time slots tabs, and the Day · Week · Month switch ---- */}
-      <div className="spread" style={{ marginBottom: 20 }}>
+      {/* ---- Calendar · Teaching hours · Free slots tabs ---- */}
+      <div style={{ marginBottom: 28 }}>
         <ScheduleTabs current="calendar" />
-        <CalendarSwitch basePath="/schedule" period={period} />
       </div>
 
-      <LessonCalendar teacher={teacher} period={period} today={today} basePath="/schedule" showTotals />
+      <LessonCalendar
+        teacher={teacher}
+        period={period}
+        today={today}
+        basePath="/schedule"
+        showTotals
+        toolbar={
+          // ‹ previous · period · next › | Day · Week · Month — right above the calendar
+          <div className="cal-bar cal-bar-roomy">
+            <CalendarNav basePath="/schedule" period={period} className="cal-nav-start" />
+            <CalendarSwitch basePath="/schedule" period={period} />
+          </div>
+        }
+      />
     </>
   )
 }
