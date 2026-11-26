@@ -507,4 +507,4 @@ button.month-cell:focus-visible { outline: 3px solid var(--teal); outline-offset
 
 /* Dashboard quick-action buttons: Figma size 313 x 64 */
 .dash-actions { gap: 16px; }
-.dash-actions .btn { min-height: 64px; font-size: 1.15rem; }
+.dash-actions .btn { min-height: 64px; font-size: 1.15rem; border-radius: 10px; }
