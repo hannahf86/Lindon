@@ -6,13 +6,14 @@
 // schedule/calendar.tsx, shared with the dashboard; this page adds the
 // Calendar · Teaching hours · Free slots tabs and the period totals, then a
 // bar right above the calendar: ‹ previous · this day/week/month · next › on
-// the left, Day · Week · Month on the right.
+// the left with "Connect to calendar" (coming soon), Day · Week · Month on
+// the right.
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { requireTeacher } from '@/lib/db'
 import { todayISO } from '@/lib/dates'
-import { PageHeader } from '@/components/ui'
+import { Badge, PageHeader } from '@/components/ui'
 import { ScheduleTabs } from './tabs'
 import { CalendarNav, CalendarSwitch, LessonCalendar, calendarPeriod } from './calendar'
 
@@ -49,7 +50,13 @@ export default async function SchedulePage({ searchParams }: PageProps<'/schedul
         toolbar={
           // ‹ previous · period · next › | Day · Week · Month — right above the calendar
           <div className="cal-bar cal-bar-roomy">
-            <CalendarNav basePath="/schedule" period={period} className="cal-nav-start" />
+            <div className="row" style={{ gap: 16 }}>
+              <CalendarNav basePath="/schedule" period={period} className="cal-nav-start" />
+              {/* Google Calendar push comes later (same button as the dashboard) */}
+              <button type="button" className="btn btn-secondary btn-sm" disabled title="Coming soon">
+                Connect to calendar <Badge>Coming soon</Badge>
+              </button>
+            </div>
             <CalendarSwitch basePath="/schedule" period={period} />
           </div>
         }

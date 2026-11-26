@@ -17,8 +17,10 @@ import { has } from '@/lib/features'
 import { Card, EmptyState, PageHeader, Stat, StatusBadge, TextField } from '@/components/ui'
 import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
 import { ModalButton } from '@/components/modal'
+import { InvoiceRowActions } from './invoice-row-actions'
+import { OVERDUE_DAYS } from '@/lib/invoice-reminders'
 import { MonthPicker } from '@/components/month-picker'
-import { emailInvoice, runMonthlyInvoices, sendInvoiceReminder, sendMonthDrafts, setAutoInvoice } from './actions'
+import { runMonthlyInvoices, sendMonthDrafts, setAutoInvoice } from './actions'
 
 export const metadata: Metadata = { title: 'Invoices' }
 
@@ -121,6 +123,19 @@ export default async function InvoicesPage({ searchParams }: PageProps<'/invoice
         )}
       </div>
 
+      {/* ---- Payment reminders: automatic when auto-invoicing is on ---- */}
+      <div className={`alert ${teacher.auto_invoice ? 'alert-ok' : 'alert-info'}`} style={{ marginBottom: 20 }}>
+        {teacher.auto_invoice ? (
+          <>
+            <strong>Auto-invoicing is on</strong>, so payment reminders are sent for you: any invoice still unpaid {OVERDUE_DAYS} days after it’s due gets one reminder email. You can still send one yourself from “More…”.
+          </>
+        ) : (
+          <>
+            <strong>Auto-invoicing is off</strong>, so no reminders go out automatically. Use “More…” → Send reminder on an unpaid invoice, or switch auto-invoicing on.
+          </>
+        )}
+      </div>
+
       {/* ---- The month's invoices ---- */}
       <Card>
         {invoices.length === 0 ? (
@@ -160,24 +175,15 @@ export default async function InvoicesPage({ searchParams }: PageProps<'/invoice
                         {inv.status === 'paid' && inv.paid_on && <div className="small muted">{fmtDate(inv.paid_on, 'd MMM')}</div>}
                         {inv.status === 'sent' && inv.due_date && <div className="small muted">Due {fmtDate(inv.due_date, 'd MMM')}</div>}
                       </td>
+                      {/* ---- Quick actions: main button + "More…" dropdown ---- */}
                       <td className="right">
-                        {inv.status === 'draft' ? (
-                          <ConfirmButton
-                            action={emailInvoice.bind(null, inv.id)}
-                            confirm={`Email invoice ${inv.number} to ${inv.bill_to_email || 'the family'}?`}
-                            className="btn btn-sm"
-                          >
-                            Send invoice
-                          </ConfirmButton>
-                        ) : inv.status === 'sent' ? (
-                          <ConfirmButton
-                            action={sendInvoiceReminder.bind(null, inv.id)}
-                            confirm={`Email a payment reminder for ${inv.number} to ${inv.bill_to_email || 'the family'}?`}
-                            className="btn btn-secondary btn-sm"
-                          >
-                            Send reminder
-                          </ConfirmButton>
-                        ) : null}
+                        <InvoiceRowActions
+                          id={inv.id}
+                          number={inv.number}
+                          status={inv.status}
+                          email={inv.bill_to_email}
+                          paidLabel={inv.paid_on ? fmtDate(inv.paid_on, 'd MMM') : undefined}
+                        />
                       </td>
                     </tr>
                   )

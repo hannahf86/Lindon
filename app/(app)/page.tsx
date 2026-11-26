@@ -78,7 +78,7 @@ export default async function DashboardPage({ searchParams }: PageProps<'/'>) {
     ...d.needAttendance.map((l) => ({
       key: `att-${l.id}`,
       text: <>Mark attendance · {fullName(l.students)} · {fmtTz(l.starts_at, tz, 'EEE d MMM, HH:mm')}</>,
-      href: `/lessons/${l.id}`,
+      href: '/schedule/attendance',
       tone: 'butter' as const,
     })),
     ...d.overdueInvoices.map((inv) => ({
@@ -184,7 +184,7 @@ export default async function DashboardPage({ searchParams }: PageProps<'/'>) {
       )}
 
       {/* ---- Calendar bar: month dropdown + Connect to calendar | Day · Week · Month ---- */}
-      <div className="cal-bar">
+      <div className="cal-bar cal-bar-roomy">
         <div className="row" style={{ gap: 10 }}>
           <MonthPicker
             basePath="/"
@@ -211,7 +211,7 @@ export default async function DashboardPage({ searchParams }: PageProps<'/'>) {
 
       {/* ---- Needs attention ---- */}
       {attention.length > 0 && (
-        <div style={{ marginTop: 24 }}>
+        <div style={{ marginTop: 28 }}>
           <Card title="Needs attention">
           <ul className="list">
             {attention.slice(0, 12).map((a) => (

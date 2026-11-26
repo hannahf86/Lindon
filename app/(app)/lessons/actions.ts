@@ -151,7 +151,7 @@ export async function setAttendance(id: string, status: LessonStatus): Promise<A
     if (before.status === status) return { ok: `Already marked ${ATTENDANCE_WORDS[status]}.` }
     must(await db().from('lessons').update({ status }).eq('id', id).eq('teacher_id', teacher.id).select('id'))
     revalidateLesson(id, before.student_id)
-    revalidatePath('/schedule')
+    revalidatePath('/schedule', 'layout') // includes Schedule → Attendance
     return { ok: `Marked ${ATTENDANCE_WORDS[status]}.` + (await creditNote(teacher, id, before.status, status)) }
   })
 }

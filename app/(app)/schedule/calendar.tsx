@@ -28,7 +28,7 @@ import { has, usesCredits } from '@/lib/features'
 import type { Teacher } from '@/lib/database.types'
 import { Badge, Card, EmptyState, Stat, StatusBadge } from '@/components/ui'
 import { AttendanceButtons } from '../lessons/attendance-buttons'
-import { AddDayButton, DayAdder, type AdderStudent } from '@/components/day-adder'
+import { AddDayButton, DayAdder, type AdderStudent, type DayLesson } from '@/components/day-adder'
 import { eventKindLabel, eventTimeLabel } from '@/lib/events'
 
 export type CalendarView = 'day' | 'week' | 'month'
@@ -202,6 +202,15 @@ export async function LessonCalendar(props: {
 
   /** Teaching hours that day (none = not a teaching day). */
   const hoursOn = (d: string) => teachHours.filter((h) => h.day_of_week === isoWeekday(d))
+  // For the day pop-up's attendance list
+  const lessonsByDate: Record<string, DayLesson[]> = {}
+  for (const [d, ls] of byDay) {
+    lessonsByDate[d] = ls.map((l) => {
+      const time = fmtTz(l.starts_at, tz, 'HH:mm')
+      return { id: l.id, time, end: endTime(time, l.duration_minutes), name: fullName(l.students) || 'Lesson', firstName: l.students?.first_name ?? 'The pupil', status: l.status }
+    })
+  }
+
   /** Events on a date (all-day ones first). */
   const eventsOn = (d: string) => events.filter((e) => e.event_date === d)
   /** Free time on a date: teaching hours minus lessons going ahead and timed events. */
@@ -222,7 +231,7 @@ export async function LessonCalendar(props: {
   const freeLabel = (g: Span) => `${clock(g.from)}–${clock(g.to)}`
 
   return (
-    <DayAdder students={adderStudents} locations={teacher.locations} currencySymbol={currencySymbol(teacher.currency)} dayHref={basePath}>
+    <DayAdder students={adderStudents} locations={teacher.locations} currencySymbol={currencySymbol(teacher.currency)} dayHref={basePath} lessonsByDate={lessonsByDate} credits={credits}>
       {/* ---- Totals for the period ---- */}
       {props.showTotals && (
         <div className="grid grid-3" style={{ marginBottom: 28 }}>

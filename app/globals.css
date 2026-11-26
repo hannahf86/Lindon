@@ -483,7 +483,7 @@ form:not(:has(input[name='ends'][value='date']:checked)) .ends-date-only { displ
 
 /* Dashboard: compact top tiles and calendar so "Connect to calendar" and most
    of the month sit above the fold (Hannah's wireframe) */
-.dash-top { margin-bottom: 18px; }
+.dash-top { margin-bottom: 28px; }
 .dash-tile { min-height: 300px; padding: 22px 24px; } /* Figma tiles: 382 x 299 */
 .dash-tile .big { font-size: 2.4rem; }
 .dash-cal .month-cell { min-height: 64px; padding: 6px; }
@@ -498,7 +498,7 @@ button.month-cell:focus-visible { outline: 3px solid var(--teal); outline-offset
 .month-chip.happening { background: var(--coral-wash); border-left-color: var(--coral); font-weight: 800; }
 
 /* Tip + quote of the day side by side at the top of the dashboard */
-.dash-daily { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.dash-daily { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 28px; }
 .dash-daily .tip { margin-bottom: 0; }
 .tip.quote { background: var(--purple-wash); border-left-color: var(--purple); }
 .tip.quote .tip-eyebrow { color: var(--purple); }
@@ -538,3 +538,31 @@ button.month-cell:focus-visible { outline: 3px solid var(--teal); outline-offset
 .cal-bar.cal-bar-roomy { margin-bottom: 20px; gap: 16px; }
 .cal-nav.cal-nav-start { margin-left: 0; }
 .cal-nav-start .cal-nav-label { min-width: 160px; }
+
+/* Schedule → Attendance: one row per lesson with one-tap buttons */
+.att-list { list-style: none; margin: 0; padding: 0; }
+.att-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.att-row:last-child { border-bottom: 0; }
+.att-row .attendance { justify-content: flex-end; }
+@media (max-width: 800px) {
+  .att-row { grid-template-columns: 90px minmax(0, 1fr); }
+  .att-row .attendance { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+/* Day pop-up: that day's lessons with Present + "didn't come" dropdown */
+.day-att { list-style: none; margin: 0 0 6px; padding: 0; }
+.day-att-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
+.day-att-row:last-child { border-bottom: 0; }
+.day-att-time { font-weight: 800; font-size: 0.9rem; }
+.day-att-name { font-weight: 800; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.day-att-actions { display: flex; gap: 6px; align-items: center; }
+.day-att-row.notice_given .day-att-name, .day-att-row.teacher_cancelled .day-att-name { text-decoration: line-through; color: var(--muted); }
+.input.input-sm { padding: 6px 8px; font-size: 0.85rem; width: auto; }
+@media (max-width: 560px) {
+  .day-att-row { grid-template-columns: 80px minmax(0, 1fr); }
+  .day-att-actions { grid-column: 1 / -1; }
+}
+
+/* Invoices list: main button + "More…" dropdown */
+.inv-actions { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.inv-actions-row { display: flex; gap: 6px; align-items: center; }

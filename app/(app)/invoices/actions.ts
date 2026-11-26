@@ -300,6 +300,38 @@ export async function markPaid(id: string, _: ActionState, fd: FormData): Promis
   })
 }
 
+// ---- One-tap "Mark paid" from the invoices list (paid today) ---------------------------------
+export async function markPaidToday(id: string): Promise<ActionState> {
+  return handle(async () => {
+    const teacher = await requireTeacher()
+    const inv = await ownInvoice(teacher, id)
+    if (inv.status === 'void') throw new FormError('This invoice is void. Reopen it as a draft first.')
+    if (inv.status === 'paid') return { ok: 'Already paid.' }
+    must(await db().from('invoices').update({ status: 'paid', paid_on: todayISO(teacher.timezone) }).eq('id', id).eq('teacher_id', teacher.id).select('id'))
+    refresh(id, inv.student_id)
+    return { ok: 'Marked paid.' }
+  })
+}
+
+// ---- Undo a payment (back to sent, or draft if it was never sent) ----------------------------
+export async function markUnpaid(id: string): Promise<ActionState> {
+  return handle(async () => {
+    const teacher = await requireTeacher()
+    const inv = await ownInvoice(teacher, id)
+    if (inv.status !== 'paid') return { ok: 'It isn’t marked paid.' }
+    must(
+      await db()
+        .from('invoices')
+        .update({ status: inv.sent_at ? 'sent' : 'draft', paid_on: null, payment_method: '' })
+        .eq('id', id)
+        .eq('teacher_id', teacher.id)
+        .select('id'),
+    )
+    refresh(id, inv.student_id)
+    return { ok: 'Marked unpaid.' }
+  })
+}
+
 /** Void: the invoice stays on record but no longer counts, and its lessons can be billed again. */
 export async function voidInvoice(id: string): Promise<ActionState> {
   return handle(async () => {

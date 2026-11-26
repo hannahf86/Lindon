@@ -11,6 +11,11 @@
 //   · Event  — concert, exam day, group lesson, mock exam or other.
 // Both save without leaving the calendar; the pop-up closes on success and
 // the calendar refreshes (the actions revalidate it).
+//
+// The pop-up first lists that day's lessons (Hannah's colleague's request):
+// name, time, a one-tap "Present" button, and a dropdown for when they didn't
+// come — Absent, Notice given, I cancelled. With lessons on the day, the
+// add form sits behind "+ Add a lesson or event".
 // =============================================================================
 import { createContext, startTransition, useActionState, useCallback, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import Link from 'next/link'
@@ -23,6 +28,11 @@ import { EventFields } from '@/components/event-fields'
 import { LocationSelect } from '@/components/location-select'
 import { addLessonFromCalendar } from '@/app/(app)/lessons/actions'
 import { createEvent } from '@/app/(app)/events/actions'
+import { setAttendance } from '@/app/(app)/lessons/actions'
+import type { LessonStatus } from '@/lib/database.types'
+
+/** A lesson on the clicked day, for marking attendance in the pop-up. */
+export type DayLesson = { id: string; time: string; end: string; name: string; firstName: string; status: LessonStatus }
 
 /** A student plus the lesson details to pre-fill (from their regular booking). */
 export type AdderStudent = { id: string; name: string; time: string; duration: number | null; price: number | null; instrument: string; location: string }
@@ -40,16 +50,29 @@ export function AddDayButton({ date, className, label, children }: { date: strin
 }
 
 // ---- Provider + pop-up -----------------------------------------------------------------
-export function DayAdder(props: { students: AdderStudent[]; locations: string[]; currencySymbol: string; dayHref: string; children: ReactNode }) {
+export function DayAdder(props: {
+  students: AdderStudent[]
+  locations: string[]
+  currencySymbol: string
+  dayHref: string
+  /** Lessons by local date (YYYY-MM-DD), for marking attendance */
+  lessonsByDate?: Record<string, DayLesson[]>
+  /** Teacher bills in advance: notice given / I cancelled earn a make-up credit */
+  credits?: boolean
+  children: ReactNode
+}) {
   const dialog = useRef<HTMLDialogElement>(null)
   const [date, setDate] = useState('')
   const [kind, setKind] = useState<'lesson' | 'event'>('lesson')
   const [round, setRound] = useState(0) // remounts the forms each time, clearing old messages
+  const [adding, setAdding] = useState(false)
+  const dayLessons = (date && props.lessonsByDate?.[date]) || []
 
   const open = useCallback((d: string) => {
     setDate(d)
     setKind('lesson')
     setRound((r) => r + 1)
+    setAdding(false)
     dialog.current?.showModal()
   }, [])
   const close = useCallback(() => dialog.current?.close(), [])
@@ -63,7 +86,7 @@ export function DayAdder(props: { students: AdderStudent[]; locations: string[];
           {/* ---- Header ---- */}
           <div className="modal-head">
             <div>
-              <h2 style={{ margin: 0 }}>Add to {pretty}</h2>
+              <h2 style={{ margin: 0 }}>{pretty}</h2>
               {date && (
                 <Link href={`${props.dayHref}?view=day&date=${date}`} className="small" onClick={close}>
                   Open this day →
@@ -75,22 +98,34 @@ export function DayAdder(props: { students: AdderStudent[]; locations: string[];
             </button>
           </div>
 
-          {/* ---- Lesson or event ---- */}
-          <div className="segmented" role="radiogroup" aria-label="What are you adding?" style={{ marginBottom: 16 }}>
-            {(['lesson', 'event'] as const).map((k) => (
-              <label key={k}>
-                <input type="radio" name="add_kind" checked={kind === k} onChange={() => setKind(k)} />
-                <span>{k === 'lesson' ? 'Lesson' : 'Event'}</span>
-              </label>
-            ))}
-          </div>
+          {/* ---- That day's lessons: mark attendance ---- */}
+          {dayLessons.length > 0 && <DayAttendance key={`a-${round}`} lessons={dayLessons} credits={props.credits ?? true} />}
 
-          {date &&
-            (kind === 'lesson' ? (
-              <LessonForm key={`l-${round}`} date={date} students={props.students} locations={props.locations} currencySymbol={props.currencySymbol} onDone={close} />
-            ) : (
-              <EventForm key={`e-${round}`} date={date} onDone={close} />
-            ))}
+          {/* ---- Add a lesson or event (behind a button when the day has lessons) ---- */}
+          {dayLessons.length > 0 && !adding ? (
+            <button type="button" className="btn btn-secondary" onClick={() => setAdding(true)} style={{ marginTop: 8 }}>
+              + Add a lesson or event
+            </button>
+          ) : (
+            <>
+              {dayLessons.length > 0 && <h3 style={{ margin: '18px 0 10px' }}>Add to this day</h3>}
+              <div className="segmented" role="radiogroup" aria-label="What are you adding?" style={{ marginBottom: 16 }}>
+                {(['lesson', 'event'] as const).map((k) => (
+                  <label key={k}>
+                    <input type="radio" name="add_kind" checked={kind === k} onChange={() => setKind(k)} />
+                    <span>{k === 'lesson' ? 'Lesson' : 'Event'}</span>
+                  </label>
+                ))}
+              </div>
+
+              {date &&
+                (kind === 'lesson' ? (
+                  <LessonForm key={`l-${round}`} date={date} students={props.students} locations={props.locations} currencySymbol={props.currencySymbol} onDone={close} />
+                ) : (
+                  <EventForm key={`e-${round}`} date={date} onDone={close} />
+                ))}
+            </>
+          )}
         </div>
       </dialog>
     </OpenContext.Provider>
@@ -189,5 +224,86 @@ function EventForm(props: { date: string; onDone: () => void }) {
       </div>
       <FormErrorBox state={state} />
     </form>
+  )
+}
+
+// ---- That day's lessons: Present button + "didn't come" dropdown ---------------------------
+const MISSED: { status: LessonStatus; label: string; credit: boolean }[] = [
+  { status: 'absent', label: 'Absent (no notice)', credit: false },
+  { status: 'notice_given', label: 'Notice given', credit: true },
+  { status: 'teacher_cancelled', label: 'I cancelled', credit: true },
+]
+
+function DayAttendance({ lessons, credits }: { lessons: DayLesson[]; credits: boolean }) {
+  const [busy, setBusy] = useState<string | null>(null)
+  const [message, setMessage] = useState<ActionState>(null)
+
+  const mark = (l: DayLesson, status: LessonStatus) => {
+    const missed = MISSED.find((m) => m.status === status)
+    if (missed?.credit && credits) {
+      const ok = window.confirm(
+        `Mark ${l.firstName}'s lesson as "${missed.label.toLowerCase()}"? They get a make-up credit, which comes off next month's invoice, and the family is emailed to let them know.`,
+      )
+      if (!ok) return
+    }
+    setBusy(l.id)
+    startTransition(async () => {
+      setMessage(await setAttendance(l.id, status))
+      setBusy(null)
+    })
+  }
+
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <h3 style={{ margin: '0 0 8px' }}>Lessons</h3>
+      <ul className="day-att">
+        {lessons.map((l) => {
+          const missed = MISSED.find((m) => m.status === l.status)
+          return (
+            <li key={l.id} className={`day-att-row ${l.status}`}>
+              <span className="day-att-time">
+                {l.time}–{l.end}
+              </span>
+              <Link href={`/lessons/${l.id}`} className="day-att-name">
+                {l.name}
+              </Link>
+              <span className="day-att-actions">
+                {l.status === 'present' ? (
+                  <span className="btn btn-sm att-current">✓ Present</span>
+                ) : (
+                  <button type="button" className="btn btn-sm" disabled={busy === l.id} onClick={() => mark(l, 'present')}>
+                    {busy === l.id ? '…' : 'Present'}
+                  </button>
+                )}
+                <select
+                  className="input input-sm"
+                  aria-label={`${l.firstName} didn't come`}
+                  value={missed?.status ?? ''}
+                  disabled={busy === l.id}
+                  onChange={(e) => e.target.value && mark(l, e.target.value as LessonStatus)}
+                >
+                  <option value="">{missed ? missed.label : 'Didn’t come…'}</option>
+                  {MISSED.filter((m) => m.status !== l.status).map((m) => (
+                    <option key={m.status} value={m.status}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+      {message?.error && (
+        <div className="alert alert-error" role="alert">
+          {message.error}
+        </div>
+      )}
+      {message?.ok && (
+        <div className="alert alert-ok" role="status">
+          {message.ok}
+        </div>
+      )}
+    </div>
   )
 }

@@ -32,7 +32,7 @@ export function ChargingFields({ teacher }: { teacher: Teacher }) {
         name="auto_invoice"
         label="Send invoices automatically"
         defaultChecked={teacher.auto_invoice}
-        hint="On the 1st of each month, invoices are made and emailed for you. Leave off to get drafts you check and send yourself."
+        hint="On the 1st of each month, invoices are made and emailed for you, and a reminder goes out if one is still unpaid a week after it’s due. Leave off to get drafts you check and send yourself."
       />
     </div>
   )

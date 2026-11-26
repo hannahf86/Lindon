@@ -3,6 +3,7 @@
 //
 // 1. Lesson reminders due in each teacher's reminder window.
 // 2. On the 1st of the month, each teacher's monthly invoices (lib/auto-invoices).
+// 2a. Overdue invoice reminders for auto-invoicing teachers (lib/invoice-reminders).
 // 2b. Exam reminders (lib/exam-reminders), from 9am in each teacher's timezone.
 // 3. Once a day (02:00 UTC run), lessons for bookings with no end date are
 //    topped up to six months ahead (lib/bookings).
@@ -15,6 +16,7 @@ import { sendDueReminders } from '@/lib/reminders'
 import { runAutoInvoices } from '@/lib/auto-invoices'
 import { extendOpenBookings } from '@/lib/bookings'
 import { sendDueExamReminders } from '@/lib/exam-reminders'
+import { sendOverdueInvoiceReminders } from '@/lib/invoice-reminders'
 
 export async function GET(request: Request) {
   // ---- Auth: shared secret -------------------------------------------------------------
@@ -26,8 +28,9 @@ export async function GET(request: Request) {
   // ---- Run ---------------------------------------------------------------------------
   const reminders = await sendDueReminders()
   const invoices = await runAutoInvoices()
-  // Never let exam reminders stop the rest of the hourly job
+  // Never let these stop the rest of the hourly job
+  const invoiceReminders = await sendOverdueInvoiceReminders().catch((e: Error) => ({ error: e.message }))
   const examReminders = await sendDueExamReminders().catch((e: Error) => ({ error: e.message }))
   const openBookings = new Date().getUTCHours() === 2 ? await extendOpenBookings() : null
-  return Response.json({ ok: true, ranAt: new Date().toISOString(), reminders, examReminders, invoices, openBookings })
+  return Response.json({ ok: true, ranAt: new Date().toISOString(), reminders, invoiceReminders, examReminders, invoices, openBookings })
 }
