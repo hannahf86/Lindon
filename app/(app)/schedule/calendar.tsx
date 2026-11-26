@@ -11,16 +11,24 @@
 // inside the teacher's teaching hours that isn't booked shows faintly as
 // "Free"; days with no teaching hours are greyed out as "Not a teaching day".
 // A pupil's last booked lesson is marked so it's easy to see when to rebook.
+// Events (concerts, exam days, group lessons…) show alongside lessons, and
+// timed events come out of the free time.
+//
+// Click a day (a month square, a week column's "+ Add", or the day view's
+// button) to add a one-off lesson or an event in a pop-up
+// (components/day-adder.tsx). The month square's pop-up links to the day view.
 // =============================================================================
 import Link from 'next/link'
 import { db, must } from '@/lib/db'
 import { duration, fullName, hhmm, label, money } from '@/lib/format'
 import { addDaysISO, fmtDate, fmtTz, isDateISO, isoWeekday, monthBounds, rangeBoundsUtc, utcToZonedParts, weekStartISO } from '@/lib/dates'
-import { clock, endTime, freeGaps, isCancelled, minutesOf, type Span } from '@/lib/lessons'
+import { clock, currencySymbol, endTime, freeGaps, isCancelled, minutesOf, type Span } from '@/lib/lessons'
 import { has, usesCredits } from '@/lib/features'
 import type { Teacher } from '@/lib/database.types'
 import { Badge, Card, EmptyState, Stat, StatusBadge } from '@/components/ui'
 import { AttendanceButtons } from '../lessons/attendance-buttons'
+import { AddDayButton, DayAdder, type AdderStudent } from '@/components/day-adder'
+import { eventKindLabel, eventTimeLabel } from '@/lib/events'
 
 export type CalendarView = 'day' | 'week' | 'month'
 const VIEWS: { key: CalendarView; label: string }[] = [
@@ -101,7 +109,7 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
   for (let d = p.gridFrom; d <= p.gridTo; d = addDaysISO(d, 1)) gridDays.push(d)
   const [fromUtc, toUtc] = rangeBoundsUtc(p.gridFrom, p.gridTo, tz)
 
-  const [lessons, exams, slots, teachHours] = await Promise.all([
+  const [lessons, exams, slots, teachHours, events, adderStudents] = await Promise.all([
     db()
       .from('lessons')
       .select('id, starts_at, duration_minutes, price, status, chargeable, instrument, location, time_slot_id, students(id, first_name, last_name)')
@@ -123,6 +131,15 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
       : Promise.resolve([]),
     db().from('time_slots').select('id, student_id, ends_on').eq('teacher_id', t).eq('active', true).not('student_id', 'is', null).then(must),
     db().from('teaching_hours').select('day_of_week, starts, ends').eq('teacher_id', t).order('starts').then(must),
+    db()
+      .from('events')
+      .select('id, title, kind, event_date, starts, ends, location')
+      .eq('teacher_id', t)
+      .gte('event_date', p.gridFrom)
+      .lte('event_date', p.gridTo)
+      .order('starts', { nullsFirst: true })
+      .then(must),
+    loadAdderStudents(t),
   ])
 
   // Group lessons by their local (teacher-timezone) date
@@ -149,7 +166,9 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
 
   /** Teaching hours that day (none = not a teaching day). */
   const hoursOn = (d: string) => teachHours.filter((h) => h.day_of_week === isoWeekday(d))
-  /** Free time on a date: teaching hours minus lessons that are going ahead. */
+  /** Events on a date (all-day ones first). */
+  const eventsOn = (d: string) => events.filter((e) => e.event_date === d)
+  /** Free time on a date: teaching hours minus lessons going ahead and timed events. */
   const freeOn = (d: string, dayLessons: typeof lessons): Span[] => {
     const busy = dayLessons
       .filter((l) => !isCancelled(l.status))
@@ -157,12 +176,17 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
         const from = minutesOf(fmtTz(l.starts_at, tz, 'HH:mm'))
         return { from, to: from + l.duration_minutes }
       })
+    for (const e of eventsOn(d)) {
+      if (!e.starts) continue
+      const from = minutesOf(e.starts.slice(0, 5))
+      busy.push({ from, to: e.ends ? minutesOf(e.ends.slice(0, 5)) : from + 60 }) // no end time: assume an hour
+    }
     return freeGaps(hoursOn(d), busy)
   }
   const freeLabel = (g: Span) => `${clock(g.from)}–${clock(g.to)}`
 
   return (
-    <>
+    <DayAdder students={adderStudents} currencySymbol={currencySymbol(teacher.currency)} dayHref={basePath}>
       {/* ---- Totals for the period ---- */}
       {props.showTotals && (
         <div className="grid grid-3" style={{ marginBottom: 20 }}>
@@ -180,13 +204,21 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
           const dayLessons = byDay.get(p.anchor) ?? []
           const dayExams = exams.filter((e) => e.exam_date === p.anchor)
           const dayFree = freeOn(p.anchor, dayLessons)
+          const dayEvents = eventsOn(p.anchor)
           const rows = [
+            ...dayEvents.map((ev) => ({ kind: 'event' as const, time: ev.starts ? ev.starts.slice(0, 5) : '00:00', ev })),
             ...dayLessons.map((l) => ({ kind: 'lesson' as const, time: fmtTz(l.starts_at, tz, 'HH:mm'), l })),
             ...dayExams.map((e) => ({ kind: 'exam' as const, time: e.exam_time ? hhmm(e.exam_time) : '00:00', e })),
             ...dayFree.map((g) => ({ kind: 'free' as const, time: clock(g.from), g })),
           ].sort((a, b) => a.time.localeCompare(b.time))
           return (
-            <Card>
+            <Card
+              actions={
+                <AddDayButton date={p.anchor} className="btn btn-sm">
+                  + Add lesson or event
+                </AddDayButton>
+              }
+            >
               {rows.length === 0 ? (
                 <EmptyState title={hoursOn(p.anchor).length ? 'Nothing booked' : 'Not a teaching day'}>
                   {hoursOn(p.anchor).length ? 'No lessons on this day.' : 'You don’t have teaching hours on this day. Add some under Schedule → Teaching hours.'}
@@ -194,7 +226,23 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
               ) : (
                 <ul className="dayview">
                   {rows.map((r) =>
-                    r.kind === 'lesson' ? (
+                    r.kind === 'event' ? (
+                      <li key={r.ev.id} className="dv-row happening">
+                        <div className="dv-time">
+                          {r.ev.starts ? r.time : 'All day'}
+                          {r.ev.ends && <span>{r.ev.ends.slice(0, 5)}</span>}
+                        </div>
+                        <div className="dv-body">
+                          <Link href={`/events/${r.ev.id}`} className="dv-title">
+                            {r.ev.title}
+                          </Link>
+                          <div className="small muted">{[eventKindLabel(r.ev.kind), r.ev.location].filter(Boolean).join(' · ')}</div>
+                        </div>
+                        <Link href={`/events/${r.ev.id}`} className="btn btn-secondary btn-sm">
+                          Open
+                        </Link>
+                      </li>
+                    ) : r.kind === 'lesson' ? (
                       <li key={r.l.id} className={`dv-row ${r.l.status}`}>
                         <div className="dv-time">
                           {r.time}
@@ -266,13 +314,27 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
             const dayLessons = byDay.get(d) ?? []
             const dayExams = exams.filter((e) => e.exam_date === d)
             const dayFree = freeOn(d, dayLessons)
+            const dayEvents = eventsOn(d)
             const off = hoursOn(d).length === 0
+            const busyCount = dayLessons.length + dayExams.length + dayEvents.length
             return (
               <section key={d} className={`day ${d === today ? 'today' : ''} ${off ? 'off' : ''}`} aria-label={fmtDate(d, 'EEEE d MMMM')}>
                 <Link href={href('day', d)} className="day-head">
                   <span>{fmtDate(d, 'EEE')}</span>
                   <span className="small muted">{fmtDate(d, 'd MMM')}</span>
                 </Link>
+                <AddDayButton date={d} className="day-add" label={`Add a lesson or event on ${fmtDate(d, 'EEEE d MMMM')}`}>
+                  + Add
+                </AddDayButton>
+
+                {/* Events */}
+                {dayEvents.map((ev) => (
+                  <Link key={ev.id} href={`/events/${ev.id}`} className="event happening">
+                    <div className="event-time">{eventTimeLabel(ev)}</div>
+                    <div>{ev.title}</div>
+                    <div className="small muted">{eventKindLabel(ev.kind)}</div>
+                  </Link>
+                ))}
 
                 {/* Exams */}
                 {dayExams.map((e) => (
@@ -309,8 +371,8 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
                   </Link>
                 ))}
 
-                {off && dayLessons.length + dayExams.length === 0 && <p className="small muted">Not a teaching day</p>}
-                {!off && dayLessons.length + dayExams.length + dayFree.length === 0 && <p className="small muted">Fully booked</p>}
+                {off && busyCount === 0 && <p className="small muted">Not a teaching day</p>}
+                {!off && busyCount + dayFree.length === 0 && <p className="small muted">Fully booked</p>}
               </section>
             )
           })}
@@ -318,7 +380,8 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
       )}
 
       {/* ================================================================
-          MONTH VIEW — calendar grid; click a date to open that day
+          MONTH VIEW — calendar grid; click a date to add a lesson or event
+          (the pop-up links through to that day)
          ================================================================ */}
       {p.view === 'month' && (
         <div className="month">
@@ -331,15 +394,21 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
             const dayLessons = (byDay.get(d) ?? []).filter((l) => !isCancelled(l.status))
             const dayExams = exams.filter((e) => e.exam_date === d)
             const outside = d < p.monthStart || d > p.monthEnd
+            const dayEvents = eventsOn(d)
             const extra = dayLessons.length - MONTH_CHIPS
             return (
-              <Link
+              <AddDayButton
                 key={d}
-                href={href('day', d)}
+                date={d}
                 className={`month-cell ${outside ? 'outside' : ''} ${d === today ? 'today' : ''} ${hoursOn(d).length === 0 ? 'off' : ''}`}
-                aria-label={`${fmtDate(d, 'EEEE d MMMM')}: ${dayLessons.length} lesson${dayLessons.length === 1 ? '' : 's'}`}
+                label={`${fmtDate(d, 'EEEE d MMMM')}: ${dayLessons.length} lesson${dayLessons.length === 1 ? '' : 's'}${dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}` : ''}. Add a lesson or event`}
               >
                 <div className="month-date">{fmtDate(d, 'd')}</div>
+                {dayEvents.map((ev) => (
+                  <div key={ev.id} className="month-chip happening">
+                    {ev.starts && <strong>{ev.starts.slice(0, 5)}</strong>} {ev.title}
+                  </div>
+                ))}
                 {dayExams.map((e) => (
                   <div key={e.id} className="month-chip exam">
                     Exam · {e.students?.first_name}
@@ -352,12 +421,39 @@ export async function LessonCalendar(props: { teacher: Teacher; period: Calendar
                 ))}
                 {extra > 0 && <div className="month-more">+{extra} more</div>}
                 {/* Narrow screens: just a count */}
-                {dayLessons.length > 0 && <div className="month-count">{dayLessons.length}</div>}
-              </Link>
+                {dayLessons.length + dayEvents.length > 0 && <div className="month-count">{dayLessons.length + dayEvents.length}</div>}
+              </AddDayButton>
             )
           })}
         </div>
       )}
-    </>
+    </DayAdder>
   )
+}
+
+// ---- Students for the "add a lesson" pop-up, with their regular lesson details ---------
+async function loadAdderStudents(teacherId: string): Promise<AdderStudent[]> {
+  const [students, bookings] = await Promise.all([
+    db().from('students').select('id, first_name, last_name, instruments').eq('teacher_id', teacherId).eq('status', 'active').order('first_name').then(must),
+    db()
+      .from('time_slots')
+      .select('student_id, start_time, duration_minutes, price, instrument, location')
+      .eq('teacher_id', teacherId)
+      .eq('active', true)
+      .not('student_id', 'is', null)
+      .order('day_of_week')
+      .then(must),
+  ])
+  return students.map((s) => {
+    const b = bookings.find((x) => x.student_id === s.id)
+    return {
+      id: s.id,
+      name: fullName(s),
+      time: b ? hhmm(b.start_time) : '',
+      duration: b?.duration_minutes ?? null,
+      price: b ? Number(b.price) : null,
+      instrument: b?.instrument || s.instruments[0] || '',
+      location: b?.location ?? '',
+    }
+  })
 }

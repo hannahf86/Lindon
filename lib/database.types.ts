@@ -295,6 +295,22 @@ export type TeachingHours = {
   created_at: string
 }
 
+/** A calendar event (concert, exam day, group lesson…). No times = all day. */
+export type EventKind = 'concert' | 'exam_day' | 'group_lesson' | 'mock_exam' | 'other'
+export type CalendarEvent = {
+  id: string
+  teacher_id: string
+  title: string
+  kind: EventKind
+  event_date: string // "YYYY-MM-DD"
+  starts: string | null // "HH:MM:SS"
+  ends: string | null
+  location: string
+  notes: string
+  created_at: string
+  updated_at: string
+}
+
 export type UserPassword = {
   user_id: string
   hash: string
@@ -401,6 +417,7 @@ export type Database = {
       access_requests: Table<AccessRequest, 'email'>
       user_passwords: Table<UserPassword, 'user_id' | 'hash'>
       teaching_hours: Table<TeachingHours, 'teacher_id' | 'day_of_week' | 'starts' | 'ends'>
+      events: Table<CalendarEvent, 'teacher_id' | 'title' | 'event_date'>
       lesson_credits: Table<
         LessonCredit,
         'teacher_id' | 'student_id' | 'amount' | 'reason',

@@ -4,7 +4,7 @@
 // all "today / this month" maths happens in the teacher's own timezone.
 //
 // Core: income this month, free time coming up (teaching hours minus booked
-// lessons), and things needing attention
+// lessons and timed events), and things needing attention
 // (attendance to mark, overdue invoices, bookings ending, children with no
 // parent). Extras only load when their feature is on: exam deadlines and
 // overdue loans.
@@ -31,7 +31,7 @@ export async function loadDashboard(teacher: Teacher) {
   const horizon = addDaysISO(today, 60)
   const none = Promise.resolve([])
 
-  const [studentCount, paidThisMonth, unpaid, hours, upcoming, needAttendance, minors, endingBookings, exams, overdueLoans] = await Promise.all([
+  const [studentCount, paidThisMonth, unpaid, hours, upcoming, upcomingEvents, needAttendance, minors, endingBookings, exams, overdueLoans] = await Promise.all([
     // ---- Any students at all? (first-run guidance) ----
     db().from('students').select('id', { count: 'exact', head: true }).eq('teacher_id', t),
 
@@ -50,6 +50,7 @@ export async function loadDashboard(teacher: Teacher) {
     // ---- Teaching hours + lessons in the next fortnight (for free time) ----
     db().from('teaching_hours').select('day_of_week, starts, ends').eq('teacher_id', t).then(must),
     db().from('lessons').select('starts_at, duration_minutes, status').eq('teacher_id', t).gte('starts_at', aheadFrom).lt('starts_at', aheadTo).then(must),
+    db().from('events').select('event_date, starts, ends').eq('teacher_id', t).gte('event_date', today).lte('event_date', addDaysISO(today, FREE_DAYS - 1)).not('starts', 'is', null).then(must),
 
     // ---- Past 14 days' lessons with attendance not marked ----
     db()
@@ -118,6 +119,10 @@ export async function loadDashboard(teacher: Teacher) {
         const from = minutesOf(fmtTz(l.starts_at, tz, 'HH:mm'))
         return { from, to: from + l.duration_minutes }
       })
+    for (const e of upcomingEvents.filter((x) => x.event_date === d && x.starts)) {
+      const from = minutesOf(e.starts!.slice(0, 5))
+      busy.push({ from, to: e.ends ? minutesOf(e.ends.slice(0, 5)) : from + 60 })
+    }
     for (const g of freeGaps(dayHours, busy)) {
       // Today: only time still to come
       if (d === today && g.to <= minutesOf(fmtTz(nowIso, tz, 'HH:mm'))) continue

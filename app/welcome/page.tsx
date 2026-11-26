@@ -352,7 +352,7 @@ async function StepDone({ teacher }: { teacher: Teacher }) {
               {slotCount
                 ? `${slotCount} regular lesson${slotCount === 1 ? ' is' : 's are'} booked and on your calendar.`
                 : 'Lessons you book appear on your calendar.'}{' '}
-              Time inside your teaching hours that isn’t booked shows as free. To book or change a pupil’s regular lesson later, use Schedule → Bookings.
+              Time inside your teaching hours that isn’t booked shows as free. To book or change a pupil’s regular lesson later, use Schedule → Free slots.
             </div>
           </li>
           <li>

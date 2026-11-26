@@ -1,11 +1,13 @@
 // =============================================================================
 // app/(app)/page.tsx — the dashboard (Hannah's wireframe)
 //
-// Top row: Income this month · Free time · quick actions (Add a new student,
-// Edit schedule). Then the calendar with a month dropdown and Day · Week ·
-// Month pills (month view by default), a "Connect to calendar" button (Google
-// Calendar is coming later), and a short "Needs attention" list underneath —
-// extras such as exams and loans only appear when switched on.
+// Tip of the day at the very top (switchable in Settings). Then: Income this
+// month · Free time · quick actions (Add a new student, Edit schedule). Then
+// a compact calendar with the month dropdown and "Connect to calendar"
+// (Google Calendar is coming later) on the left, Day · Week · Month pills on
+// the right (month view by default) — all above the fold. A short "Needs
+// attention" list sits underneath; extras such as exams and loans only
+// appear when switched on.
 // New messages from families show above the calendar when there are some.
 // Brand-new teachers see a short "getting started" checklist instead.
 // =============================================================================
@@ -100,6 +102,9 @@ export default async function DashboardPage({ searchParams }: PageProps<'/'>) {
 
   return (
     <>
+      {/* ---- Tip of the day (same for everyone, changes daily; switch in Settings) ---- */}
+      {has(teacher, 'daily_tip') && <TipOfTheDay date={today} />}
+
       {/* ---- Top row: income, free slots, quick actions ---- */}
       <div className="dash-top">
         <section className="dash-tile">
@@ -170,30 +175,34 @@ export default async function DashboardPage({ searchParams }: PageProps<'/'>) {
         </div>
       )}
 
-      {/* ---- Calendar: month dropdown + Day · Week · Month ---- */}
+      {/* ---- Calendar bar: month dropdown + Connect to calendar | Day · Week · Month ---- */}
       <div className="cal-bar">
-        <MonthPicker
-          basePath="/"
-          name="date"
-          label="Calendar month"
-          value={`${period.monthStart.slice(0, 7)}-01`}
-          options={monthOptions(today).map((o) => ({ value: `${o.value}-01`, label: o.label }))}
-          keep={{ view: 'month' }}
-        />
+        <div className="row" style={{ gap: 10 }}>
+          <MonthPicker
+            basePath="/"
+            name="date"
+            label="Calendar month"
+            value={`${period.monthStart.slice(0, 7)}-01`}
+            options={monthOptions(today).map((o) => ({ value: `${o.value}-01`, label: o.label }))}
+            keep={{ view: 'month' }}
+          />
+          {/* Google Calendar push comes later */}
+          <button type="button" className="btn btn-secondary btn-sm" disabled title="Coming soon">
+            Connect to calendar <Badge>Coming soon</Badge>
+          </button>
+        </div>
         <CalendarSwitch basePath="/" period={period} />
       </div>
-      <LessonCalendar teacher={teacher} period={period} today={today} basePath="/" />
 
-      {/* ---- Connect to calendar (Google Calendar push comes later) ---- */}
-      <div style={{ margin: '16px 0 24px' }}>
-        <button type="button" className="btn btn-secondary" disabled title="Coming soon">
-          Connect to calendar <Badge>Coming soon</Badge>
-        </button>
+      {/* ---- Calendar (compact on the dashboard) ---- */}
+      <div className="dash-cal">
+        <LessonCalendar teacher={teacher} period={period} today={today} basePath="/" />
       </div>
 
       {/* ---- Needs attention ---- */}
       {attention.length > 0 && (
-        <Card title="Needs attention">
+        <div style={{ marginTop: 24 }}>
+          <Card title="Needs attention">
           <ul className="list">
             {attention.slice(0, 12).map((a) => (
               <li key={a.key} className="spread">
@@ -205,13 +214,9 @@ export default async function DashboardPage({ searchParams }: PageProps<'/'>) {
             ))}
           </ul>
           {attention.length > 12 && <p className="small muted">…and {attention.length - 12} more.</p>}
-        </Card>
+          </Card>
+        </div>
       )}
-
-      {/* ---- Tip of the day (same for everyone, changes daily) ---- */}
-      <div style={{ marginTop: 20 }}>
-        <TipOfTheDay date={today} />
-      </div>
     </>
   )
 }

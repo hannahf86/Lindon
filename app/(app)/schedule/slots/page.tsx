@@ -1,7 +1,8 @@
 // =============================================================================
-// schedule/slots/page.tsx — Schedule → Bookings: every pupil's regular lesson (and any older unbooked slot), grouped by day,
+// schedule/slots/page.tsx — Schedule → Free slots: every pupil's regular lesson (and any older unbooked slot), grouped by day,
 // with booked / available / paused status, overlap warnings, and the
 // "add a slot" form. /schedule/slots?student=<id> preselects that student.
+// All table columns are left-aligned (Hannah's call).
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -15,7 +16,7 @@ import { Badge, Card, EmptyState, PageHeader, Stat } from '@/components/ui'
 import { SlotForm } from './slot-form'
 import { createSlot } from './actions'
 
-export const metadata: Metadata = { title: 'Bookings' }
+export const metadata: Metadata = { title: 'Free slots' }
 
 export default async function SlotsPage({ searchParams }: PageProps<'/schedule/slots'>) {
   const teacher = await requireTeacher()
@@ -59,7 +60,9 @@ export default async function SlotsPage({ searchParams }: PageProps<'/schedule/s
         title="Schedule"
         subtitle="Each pupil’s regular lesson: day, time, length, price and how often. Lessons keep going until the end date — or for good if there isn’t one."
       />
-      <ScheduleTabs current="slots" />
+      <div style={{ marginBottom: 20 }}>
+        <ScheduleTabs current="slots" />
+      </div>
 
       {/* ---- Just saved (with overlap warning) ---- */}
       {savedSlot && (
@@ -106,7 +109,7 @@ export default async function SlotsPage({ searchParams }: PageProps<'/schedule/s
                           <th>Time</th>
                           <th>Student</th>
                           <th>Details</th>
-                          <th className="right">Price</th>
+                          <th>Price</th>
                           <th>Status</th>
                           <th>
                             <span className="sr-only">Edit</span>
@@ -155,7 +158,7 @@ export default async function SlotsPage({ searchParams }: PageProps<'/schedule/s
                                   </div>
                                 )}
                               </td>
-                              <td className="right nowrap">{money(s.price, teacher.currency)}</td>
+                              <td className="nowrap">{money(s.price, teacher.currency)}</td>
                               <td>
                                 {!s.active ? (
                                   <Badge>Paused</Badge>
@@ -165,11 +168,11 @@ export default async function SlotsPage({ searchParams }: PageProps<'/schedule/s
                                     booked: <Badge tone="teal">Booked</Badge>,
                                     ending: <Badge tone="butter">Ends {fmtDate(s.ends_on, 'd MMM')}</Badge>,
                                     ended: <Badge tone="coral">Booking ended</Badge>,
-                                    open: <Badge tone="coral">Set an end date</Badge>,
+                                    open: <Badge tone="teal">Booked</Badge>,
                                   }[bookingState(s)]
                                 )}
                               </td>
-                              <td className="right">
+                              <td>
                                 <Link className="btn btn-ghost btn-sm" href={`/schedule/slots/${s.id}`}>
                                   Edit
                                 </Link>

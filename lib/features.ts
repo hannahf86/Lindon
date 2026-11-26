@@ -41,6 +41,11 @@ export const FEATURES = [
     label: 'Income reports',
     description: 'Income by month and tax year, with a spreadsheet export for your tax return.',
   },
+  {
+    key: 'daily_tip',
+    label: 'Tip of the day',
+    description: 'A short practice tip at the top of your dashboard, different each day.',
+  },
 ] as const
 
 export type FeatureKey = (typeof FEATURES)[number]['key']

@@ -44,7 +44,7 @@ export default async function EditSlotPage({ params, searchParams }: PageProps<'
 
   return (
     <>
-      <PageHeader title={`Edit booking: ${title}`} back={from ? { href: from, label: 'Back to pupil' } : { href: '/schedule/slots', label: 'Schedule · Bookings' }} />
+      <PageHeader title={`Edit booking: ${title}`} back={from ? { href: from, label: 'Back to pupil' } : { href: '/schedule/slots', label: 'Schedule · Free slots' }} />
 
       {/* ---- Slot form ---- */}
       <Card>

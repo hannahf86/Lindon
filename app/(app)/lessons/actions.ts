@@ -1,6 +1,6 @@
 'use server'
 // =============================================================================
-// lessons/actions.ts — one-off lessons, editing lesson details, lesson notes
+// lessons/actions.ts — one-off lessons (page or calendar pop-up), editing lesson details, lesson notes
 // (optionally emailed to parents), quick "mark completed", "send reminder
 // now" and delete. Every query is scoped to the signed-in teacher.
 // =============================================================================
@@ -58,6 +58,23 @@ export async function createLesson(_: ActionState, fd: FormData): Promise<Action
   if (result?.error) return result
   revalidateLesson(id, studentId)
   redirect(`/lessons/${id}`)
+}
+
+// ---- Add a one-off lesson from the calendar pop-up (stays on the calendar) ---------------
+export async function addLessonFromCalendar(_: ActionState, fd: FormData): Promise<ActionState> {
+  let studentId = ''
+  let id = ''
+  const result = await handle(async () => {
+    const teacher = await requireTeacher()
+    const student_id = ref(fd, 'student_id')
+    if (!student_id) throw new FormError('Choose a student.')
+    studentId = student_id
+    const row = must(await db().from('lessons').insert({ ...readDetails(fd, teacher.timezone), student_id, teacher_id: teacher.id }).select('id').single())
+    id = row.id
+    return { ok: 'Lesson added.' }
+  })
+  if (result?.ok) revalidateLesson(id, studentId)
+  return result
 }
 
 // ---- Update lesson details -----------------------------------------------------------

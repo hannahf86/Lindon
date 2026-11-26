@@ -2,7 +2,7 @@
 // schedule/tabs.tsx — the tabs under Schedule:
 //   Calendar        /schedule        day / week / month
 //   Teaching hours  /schedule/hours  the blocks of time you teach
-//   Bookings        /schedule/slots  each pupil's regular lesson time
+//   Free slots      /schedule/slots  each pupil's regular lesson time, and booking new ones
 // =============================================================================
 import Link from 'next/link'
 
@@ -16,7 +16,7 @@ export function ScheduleTabs({ current }: { current: 'calendar' | 'hours' | 'slo
         Teaching hours
       </Link>
       <Link href="/schedule/slots" aria-current={current === 'slots' ? 'page' : undefined}>
-        Bookings
+        Free slots
       </Link>
     </nav>
   )
