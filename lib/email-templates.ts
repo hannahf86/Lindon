@@ -31,16 +31,16 @@ export function paragraphs(s: string): string {
 }
 
 /** Shared shell: teal header band with the studio name, white card, footer. */
-export function layout(opts: { studio: string; heading: string; bodyHtml: string; footer?: string }): string {
+export function layout(opts: { studio: string; heading: string; bodyHtml: string; footer?: string; brand?: string; accent?: string }): string {
   return `<!doctype html><html><body style="margin:0;padding:0;background:#F2F7F7;font-family:Nunito,'Segoe UI',Helvetica,Arial,sans-serif;color:${INK}">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F2F7F7;padding:24px 12px">
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:20px;overflow:hidden">
-<tr><td style="background:${TEAL_INK};padding:22px 28px">
+<tr><td style="background:${opts.brand ?? TEAL_INK};padding:22px 28px">
 <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#ffffff;opacity:.9">${esc(opts.studio)}</div>
 <div style="font-size:24px;font-weight:900;color:#ffffff;margin-top:4px">${esc(opts.heading)}</div>
 </td></tr>
-<tr><td style="height:6px;background:${BUTTER};font-size:0;line-height:0">&nbsp;</td></tr>
+<tr><td style="height:6px;background:${opts.accent ?? BUTTER};font-size:0;line-height:0">&nbsp;</td></tr>
 <tr><td style="padding:26px 28px;font-size:16px">${opts.bodyHtml}</td></tr>
 ${opts.footer ? `<tr><td style="padding:0 28px 24px;font-size:13px;color:${MUTED}">${paragraphs(opts.footer)}</td></tr>` : ''}
 </table>
@@ -136,6 +136,9 @@ export function invoiceEmail(opts: {
   signature: string
   /** A gentle "this is still unpaid" version */
   reminder?: boolean
+  /** The teacher's invoice branding colours (Settings → Invoicing) */
+  brand?: string
+  accent?: string
 }): Email {
   const lineRows = opts.lines
     .map(
@@ -158,6 +161,8 @@ export function invoiceEmail(opts: {
       studio: opts.studio,
       heading: opts.reminder ? `Reminder: invoice ${opts.number}` : `Invoice ${opts.number}`,
       footer: opts.footer,
+      brand: opts.brand,
+      accent: opts.accent,
       bodyHtml:
         (intro ? `<p style="margin:0 0 16px;line-height:1.55">${esc(intro)}</p>` : '') +
         detailTable([
@@ -165,7 +170,7 @@ export function invoiceEmail(opts: {
           ['Issued', opts.issueDate],
           ...(opts.dueDate ? ([['Due', opts.dueDate]] as [string, string][]) : []),
         ]) +
-        `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">${lineRows}<tr><td style="padding:12px 0;font-weight:900">Total</td><td align="right" style="padding:12px 0;font-weight:900;font-size:18px;color:${TEAL_INK}">${esc(opts.total)}</td></tr></table>` +
+        `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">${lineRows}<tr><td style="padding:12px 0;font-weight:900">Total</td><td align="right" style="padding:12px 0;font-weight:900;font-size:18px;color:${opts.brand ?? TEAL_INK}">${esc(opts.total)}</td></tr></table>` +
         (opts.paymentDetails
           ? `<div style="background:#EEF7F7;border-radius:14px;padding:16px 18px;margin:16px 0"><div style="font-weight:900;margin-bottom:8px">How to pay</div>${paragraphs(opts.paymentDetails)}</div>`
           : '') +

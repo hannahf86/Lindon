@@ -4,6 +4,7 @@
 //
 // · calendarPeriod()   — which dates a view covers, plus prev/next/today links
 // · <CalendarSwitch>   — the Day · Week · Month pills
+// · <CalendarNav>      — ‹ previous · what's showing · next ›, plus Today
 // · <LessonCalendar>   — fetches and draws lessons, free slots and (when the
 //   exams feature is on) exams, with optional totals for the period on top
 //
@@ -83,6 +84,33 @@ export type CalendarPeriod = ReturnType<typeof calendarPeriod>
 
 const calHref = (basePath: string, v: CalendarView, date: string) => `${basePath}?view=${v}&date=${date}`
 
+// ---- ‹ Previous · period · Next › (click through days, weeks or months) -------------------
+export function CalendarNav({ basePath, period }: { basePath: string; period: CalendarPeriod }) {
+  const word = period.view === 'day' ? 'day' : period.view === 'week' ? 'week' : 'month'
+  const label =
+    period.view === 'day'
+      ? fmtDate(period.anchor, 'EEE d MMM')
+      : period.view === 'week'
+        ? `${fmtDate(period.periodFrom, 'd MMM')} – ${fmtDate(period.periodTo, 'd MMM')}`
+        : fmtDate(period.monthStart, 'MMMM yyyy')
+  return (
+    <nav className="cal-nav" aria-label={`Change ${word}`}>
+      <Link className="cal-nav-arrow" href={calHref(basePath, period.view, period.prev)} aria-label={`Previous ${word}`}>
+        ‹
+      </Link>
+      <span className="cal-nav-label">{label}</span>
+      <Link className="cal-nav-arrow" href={calHref(basePath, period.view, period.next)} aria-label={`Next ${word}`}>
+        ›
+      </Link>
+      {!period.isCurrent && (
+        // No date = today
+        <Link className="btn btn-ghost btn-sm" href={`${basePath}?view=${period.view}`}>
+          {period.todayLabel}
+        </Link>
+      )}
+    </nav>
+  )
+}
 // ---- Day · Week · Month pills ----------------------------------------------------------
 export function CalendarSwitch({ basePath, period }: { basePath: string; period: CalendarPeriod }) {
   return (

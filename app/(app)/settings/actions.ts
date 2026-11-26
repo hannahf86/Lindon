@@ -1,13 +1,16 @@
 'use server'
 // =============================================================================
-// settings/actions.ts — save the teacher's studio profile and preferences
+// settings/actions.ts — save one Settings tab (studio info, invoicing,
+// communication or features); only that tab's fields are touched
 // (the signed-in teacher's own `teachers` row — never anyone else's).
 // =============================================================================
 import { revalidatePath } from 'next/cache'
 import { db, must, requireTeacher } from '@/lib/db'
-import { handle, int, str, FormError, type ActionState } from '@/lib/forms'
+import { bool, handle, int, str, FormError, type ActionState } from '@/lib/forms'
 import { splitList } from '@/lib/format'
-import { readFeatureFields } from '@/lib/feature-form'
+import { readChargingFields } from '@/lib/feature-form'
+import { FEATURE_KEYS } from '@/lib/features'
+import type { Teacher } from '@/lib/database.types'
 
 /** Typed IANA timezone, e.g. "Europe/London" — checked against the runtime's list. */
 function readTimezone(fd: FormData): string {
@@ -27,44 +30,61 @@ function readCurrency(fd: FormData): string {
   return c
 }
 
+/** A "#RRGGBB" colour from a colour picker. */
+function readColour(fd: FormData, key: string, fallback: string): string {
+  const c = str(fd, key)
+  return /^#[0-9a-f]{6}$/i.test(c) ? c.toUpperCase() : fallback
+}
+
+/** The fields each Settings tab owns — a tab only ever updates its own. */
+function readSection(fd: FormData, teacher: Teacher) {
+  switch (str(fd, 'section')) {
+    case 'studio': {
+      const email = str(fd, 'email')
+      if (email && !/^\S+@\S+\.\S+$/.test(email)) throw new FormError(`"${email}" doesn't look like an email address.`)
+      return {
+        display_name: str(fd, 'display_name'),
+        business_name: str(fd, 'business_name'),
+        email,
+        phone: str(fd, 'phone'),
+        address: str(fd, 'address'),
+        locations: splitList(str(fd, 'locations')),
+      }
+    }
+    case 'invoicing':
+      return {
+        ...readChargingFields(fd),
+        invoice_prefix: str(fd, 'invoice_prefix'),
+        next_invoice_number: int(fd, 'next_invoice_number', 'Next invoice number', { min: 1, fallback: teacher.next_invoice_number }),
+        invoice_terms_days: int(fd, 'invoice_terms_days', 'Payment terms', { min: 0, max: 365, fallback: 14 }),
+        payment_details: str(fd, 'payment_details'),
+        invoice_footer: str(fd, 'invoice_footer'),
+        currency: readCurrency(fd),
+        timezone: readTimezone(fd),
+        invoice_color: readColour(fd, 'invoice_color', '#1D7F7A'),
+        invoice_accent: readColour(fd, 'invoice_accent', '#F6E5A0'),
+      }
+    case 'communication':
+      return {
+        reminders_enabled: bool(fd, 'reminders_enabled'),
+        reminder_hours_before: int(fd, 'reminder_hours_before', 'Hours before', { min: 1, max: 168, fallback: 24 }),
+        reminder_message: str(fd, 'reminder_message'),
+        exam_reminders_enabled: bool(fd, 'exam_reminders_enabled'),
+        exam_reminder_days: int(fd, 'exam_reminder_days', 'Days before an exam', { min: 1, max: 60, fallback: 7 }),
+        message_alerts: bool(fd, 'message_alerts'),
+      }
+    case 'features':
+      return { features: FEATURE_KEYS.filter((k) => bool(fd, `feature_${k}`)) }
+    default:
+      throw new FormError('Something went wrong — refresh the page and try again.')
+  }
+}
+
 export async function updateSettings(_: ActionState, fd: FormData): Promise<ActionState> {
   return handle(async () => {
     const teacher = await requireTeacher()
-    const email = str(fd, 'email')
-    if (email && !/^\S+@\S+\.\S+$/.test(email)) throw new FormError(`"${email}" doesn't look like an email address.`)
-
-    must(
-      await db()
-        .from('teachers')
-        .update({
-          // Studio profile
-          display_name: str(fd, 'display_name'),
-          business_name: str(fd, 'business_name'),
-          email,
-          phone: str(fd, 'phone'),
-          address: str(fd, 'address'),
-          // Saved lesson locations (the Location dropdown)
-          locations: splitList(str(fd, 'locations')),
-          // Region
-          currency: readCurrency(fd),
-          timezone: readTimezone(fd),
-          // Invoicing
-          invoice_prefix: str(fd, 'invoice_prefix'),
-          next_invoice_number: int(fd, 'next_invoice_number', 'Next invoice number', { min: 1, fallback: teacher.next_invoice_number }),
-          invoice_terms_days: int(fd, 'invoice_terms_days', 'Payment terms', { min: 0, max: 365, fallback: 14 }),
-          payment_details: str(fd, 'payment_details'),
-          invoice_footer: str(fd, 'invoice_footer'),
-          // How you charge, auto-invoicing, reminders on/off, feature switches
-          ...readFeatureFields(fd),
-          // Reminder details
-          reminder_hours_before: int(fd, 'reminder_hours_before', 'Hours before', { min: 1, max: 168, fallback: 24 }),
-          reminder_message: str(fd, 'reminder_message'),
-        })
-        .eq('id', teacher.id)
-        .select('id')
-        .single(),
-    )
-    // Studio name shows in the sidebar on every page
+    must(await db().from('teachers').update(readSection(fd, teacher)).eq('id', teacher.id).select('id').single())
+    // Studio name and the sidebar's extras show on every page
     revalidatePath('/', 'layout')
     return { ok: 'Settings saved.' }
   })

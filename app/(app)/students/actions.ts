@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache'
 import { db, must, requireTeacher } from '@/lib/db'
 import { bool, date, handle, num, oneOf, ref, required, str, FormError, type ActionState } from '@/lib/forms'
 import { ageFrom, splitList } from '@/lib/format'
+import { bookRegularLesson, readRegularLesson } from '@/lib/regular-lesson'
 
 const STATUSES = ['active', 'paused', 'left'] as const
 
@@ -101,12 +102,16 @@ export async function createStudent(_: ActionState, fd: FormData): Promise<Actio
     const student = readStudent(fd)
     const parents = student.is_minor ? readParents(fd) : []
     if (student.is_minor && parents.length === 0) throw new FormError('Add a parent or guardian — reminders and invoices for children go to them.')
+    // Their regular lesson (optional) — checked against teaching hours and clashes first
+    const lesson = await readRegularLesson(fd, teacher)
     const row = must(await db().from('students').insert({ ...student, teacher_id: teacher.id }).select('id').single())
     id = row.id
     await saveParents(teacher.id, id, parents, false)
+    if (lesson) await bookRegularLesson(teacher, id, lesson, student.instruments[0] ?? '')
   })
   if (result?.error) return result
   revalidatePath('/students')
+  revalidatePath('/schedule', 'layout')
   redirect(`/students/${id}?new=1`)
 }
 
@@ -116,7 +121,10 @@ export async function updateStudent(id: string, _: ActionState, fd: FormData): P
     const teacher = await requireTeacher()
     const student = readStudent(fd)
     const parents = student.is_minor ? readParents(fd) : []
+    // Only sent when they had no regular lesson yet
+    const lesson = await readRegularLesson(fd, teacher)
     must(await db().from('students').update(student).eq('id', id).eq('teacher_id', teacher.id).select('id').single())
+    if (lesson) await bookRegularLesson(teacher, id, lesson, student.instruments[0] ?? '')
     if (parents.length) {
       const { count } = await db().from('student_guardians').select('guardian_id', { count: 'exact', head: true }).eq('teacher_id', teacher.id).eq('student_id', id).eq('is_primary', true)
       await saveParents(teacher.id, id, parents, (count ?? 0) > 0)
@@ -125,6 +133,7 @@ export async function updateStudent(id: string, _: ActionState, fd: FormData): P
   if (result?.error) return result
   revalidatePath('/students')
   revalidatePath(`/students/${id}`)
+  revalidatePath('/schedule', 'layout')
   redirect(`/students/${id}`)
 }
 

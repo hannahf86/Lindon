@@ -128,7 +128,6 @@ function LessonForm(props: { date: string; students: AdderStudent[]; locations: 
 
   return (
     <form className="form" onSubmit={onSubmit}>
-      <FormErrorBox state={state} />
       <input type="hidden" name="date" value={props.date} />
 
       {/* ---- Student (dropdown, with "add a new student") ---- */}
@@ -172,6 +171,7 @@ function LessonForm(props: { date: string; students: AdderStudent[]; locations: 
           {pending ? 'Adding…' : 'Add lesson'}
         </button>
       </div>
+      <FormErrorBox state={state} />
     </form>
   )
 }
@@ -181,13 +181,13 @@ function EventForm(props: { date: string; onDone: () => void }) {
   const { state, pending, onSubmit } = useCalendarAction(createEvent, props.onDone)
   return (
     <form className="form" onSubmit={onSubmit}>
-      <FormErrorBox state={state} />
       <EventFields date={props.date} hideDate />
       <div className="form-actions">
         <button type="submit" className="btn" disabled={pending}>
           {pending ? 'Adding…' : 'Add event'}
         </button>
       </div>
+      <FormErrorBox state={state} />
     </form>
   )
 }

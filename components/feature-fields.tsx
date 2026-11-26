@@ -39,17 +39,20 @@ export function ChargingFields({ teacher }: { teacher: Teacher }) {
 }
 
 // ---- Reminders + optional features -------------------------------------------------
-export function FeatureToggles({ teacher }: { teacher: Teacher }) {
+export function FeatureToggles({ teacher, withReminders = true }: { teacher: Teacher; withReminders?: boolean }) {
   return (
     <div className="form">
-      <Toggle
-        name="reminders_enabled"
-        label="Email lesson reminders"
-        defaultChecked={teacher.reminders_enabled}
-        hint="A reminder before each lesson — to parents for under-18s, and to adult pupils themselves."
-      />
+      {/* Onboarding asks about reminders here; Settings has them under Communication */}
+      {withReminders && (
+        <Toggle
+          name="reminders_enabled"
+          label="Email lesson reminders"
+          defaultChecked={teacher.reminders_enabled}
+          hint="A reminder before each lesson — to parents for under-18s, and to adult pupils themselves."
+        />
+      )}
       <p className="small muted" style={{ margin: '4px 0 0' }}>
-        Scheduling, students and invoicing are always on. Switch on anything else you’d like — you can change these any time in Settings.
+        Scheduling, students and invoicing are always on. Switch on anything else you’d like — you can change these any time in Settings → Features.
       </p>
       {FEATURES.map((f) => (
         <Toggle key={f.key} name={`feature_${f.key}`} label={f.label} defaultChecked={teacher.features.includes(f.key)} hint={f.description} />

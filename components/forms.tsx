@@ -3,6 +3,7 @@
 // components/forms.tsx — interactive form pieces (client components)
 //
 // ActionForm   — wraps a server action with useActionState; shows errors/success
+//                under the form's buttons
 // SubmitButton — disables itself while the form is submitting
 // ConfirmButton— a one-button form that asks "are you sure?" first (deletes etc.)
 // =============================================================================
@@ -43,6 +44,8 @@ export function ActionForm(props: {
         startTransition(() => formAction(fd))
       }}
     >
+      <PendingContext.Provider value={pending}>{props.children}</PendingContext.Provider>
+      {/* Messages sit under the Save button, where the teacher is looking (Hannah's call) */}
       {state?.error && (
         <div className="alert alert-error" role="alert">
           {state.error}
@@ -53,7 +56,6 @@ export function ActionForm(props: {
           {state.ok}
         </div>
       )}
-      <PendingContext.Provider value={pending}>{props.children}</PendingContext.Provider>
     </form>
   )
 }

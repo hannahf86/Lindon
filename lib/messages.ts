@@ -105,6 +105,8 @@ export async function postMessage(opts: {
 
   // Email alert (failures are logged in email_log, never block the message)
   const toTeacher = opts.sender === 'family'
+  // The teacher can switch off their own alerts (Settings → Communication)
+  if (toTeacher && opts.teacher.message_alerts === false) return
   const to = toTeacher ? [opts.teacher.email].filter(Boolean) : await familyEmails(opts.conversation)
   if (to.length === 0) return
   await sendEmail({

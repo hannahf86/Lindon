@@ -4,6 +4,10 @@
 // Children: their parents or guardians are on the same form, both when adding
 // and editing (the card disappears when "Adult" is picked). Editing shows each
 // linked parent's details plus an optional "add another parent".
+// Their regular lesson (day, time, length, price…) is on the form too: when
+// adding, or when editing someone with no booking yet. Editing someone who is
+// already booked lists their lesson(s) with a link to change them.
+// Status sits in the top-right corner of the About card.
 // =============================================================================
 import Link from 'next/link'
 import type { Student } from '@/lib/database.types'
@@ -11,6 +15,7 @@ import type { ActionState } from '@/lib/forms'
 import { ActionForm, SubmitButton } from '@/components/forms'
 import { TagInput } from '@/components/pickers'
 import { Card, Segmented, SlidePill, TextArea, TextField, Toggle } from '@/components/ui'
+import { RegularLessonFields } from '@/components/regular-lesson-fields'
 
 export function StudentForm(props: {
   action: (state: ActionState, fd: FormData) => Promise<ActionState>
@@ -19,13 +24,24 @@ export function StudentForm(props: {
   cancelHref: string
   /** Parents already linked (editing a child) */
   parents?: ParentRow[]
+  /** For the regular lesson fields */
+  lesson: { currencySymbol: string; today: string; locations: string[] }
+  /** Editing: their current regular lessons (empty = show the fields to book one) */
+  bookings?: { id: string; summary: string }[]
 }) {
   const s = props.student
   const parents = props.parents ?? []
   return (
     <ActionForm action={props.action}>
       {/* ---- About the student ---- */}
-      <Card title="About">
+      <Card
+        title="About"
+        actions={
+          <div className="card-status">
+            <Segmented label="Status" name="status" options={[{ value: 'active', label: 'Active' }, { value: 'paused', label: 'Paused' }, { value: 'left', label: 'Past' }]} defaultValue={s?.status ?? 'active'} />
+          </div>
+        }
+      >
         <div className="form-grid">
           <TextField label="First name" name="first_name" defaultValue={s?.first_name} required autoFocus={!s} />
           <TextField label="Last name" name="last_name" defaultValue={s?.last_name} />
@@ -51,8 +67,30 @@ export function StudentForm(props: {
           </div>
           <TextField label="Level" name="level" defaultValue={s?.level} placeholder="e.g. Grade 3, Beginner, Diploma prep" />
           <TextField label="Started lessons" name="start_date" type="date" defaultValue={s?.start_date ?? ''} />
-          <Segmented label="Status" name="status" options={[{ value: 'active', label: 'Active' }, { value: 'paused', label: 'Paused' }, { value: 'left', label: 'Past' }]} defaultValue={s?.status ?? 'active'} className="full" />
         </div>
+      </Card>
+
+      {/* ---- Their regular lesson ---- */}
+      <Card title={s ? 'Regular lesson' : 'Their regular lesson'}>
+        {props.bookings && props.bookings.length > 0 ? (
+          <ul className="list">
+            {props.bookings.map((b) => (
+              <li key={b.id} className="spread">
+                <span>{b.summary}</span>
+                <Link href={`/schedule/slots/${b.id}?from=/students/${s!.id}`} className="btn btn-ghost btn-sm">
+                  Change
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="form">
+            <p className="muted small" style={{ margin: 0 }}>
+              Pick the day, time and length. Leave the time on “Not yet” to book it later from Schedule.
+            </p>
+            <RegularLessonFields currencySymbol={props.lesson.currencySymbol} today={props.lesson.today} locations={props.lesson.locations} />
+          </div>
+        )}
       </Card>
 
       {/* ---- Contact: adults only (hidden by CSS while "Child" is selected) ---- */}

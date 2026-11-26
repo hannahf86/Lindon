@@ -66,7 +66,18 @@ export default async function PrintInvoicePage({ params }: PageProps<'/invoices/
       {/* ---- The invoice sheet ---- */}
       <article
         className="invoice-sheet"
-        style={{ background: '#fff', maxWidth: 800, margin: '0 auto', padding: '48px 52px', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow)', color: 'var(--ink)' }}
+        // Invoice branding (Settings → Invoicing) recolours the sheet
+        style={{
+          background: '#fff',
+          maxWidth: 800,
+          margin: '0 auto',
+          padding: '48px 52px',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--shadow)',
+          color: 'var(--ink)',
+          ['--teal-ink' as string]: teacher.invoice_color ?? '#1D7F7A',
+          ['--butter' as string]: teacher.invoice_accent ?? '#F6E5A0',
+        }}
       >
         {/* Studio + invoice number */}
         <header className="spread" style={{ alignItems: 'flex-start', borderBottom: '6px solid var(--butter)', paddingBottom: 20, marginBottom: 24 }}>

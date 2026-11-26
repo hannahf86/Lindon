@@ -21,14 +21,14 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { db, must, requireTeacher } from '@/lib/db'
 import { hasPassword, MIN_PASSWORD_LENGTH } from '@/lib/passwords'
-import { currencySymbol, DAY_SHORT, dayName, duration, fullName, hhmm, money } from '@/lib/format'
+import { currencySymbol, dayName, duration, fullName, hhmm, money } from '@/lib/format'
 import { todayISO } from '@/lib/dates'
-import { frequencyText, lengthOptions, REPEAT_OPTIONS } from '@/lib/lessons'
+import { frequencyText } from '@/lib/lessons'
 import type { Teacher } from '@/lib/database.types'
 import { LogoMark } from '@/components/logo'
 import { ActionForm, SubmitButton } from '@/components/forms'
-import { Card, MoneyField, Segmented, SelectField, SlidePill, TextArea, TextField } from '@/components/ui'
-import { TimeField } from '@/components/time-field'
+import { Card, SlidePill, TextArea, TextField } from '@/components/ui'
+import { RegularLessonFields } from '@/components/regular-lesson-fields'
 import { TeachingHoursEditor } from '@/components/teaching-hours'
 import { ChargingFields, FeatureToggles } from '@/components/feature-fields'
 import { addStudent, finishOnboarding, saveCharging, saveDetails, saveFeatures } from './actions'
@@ -275,26 +275,7 @@ async function StepStudents({ teacher }: { teacher: Teacher }) {
             <div className="form-section">
               <h3 style={{ margin: '0 0 4px' }}>Their lesson</h3>
               <p className="small muted" style={{ margin: '0 0 10px' }}>Leave the time on “Not yet” to book it later from Schedule.</p>
-              <Segmented label="Day" name="lesson_day" options={DAY_SHORT.map((d, i) => ({ value: String(i + 1), label: d }))} defaultValue="6" />
-              <div className="form-grid">
-                <TimeField label="Time" name="lesson_time" emptyLabel="Not yet" />
-                <SelectField label="Lesson length" name="duration_minutes" options={lengthOptions()} defaultValue="30" />
-                <MoneyField label="Price per lesson" name="price" symbol={currencySymbol(teacher.currency)} placeholder="0.00" />
-                <TextField label="First lesson" name="first_lesson" type="date" defaultValue={todayISO(teacher.timezone)} hint="Moves to the next lesson day if needed." />
-              </div>
-              <Segmented label="How often" name="repeat_weeks" options={REPEAT_OPTIONS} defaultValue="1" />
-              <SlidePill
-                label="Ends"
-                name="ends"
-                options={[
-                  { value: 'never', label: 'Keeps going' },
-                  { value: 'date', label: 'On a date' },
-                ]}
-                defaultValue="never"
-              />
-              <div className="ends-date-only">
-                <TextField label="Last lesson" name="ends_on" type="date" />
-              </div>
+              <RegularLessonFields currencySymbol={currencySymbol(teacher.currency)} today={todayISO(teacher.timezone)} locations={teacher.locations ?? []} />
             </div>
             <SubmitButton className="btn btn-secondary" pendingText="Adding…">
               Add student

@@ -4,7 +4,8 @@
 // Tip of the day and a funny teaching quote at the very top (each switchable
 // in Settings; families never see the quote). Then: Income this
 // month · Free time · quick actions (Add a new student, Edit schedule). Then
-// a compact calendar with the month dropdown and "Connect to calendar"
+// a compact calendar with the month dropdown and "Connect to calendar",
+// ‹ › arrows to click through days / weeks / months,
 // (Google Calendar is coming later) on the left, Day · Week · Month pills on
 // the right (month view by default) — all above the fold. A short "Needs
 // attention" list sits underneath; extras such as exams and loans only
@@ -25,7 +26,7 @@ import { fmtDate, fmtTz, monthOptions, todayISO } from '@/lib/dates'
 import { dayName, fullName, hhmm, money } from '@/lib/format'
 import { Badge, Card } from '@/components/ui'
 import { loadInbox } from './messages/data'
-import { CalendarSwitch, LessonCalendar, calendarPeriod } from './schedule/calendar'
+import { CalendarNav, CalendarSwitch, LessonCalendar, calendarPeriod } from './schedule/calendar'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
@@ -198,6 +199,8 @@ export default async function DashboardPage({ searchParams }: PageProps<'/'>) {
             Connect to calendar <Badge>Coming soon</Badge>
           </button>
         </div>
+        {/* ‹ previous · this day / week / month · next › */}
+        <CalendarNav basePath="/" period={period} />
         <CalendarSwitch basePath="/" period={period} />
       </div>
 

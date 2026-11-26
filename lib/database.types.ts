@@ -68,6 +68,14 @@ export type Teacher = Timestamps & {
   /** Optional parts of Lindon this teacher has switched on (lib/features.ts) */
   features: string[]
   locations: string[] // saved lesson locations (Settings → Locations)
+  /** Invoice branding: main colour and accent stripe (#RRGGBB) */
+  invoice_color: string
+  invoice_accent: string
+  /** Email families N days before an exam (exams feature on) */
+  exam_reminders_enabled: boolean
+  exam_reminder_days: number
+  /** Email the teacher when a family sends a message */
+  message_alerts: boolean
   /** advance = bill the month ahead, with make-up credits; arrears = bill last month's lessons */
   billing_mode: BillingMode
   /** Email the monthly invoices automatically (off = drafts to check first) */
@@ -255,6 +263,7 @@ export type Exam = Timestamps & {
   status: ExamStatus
   result: string
   notes: string
+  exam_reminder_sent_at: string | null
 }
 
 export type EmailLog = {

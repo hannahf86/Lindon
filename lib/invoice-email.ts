@@ -42,6 +42,8 @@ export async function sendInvoice(teacher: Teacher, inv: Invoice, opts: { remind
     footer: teacher.invoice_footer,
     signature: signature(teacher),
     reminder: opts.reminder,
+    brand: teacher.invoice_color,
+    accent: teacher.invoice_accent,
   })
 
   const res = await sendEmail({ teacher, to: [inv.bill_to_email], email, kind: 'invoice', invoiceId: inv.id })

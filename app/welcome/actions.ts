@@ -16,14 +16,11 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { db, must, requireTeacher } from '@/lib/db'
-import { date, handle, int, num, oneOf, parseTime, required, str, FormError, type ActionState } from '@/lib/forms'
+import { handle, int, required, str, FormError, type ActionState } from '@/lib/forms'
 import { splitList } from '@/lib/format'
 import { readChargingFields, readFeatureToggles } from '@/lib/feature-form'
 import { hasPassword, MIN_PASSWORD_LENGTH, setPassword } from '@/lib/passwords'
-import { todayISO } from '@/lib/dates'
-import { alignToWeekday } from '@/lib/lessons'
-import { checkBooking } from '@/lib/booking-check'
-import { syncSlotLessons } from '@/lib/bookings'
+import { bookRegularLesson, readRegularLesson } from '@/lib/regular-lesson'
 
 const EMAIL = /^\S+@\S+\.\S+$/
 
@@ -88,8 +85,6 @@ export async function saveFeatures(_: ActionState, fd: FormData): Promise<Action
   redirect('/welcome?step=4')
 }
 
-const DAYS = ['1', '2', '3', '4', '5', '6', '7'] as const
-const REPEATS = ['1', '2', '3', '4'] as const
 
 // ---- 5. First students (+ a parent for children) ------------------------------------------------
 export async function addStudent(_: ActionState, fd: FormData): Promise<ActionState> {
@@ -102,37 +97,8 @@ export async function addStudent(_: ActionState, fd: FormData): Promise<ActionSt
     if (child && !parentFirst) throw new FormError('Add a parent or guardian’s name — reminders and invoices for children go to them.')
     const instruments = splitList(str(fd, 'instruments'))
 
-    // ---- Their regular lesson (optional: leave the time empty to book later) ----
-    const rawTime = str(fd, 'lesson_time')
-    let lesson: {
-      day_of_week: number
-      start_time: string
-      duration_minutes: number
-      price: number
-      repeat_weeks: number
-      starts_on: string
-      ends_on: string | null
-      skip_dates: string[]
-    } | null = null
-    if (rawTime) {
-      const day_of_week = Number(oneOf(fd, 'lesson_day', DAYS, '1'))
-      const starts_on = alignToWeekday(date(fd, 'first_lesson') ?? todayISO(teacher.timezone), day_of_week)
-      const ends_on = str(fd, 'ends') === 'date' ? date(fd, 'ends_on') : null
-      if (str(fd, 'ends') === 'date' && !ends_on) throw new FormError('Pick the date of their last lesson — or choose “Keeps going”.')
-      if (ends_on && ends_on < starts_on) throw new FormError('The last lesson is before the first lesson.')
-      lesson = {
-        day_of_week,
-        start_time: parseTime(rawTime, 'Lesson time').slice(0, 5),
-        duration_minutes: int(fd, 'duration_minutes', 'Lesson length', { min: 5, max: 600 }),
-        price: num(fd, 'price', 'Price', { min: 0, fallback: 0 }),
-        repeat_weeks: Number(oneOf(fd, 'repeat_weeks', REPEATS, '1')),
-        starts_on,
-        ends_on,
-        skip_dates: [],
-      }
-      // Inside teaching hours, and not clashing with another pupil — before anything is saved
-      await checkBooking(teacher, lesson)
-    }
+    // ---- Their regular lesson (optional: "Not yet" = book later); checked before anything is saved ----
+    const lesson = await readRegularLesson(fd, teacher)
 
     const student = must(
       await db()
@@ -167,16 +133,7 @@ export async function addStudent(_: ActionState, fd: FormData): Promise<ActionSt
       )
     }
     // ---- Book their regular lesson and make the lessons ----
-    if (lesson) {
-      const slot = must(
-        await db()
-          .from('time_slots')
-          .insert({ ...lesson, teacher_id: teacher.id, student_id: student.id, instrument: instruments[0] ?? '', active: true })
-          .select('*')
-          .single(),
-      )
-      await syncSlotLessons(teacher, slot, slot.starts_on ?? undefined)
-    }
+    if (lesson) await bookRegularLesson(teacher, student.id, lesson, instruments[0] ?? '')
     revalidatePath('/welcome')
     revalidatePath('/schedule', 'layout')
     return { ok: `${student.first_name} added${lesson ? ' and booked in' : ''}. Add another, or carry on.` }
