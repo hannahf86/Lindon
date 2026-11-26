@@ -12,6 +12,7 @@ import { signOut } from '@/auth'
 import { requireFamily } from '@/lib/family'
 import { LogoMark } from '@/components/logo'
 import { FamilyNav } from '@/components/family-nav'
+import { MobileMenu } from '@/components/mobile-menu'
 import { familyUnread, messagingLinks } from './_lib/family-data'
 
 export const metadata: Metadata = { title: { default: 'Family', template: '%s · Lindon' } }
@@ -47,7 +48,10 @@ const FAMILY_CSS = `
 .bubble-meta { font-size: 0.75rem; color: var(--muted); font-weight: 700; margin-bottom: 2px; white-space: normal; }
 .pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 700px) {
-  .fam-nav { order: 3; flex-basis: 100%; }
+  .fam-nav { flex-direction: column; overflow: visible; gap: 6px; }
+  .fam-nav a { justify-content: space-between; padding: 12px 16px; }
+  .fam-who { margin: 8px 0 0; padding-top: 12px; border-top: 1px solid rgb(255 255 255 / 0.2); justify-content: space-between; flex-wrap: wrap; }
+  .fam-brand { margin-right: auto; }
   .fam-main { padding-top: 20px; }
 }
 @media print { .fam-bar { display: none !important; } .fam-main { padding: 0; max-width: none; } }
@@ -73,6 +77,8 @@ export default async function FamilyLayout({ children }: LayoutProps<'/family'>)
             <LogoMark size={32} />
             Lindon
           </Link>
+          {/* Phones: nav + account links behind a hamburger */}
+          <MobileMenu unread={unread} className="fam-menu">
           <FamilyNav unread={unread} showMessages={messagingLinks(ctx).length > 0} />
           <div className="fam-who">
             <span title={ctx.email}>{ctx.email}</span>
@@ -85,6 +91,7 @@ export default async function FamilyLayout({ children }: LayoutProps<'/family'>)
               </button>
             </form>
           </div>
+          </MobileMenu>
         </div>
       </header>
 

@@ -9,6 +9,7 @@
 // `unread` (in-app messages from families) shows as a bell + count on Messages.
 // =============================================================================
 import { UnreadBell } from '@/components/unread-bell'
+import { MobileMenu } from '@/components/mobile-menu'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
@@ -81,6 +82,8 @@ export function Sidebar(props: { studio: string; who: string; unread?: number; f
         <span />
       </div>
 
+      {/* Phones: nav + sign-out sit behind a hamburger (components/mobile-menu.tsx) */}
+      <MobileMenu unread={props.unread} className="sidebar-menu">
       {/* Navigation: core, then any switched-on extras, then Settings */}
       <nav className="nav" aria-label="Main">
         {CORE.map(link)}
@@ -105,6 +108,7 @@ export function Sidebar(props: { studio: string; who: string; unread?: number; f
           </button>
         </form>
       </div>
+      </MobileMenu>
     </aside>
   )
 }
