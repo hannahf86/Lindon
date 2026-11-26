@@ -13,6 +13,7 @@ import { usePathname } from 'next/navigation'
 const ITEMS = [
   { href: '/family', label: 'Home' },
   { href: '/family/lessons', label: 'Lessons' },
+  { href: '/family/events', label: 'Events' },
   { href: '/family/messages', label: 'Messages' },
   { href: '/family/music', label: 'Music' },
   { href: '/family/invoices', label: 'Invoices' },

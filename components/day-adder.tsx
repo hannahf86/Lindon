@@ -122,7 +122,7 @@ export function DayAdder(props: {
                 (kind === 'lesson' ? (
                   <LessonForm key={`l-${round}`} date={date} students={props.students} locations={props.locations} currencySymbol={props.currencySymbol} onDone={close} />
                 ) : (
-                  <EventForm key={`e-${round}`} date={date} onDone={close} />
+                  <EventForm key={`e-${round}`} date={date} onDone={close} students={props.students.map((s) => ({ id: s.id, label: s.name }))} />
                 ))}
             </>
           )}
@@ -212,11 +212,11 @@ function LessonForm(props: { date: string; students: AdderStudent[]; locations: 
 }
 
 // ---- Event -------------------------------------------------------------------------------------
-function EventForm(props: { date: string; onDone: () => void }) {
+function EventForm(props: { date: string; onDone: () => void; students: { id: string; label: string }[] }) {
   const { state, pending, onSubmit } = useCalendarAction(createEvent, props.onDone)
   return (
     <form className="form" onSubmit={onSubmit}>
-      <EventFields date={props.date} hideDate />
+      <EventFields date={props.date} hideDate students={props.students} />
       <div className="form-actions">
         <button type="submit" className="btn" disabled={pending}>
           {pending ? 'Adding…' : 'Add event'}

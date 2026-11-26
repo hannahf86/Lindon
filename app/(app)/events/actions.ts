@@ -6,7 +6,9 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { db, must, requireTeacher } from '@/lib/db'
-import { date, handle, oneOf, required, str, time, FormError, type ActionState } from '@/lib/forms'
+import { all, bool, date, handle, oneOf, required, str, time, FormError, type ActionState } from '@/lib/forms'
+import { notifyEventFamilies } from '@/lib/event-sharing'
+import type { Teacher } from '@/lib/database.types'
 import { EVENT_KIND_KEYS } from '@/lib/events'
 
 /** Title, kind, date, optional times, location, notes (shared by add + edit). */
@@ -25,10 +27,27 @@ function readEvent(fd: FormData) {
     ends,
     location: str(fd, 'location'),
     notes: str(fd, 'notes'),
+    ...readSharing(fd),
   }
 }
 
+/** Shown to families? Everyone, or which pupils (ids checked against this teacher later). */
+function readSharing(fd: FormData) {
+  const shared = bool(fd, 'shared')
+  const everyone = str(fd, 'share_who') !== 'some'
+  const student_ids = everyone ? [] : all(fd, 'share_students').filter((id) => /^[0-9a-f-]{36}$/i.test(id))
+  if (shared && !everyone && student_ids.length === 0) throw new FormError('Choose at least one pupil, or show it to everyone.')
+  return { shared, everyone, student_ids }
+}
+
+/** Keep only this teacher's pupils. */
+async function ownPupils(teacher: Teacher, ids: string[]) {
+  if (!ids.length) return []
+  return must(await db().from('students').select('id').eq('teacher_id', teacher.id).in('id', ids)).map((r) => r.id)
+}
+
 function revalidateEvents(id?: string) {
+  revalidatePath('/family', 'layout')
   revalidatePath('/schedule', 'layout')
   revalidatePath('/')
   if (id) revalidatePath(`/events/${id}`)
@@ -39,8 +58,10 @@ export async function createEvent(_: ActionState, fd: FormData): Promise<ActionS
   const result = await handle(async () => {
     const teacher = await requireTeacher()
     const e = readEvent(fd)
-    must(await db().from('events').insert({ ...e, teacher_id: teacher.id }).select('id').single())
-    return { ok: `${e.title} added.` }
+    e.student_ids = await ownPupils(teacher, e.student_ids)
+    const row = must(await db().from('events').insert({ ...e, teacher_id: teacher.id }).select('id').single())
+    const told = e.shared && bool(fd, 'notify') ? await notifyEventFamilies(teacher, { ...e, id: row.id, teacher_id: teacher.id }) : 0
+    return { ok: `${e.title} added.${told ? ` ${told} ${told === 1 ? 'family' : 'families'} asked who’s coming.` : ''}` }
   })
   if (result?.ok) revalidateEvents()
   return result
@@ -50,8 +71,11 @@ export async function createEvent(_: ActionState, fd: FormData): Promise<ActionS
 export async function updateEvent(id: string, _: ActionState, fd: FormData): Promise<ActionState> {
   const result = await handle(async () => {
     const teacher = await requireTeacher()
-    must(await db().from('events').update(readEvent(fd)).eq('id', id).eq('teacher_id', teacher.id).select('id').single())
-    return { ok: 'Event saved.' }
+    const e = readEvent(fd)
+    e.student_ids = await ownPupils(teacher, e.student_ids)
+    must(await db().from('events').update(e).eq('id', id).eq('teacher_id', teacher.id).select('id').single())
+    const told = e.shared && bool(fd, 'notify') ? await notifyEventFamilies(teacher, { ...e, id, teacher_id: teacher.id }) : 0
+    return { ok: `Event saved.${told ? ` ${told} ${told === 1 ? 'family' : 'families'} messaged.` : ''}` }
   })
   if (result?.ok) revalidateEvents(id)
   return result

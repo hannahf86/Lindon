@@ -17,6 +17,7 @@ import { displayStatus } from '@/lib/invoices'
 import { Badge, Card, EmptyState, StatusBadge } from '@/components/ui'
 import { familyUnread, pupilNames, studioLine } from './_lib/family-data'
 import { TeacherContact } from '@/components/teacher-contact'
+import { familyEvents } from '@/lib/event-sharing'
 import { has } from '@/lib/features'
 
 export const metadata: Metadata = { title: 'Home' }
@@ -74,7 +75,13 @@ async function loadLink(link: FamilyLink) {
 
 export default async function FamilyHome() {
   const ctx = await requireFamily()
-  const [unread, data] = await Promise.all([familyUnread(ctx), Promise.all(ctx.links.map(loadLink))])
+  const [unread, data, events] = await Promise.all([
+    familyUnread(ctx),
+    Promise.all(ctx.links.map(loadLink)),
+    Promise.all(ctx.links.map((l) => familyEvents(l.teacher.id, l.pupils, todayISO(l.teacher.timezone)))),
+  ])
+  // Events still waiting for an answer for at least one child
+  const toAnswer = events.flat().filter((e) => e.pupils.some((p) => p.response === null))
   const firstName = ctx.name.split(' ')[0] || 'there'
 
   return (
@@ -89,6 +96,18 @@ export default async function FamilyHome() {
 
       {/* ---- Tip of the day (same for everyone, changes daily) ---- */}
       <TipOfTheDay date={todayISO(ctx.links[0].teacher.timezone)} />
+
+      {/* ---- Events waiting for a reply ---- */}
+      {toAnswer.length > 0 && (
+        <div className="alert alert-info spread" style={{ marginBottom: 20 }}>
+          <span>
+            <strong>{toAnswer.length === 1 ? toAnswer[0].title : `${toAnswer.length} events`}</strong> — please let your teacher know who’s coming.
+          </span>
+          <Link href="/family/events" className="btn btn-sm">
+            Reply
+          </Link>
+        </div>
+      )}
 
       {/* ---- Unread messages ---- */}
       {unread > 0 && (

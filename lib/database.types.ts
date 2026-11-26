@@ -326,6 +326,10 @@ export type CalendarEvent = {
   ends: string | null
   location: string
   notes: string
+  /** Shown to families, who answer per pupil (event_responses) */
+  shared: boolean
+  everyone: boolean
+  student_ids: string[]
   created_at: string
   updated_at: string
 }
@@ -347,6 +351,9 @@ export type SharedFileRow = {
   student_ids: string[]
   created_at: string
 }
+
+/** A family's answer for one pupil to a shared event. */
+export type EventResponse = { event_id: string; teacher_id: string; student_id: string; response: 'yes' | 'no'; note: string; responded_by: string; responded_at: string }
 
 export type UserPassword = {
   user_id: string
@@ -461,6 +468,7 @@ export type Database = {
       user_passwords: Table<UserPassword, 'user_id' | 'hash'>
       teaching_hours: Table<TeachingHours, 'teacher_id' | 'day_of_week' | 'starts' | 'ends'>
       events: Table<CalendarEvent, 'teacher_id' | 'title' | 'event_date'>
+      event_responses: Table<EventResponse, 'event_id' | 'teacher_id' | 'student_id' | 'response'>
       holidays: Table<HolidayRow, 'teacher_id' | 'name' | 'starts_on' | 'ends_on'>
       shared_files: Table<SharedFileRow, 'teacher_id' | 'title' | 'path' | 'file_name' | 'mime'>
       lesson_credits: Table<
