@@ -3,6 +3,9 @@
 //
 // ?view=past switches tabs; ?pupil=<id> narrows to one child (only accepted
 // if canSeePupil() says so). Prices are never shown here.
+// Upcoming booked lessons have Reschedule (→ pick a free time) and Cancel
+// (a pop-up: still charged under 24 hours' notice, otherwise not charged,
+// with an optional note). Rules: lib/family-booking.ts.
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -12,6 +15,10 @@ import { duration } from '@/lib/format'
 import { fmtTz } from '@/lib/dates'
 import { Badge, Card, EmptyState, PageHeader } from '@/components/ui'
 import { lessonBadge, pupilNames, studioLine } from '../_lib/family-data'
+import { isLateNotice } from '@/lib/family-booking'
+import { ModalButton } from '@/components/modal'
+import { ActionForm, SubmitButton } from '@/components/forms'
+import { familyCancelLesson } from './actions'
 
 export const metadata: Metadata = { title: 'Lessons' }
 
@@ -66,6 +73,18 @@ export default async function FamilyLessonsPage({ searchParams }: PageProps<'/fa
     <>
       <PageHeader title="Lessons" subtitle="Times are shown in your teacher’s local time." />
 
+      {/* ---- Just changed ---- */}
+      {sp.changed === 'cancelled' && (
+        <div className="alert alert-ok" style={{ marginBottom: 20 }}>
+          Lesson cancelled. Your teacher has been told.
+        </div>
+      )}
+      {sp.changed === 'moved' && (
+        <div className="alert alert-ok" style={{ marginBottom: 20 }}>
+          Lesson moved to its new time. Your teacher has been told.
+        </div>
+      )}
+
       {/* ---- Upcoming / Past tabs ---- */}
       <nav className="tabs" aria-label="Which lessons">
         <Link href={href('upcoming', pupil)} aria-current={view === 'upcoming' ? 'page' : undefined}>
@@ -118,6 +137,10 @@ export default async function FamilyLessonsPage({ searchParams }: PageProps<'/fa
                   <div className="small muted">
                     {[name, l.instrument, l.location, manyTeachers ? studioLine(l.link.teacher) : ''].filter(Boolean).join(' · ')}
                   </div>
+                  {/* ---- Reschedule / Cancel (booked, still to come) ---- */}
+                  {l.status === 'scheduled' && view === 'upcoming' && (
+                    <LessonChanges lessonId={l.id} late={isLateNotice(l.starts_at)} when={fmtTz(l.starts_at, tz, "EEEE d MMMM 'at' HH:mm")} />
+                  )}
                   {cancelled && view === 'upcoming' && (
                     <div className="small" style={{ color: 'var(--coral-ink)', fontWeight: 700, marginTop: 4 }}>
                       This lesson has been cancelled.
@@ -131,5 +154,42 @@ export default async function FamilyLessonsPage({ searchParams }: PageProps<'/fa
         {lessons.length === LIMIT && <p className="small muted" style={{ marginTop: 12 }}>Showing the {view === 'past' ? 'most recent' : 'next'} {LIMIT} lessons.</p>}
       </Card>
     </>
+  )
+}
+
+// ---- Reschedule + Cancel for one booked lesson ------------------------------------------------
+function LessonChanges({ lessonId, late, when }: { lessonId: string; late: boolean; when: string }) {
+  return (
+    <div className="row" style={{ gap: 8, marginTop: 10 }}>
+      <Link href={`/family/lessons/${lessonId}/reschedule`} className="btn btn-secondary btn-sm">
+        Reschedule
+      </Link>
+      <ModalButton label="Cancel" title="Cancel this lesson?" className="btn btn-ghost btn-sm">
+        <ActionForm action={familyCancelLesson.bind(null, lessonId)}>
+          <p style={{ margin: 0 }}>
+            <strong>{when}</strong>
+          </p>
+          <div className={`alert ${late ? 'alert-error' : 'alert-ok'}`} style={{ margin: 0 }}>
+            {late
+              ? 'This lesson is less than 24 hours away, so you’ll still be charged for it.'
+              : 'You won’t be charged for this lesson, as you’ve given at least 24 hours’ notice.'}
+          </div>
+          <div className="field">
+            <label className="field-label" htmlFor={`cancel-note-${lessonId}`}>
+              Note for your teacher (optional)
+            </label>
+            <textarea id={`cancel-note-${lessonId}`} name="note" className="textarea" rows={3} maxLength={1000} placeholder="e.g. Poorly today, sorry" />
+          </div>
+          <p className="small muted" style={{ margin: 0 }}>
+            Would another time suit better? <Link href={`/family/lessons/${lessonId}/reschedule`}>Reschedule instead</Link>.
+          </p>
+          <div className="form-actions">
+            <SubmitButton className="btn btn-danger" pendingText="Cancelling…">
+              Cancel the lesson
+            </SubmitButton>
+          </div>
+        </ActionForm>
+      </ModalButton>
+    </div>
   )
 }
