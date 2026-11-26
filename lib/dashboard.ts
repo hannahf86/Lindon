@@ -16,6 +16,7 @@ import { addDaysISO, dayBoundsUtc, diffDays, fmtTz, isoWeekday, monthBounds, ran
 import { isMinor } from './format'
 import { clock, freeGaps, isCancelled, minutesOf } from './lessons'
 import { has } from './features'
+import { holidayOn, holidaysBetween } from './holidays'
 
 const FREE_SHOWN = 7 // free-time blocks listed on the tile (rest of this week only — Hannah's call)
 
@@ -114,11 +115,12 @@ export async function loadDashboard(teacher: Teacher) {
       : none,
   ])
 
-  // ---- Free time: teaching hours minus lessons going ahead, day by day ----
+  // ---- Free time: teaching hours minus lessons going ahead, day by day (none on holidays) ----
+  const holidays = await holidaysBetween(t, today, weekEnd)
   const freeSlots: { date: string; from: string; to: string }[] = []
   for (let i = 0; i < FREE_DAYS; i++) {
     const d = addDaysISO(today, i)
-    const dayHours = hours.filter((h) => h.day_of_week === isoWeekday(d))
+    const dayHours = holidayOn(d, holidays) ? [] : hours.filter((h) => h.day_of_week === isoWeekday(d))
     if (dayHours.length === 0) continue
     const busy = upcoming
       .filter((l) => !isCancelled(l.status) && fmtTz(l.starts_at, tz, 'yyyy-MM-dd') === d)

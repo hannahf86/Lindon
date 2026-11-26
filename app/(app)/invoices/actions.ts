@@ -181,21 +181,6 @@ export async function deleteItem(invoiceId: string, itemId: string): Promise<Act
   })
 }
 
-// ---- Pull in lessons that aren't billed yet --------------------------------------------
-export async function addUninvoicedLessons(invoiceId: string, _: ActionState, fd: FormData): Promise<ActionState> {
-  return handle(async () => {
-    const teacher = await requireTeacher()
-    const inv = await editableInvoice(teacher, invoiceId)
-    if (!inv.student_id) throw new FormError('This invoice isn’t linked to a student, so there are no lessons to add.')
-    const [from, to] = readPeriod(fd)
-    const added = await addLessonLines(teacher, invoiceId, inv.student_id, from, to)
-    refresh(invoiceId, inv.student_id)
-    return added
-      ? { ok: `Added ${added} lesson${added === 1 ? '' : 's'}.` }
-      : { ok: 'No new lessons to add — everything chargeable in those dates is already invoiced.' }
-  })
-}
-
 // ---- Add-ons: exam fees and instrument hire -------------------------------------------------
 export async function addExamFeeToInvoice(invoiceId: string, examId: string): Promise<ActionState> {
   return handle(async () => {

@@ -689,3 +689,7 @@ button.month-cell:focus-visible { outline: 3px solid var(--teal); outline-offset
   .fam-bar .menu-panel { display: none; }
   .fam-bar .menu-panel[data-open='true'] { display: block; flex-basis: 100%; padding: 8px 0 4px; }
 }
+
+/* Holidays / term breaks on the calendar */
+.month-chip.holiday, .event.holiday { background: var(--accent-sage); border-left-color: var(--accent-sage-text); color: var(--accent-sage-text); font-weight: 800; }
+.month-cell.is-holiday { background: #edf4ef; }

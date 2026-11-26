@@ -23,7 +23,3 @@ export function readFeatureToggles(fd: FormData) {
   }
 }
 
-/** Everything (the Settings page). */
-export function readFeatureFields(fd: FormData) {
-  return { ...readChargingFields(fd), ...readFeatureToggles(fd) }
-}

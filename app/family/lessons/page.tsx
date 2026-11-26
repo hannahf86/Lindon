@@ -12,7 +12,8 @@ import Link from 'next/link'
 import { db, must } from '@/lib/db'
 import { canSeePupil, requireFamily, type FamilyLink } from '@/lib/family'
 import { duration } from '@/lib/format'
-import { fmtTz } from '@/lib/dates'
+import { addDaysISO, fmtDate, fmtTz, todayISO } from '@/lib/dates'
+import { holidaysBetween } from '@/lib/holidays'
 import { Badge, Card, EmptyState, PageHeader } from '@/components/ui'
 import { lessonBadge, pupilNames, studioLine } from '../_lib/family-data'
 import { isLateNotice } from '@/lib/family-booking'
@@ -68,10 +69,24 @@ export default async function FamilyLessonsPage({ searchParams }: PageProps<'/fa
     return `/family/lessons${s ? `?${s}` : ''}`
   }
   const nameOf = (link: FamilyLink, id: string) => pupilNames(link).get(id) ?? ''
+  // Holidays / term breaks from their teachers in the next three months
+  const holidaysAhead = (
+    await Promise.all(ctx.links.map((l) => holidaysBetween(l.teacher.id, todayISO(l.teacher.timezone), addDaysISO(todayISO(l.teacher.timezone), 92))))
+  ).flat()
 
   return (
     <>
       <PageHeader title="Lessons" subtitle="Times are shown in your teacher’s local time." />
+
+      {/* ---- Holidays coming up (next ~3 months) ---- */}
+      {holidaysAhead.length > 0 && (
+        <div className="alert alert-info" style={{ marginBottom: 20 }}>
+          <strong>No lessons:</strong>{' '}
+          {holidaysAhead
+            .map((h) => `${h.name} (${h.starts_on === h.ends_on ? fmtDate(h.starts_on, 'd MMM') : `${fmtDate(h.starts_on, 'd MMM')} – ${fmtDate(h.ends_on, 'd MMM')}`})`)
+            .join(' · ')}
+        </div>
+      )}
 
       {/* ---- Just changed ---- */}
       {sp.changed === 'cancelled' && (

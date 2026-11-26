@@ -227,21 +227,6 @@ export async function toggleGuardianEmails(studentId: string, guardianId: string
   return null
 }
 
-export async function unlinkGuardian(studentId: string, guardianId: string): Promise<ActionState> {
-  const teacher = await requireTeacher()
-  must(
-    await db()
-      .from('student_guardians')
-      .delete()
-      .eq('teacher_id', teacher.id)
-      .eq('student_id', studentId)
-      .eq('guardian_id', guardianId)
-      .select('student_id'),
-  )
-  revalidatePath(`/students/${studentId}`)
-  return { ok: 'Unlinked.' }
-}
-
 // ---- Make-up credits: add a goodwill credit by hand, or remove an unused one ------
 // (Credits for cancelled lessons are created automatically from attendance.)
 export async function addManualCredit(studentId: string, _: ActionState, fd: FormData): Promise<ActionState> {

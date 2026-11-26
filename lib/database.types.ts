@@ -330,6 +330,9 @@ export type CalendarEvent = {
   updated_at: string
 }
 
+/** A holiday or term break: no lessons from starts_on to ends_on (inclusive). */
+export type HolidayRow = { id: string; teacher_id: string; name: string; starts_on: string; ends_on: string; created_at: string }
+
 export type UserPassword = {
   user_id: string
   hash: string
@@ -443,6 +446,7 @@ export type Database = {
       user_passwords: Table<UserPassword, 'user_id' | 'hash'>
       teaching_hours: Table<TeachingHours, 'teacher_id' | 'day_of_week' | 'starts' | 'ends'>
       events: Table<CalendarEvent, 'teacher_id' | 'title' | 'event_date'>
+      holidays: Table<HolidayRow, 'teacher_id' | 'name' | 'starts_on' | 'ends_on'>
       lesson_credits: Table<
         LessonCredit,
         'teacher_id' | 'student_id' | 'amount' | 'reason',

@@ -13,6 +13,8 @@
 //   • a scheduled lesson on a date that's no longer booked → removed,
 //     UNLESS it's already on an invoice (then it's kept and reported)
 //   • completed / cancelled / missed lessons are never touched
+// Holidays and term breaks (table holidays) are skipped like "weeks off":
+// no lesson is made on a day inside a holiday.
 // =============================================================================
 import 'server-only'
 import { db, must } from './db'
@@ -38,7 +40,12 @@ export async function syncSlotLessons(teacher: Teacher, slot: TimeSlot, fromDate
   const booked = slot.student_id && slot.active && slot.starts_on
   const startFrom = booked && slot.starts_on! > from ? slot.starts_on! : from
   const until = slot.ends_on ?? addDaysISO(todayISO(tz), OPEN_ENDED_WEEKS * 7)
-  const desired = booked ? bookingDates(slot, startFrom, until) : []
+  // Holidays in range: their days get no lesson
+  const holidays = booked
+    ? must(await db().from('holidays').select('starts_on, ends_on').eq('teacher_id', teacher.id).lte('starts_on', until).gte('ends_on', startFrom))
+    : []
+  const inHoliday = (d: string) => holidays.some((h) => d >= h.starts_on && d <= h.ends_on)
+  const desired = booked ? bookingDates(slot, startFrom, until).filter((d) => !inHoliday(d)) : []
   const wanted = new Set(desired)
 
   // ---- The slot's existing lessons from `from` onwards ----

@@ -96,15 +96,6 @@ export function alignToWeekday(dateISO: string, isoDay: number): string {
   return addDaysISO(dateISO, (isoDay - isoWeekday(dateISO) + 7) % 7)
 }
 
-/** Is this calendar date one of the booking's lesson dates? */
-export function isBookingDate(b: BookingLike, dateISO: string): boolean {
-  if (isoWeekday(dateISO) !== b.day_of_week) return false
-  if (!b.starts_on) return true // older open-ended bookings: every week
-  if (dateISO < b.starts_on || (b.ends_on && dateISO > b.ends_on)) return false
-  if (diffDays(b.starts_on, dateISO) % (7 * Math.max(1, b.repeat_weeks)) !== 0) return false
-  return !b.skip_dates.includes(dateISO)
-}
-
 /** Every lesson date of the booking between two dates (inclusive). */
 export function bookingDates(b: BookingLike, fromISO: string, toISO: string): string[] {
   const step = 7 * Math.max(1, b.repeat_weeks)

@@ -4,10 +4,11 @@
 //   Teaching hours  /schedule/hours  the blocks of time you teach
 //   Free slots      /schedule/slots  each pupil's regular lesson time, and booking new ones
 //   Attendance      /schedule/attendance  mark lessons straight from a list
+//   Holidays        /schedule/holidays    holidays and term breaks (no lessons)
 // =============================================================================
 import Link from 'next/link'
 
-export function ScheduleTabs({ current }: { current: 'calendar' | 'hours' | 'slots' | 'attendance' }) {
+export function ScheduleTabs({ current }: { current: 'calendar' | 'hours' | 'slots' | 'attendance' | 'holidays' }) {
   return (
     <nav className="tabs" style={{ margin: 0 }} aria-label="Schedule views">
       <Link href="/schedule" aria-current={current === 'calendar' ? 'page' : undefined}>
@@ -21,6 +22,9 @@ export function ScheduleTabs({ current }: { current: 'calendar' | 'hours' | 'slo
       </Link>
       <Link href="/schedule/attendance" aria-current={current === 'attendance' ? 'page' : undefined}>
         Attendance
+      </Link>
+      <Link href="/schedule/holidays" aria-current={current === 'holidays' ? 'page' : undefined}>
+        Holidays
       </Link>
     </nav>
   )

@@ -74,19 +74,6 @@ export function magicLinkEmail(url: string): Email {
   }
 }
 
-// ---- Free-form message (broadcasts and one-to-one emails) --------------------
-export function messageEmail(opts: { studio: string; subject: string; body: string; signature: string }): Email {
-  return {
-    subject: opts.subject,
-    text: `${opts.body}\n\n${opts.signature}`,
-    html: layout({
-      studio: opts.studio,
-      heading: opts.subject,
-      bodyHtml: paragraphs(opts.body) + `<p style="margin:18px 0 0;font-weight:700">${esc(opts.signature)}</p>`,
-    }),
-  }
-}
-
 // ---- Lesson reminder ---------------------------------------------------------
 export function lessonReminderEmail(opts: {
   studio: string

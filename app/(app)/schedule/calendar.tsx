@@ -13,7 +13,8 @@
 // "Free"; days with no teaching hours are greyed out as "Not a teaching day".
 // A pupil's last booked lesson is marked so it's easy to see when to rebook.
 // Events (concerts, exam days, group lessons…) show alongside lessons, and
-// timed events come out of the free time.
+// timed events come out of the free time. Holidays / term breaks are labelled
+// on their days, which have no free time.
 //
 // Click a day (a month square, a week column's "+ Add", or the day view's
 // button) to add a one-off lesson or an event in a pop-up
@@ -30,6 +31,7 @@ import { Badge, Card, EmptyState, Stat, StatusBadge } from '@/components/ui'
 import { AttendanceButtons } from '../lessons/attendance-buttons'
 import { AddDayButton, DayAdder, type AdderStudent, type DayLesson } from '@/components/day-adder'
 import { eventKindLabel, eventTimeLabel } from '@/lib/events'
+import { holidayOn, holidaysBetween } from '@/lib/holidays'
 
 export type CalendarView = 'day' | 'week' | 'month'
 const VIEWS: { key: CalendarView; label: string }[] = [
@@ -145,7 +147,7 @@ export async function LessonCalendar(props: {
   for (let d = p.gridFrom; d <= p.gridTo; d = addDaysISO(d, 1)) gridDays.push(d)
   const [fromUtc, toUtc] = rangeBoundsUtc(p.gridFrom, p.gridTo, tz)
 
-  const [lessons, exams, slots, teachHours, events, adderStudents] = await Promise.all([
+  const [lessons, exams, slots, teachHours, events, adderStudents, holidays] = await Promise.all([
     db()
       .from('lessons')
       .select('id, starts_at, duration_minutes, price, status, chargeable, instrument, location, time_slot_id, students(id, first_name, last_name)')
@@ -176,6 +178,7 @@ export async function LessonCalendar(props: {
       .order('starts', { nullsFirst: true })
       .then(must),
     loadAdderStudents(t),
+    holidaysBetween(t, p.gridFrom, p.gridTo),
   ])
 
   // Group lessons by their local (teacher-timezone) date
@@ -200,8 +203,10 @@ export async function LessonCalendar(props: {
   const slotEnds = new Map(slots.filter((s) => s.student_id && s.ends_on).map((s) => [s.id, s.ends_on]))
   const isLastLesson = (l: (typeof lessons)[number], d: string) => !!l.time_slot_id && slotEnds.get(l.time_slot_id) === d
 
-  /** Teaching hours that day (none = not a teaching day). */
-  const hoursOn = (d: string) => teachHours.filter((h) => h.day_of_week === isoWeekday(d))
+  /** Holiday / term break on a date, if any. */
+  const holidayFor = (d: string) => holidayOn(d, holidays)
+  /** Teaching hours that day (none = not a teaching day, or a holiday). */
+  const hoursOn = (d: string) => (holidayFor(d) ? [] : teachHours.filter((h) => h.day_of_week === isoWeekday(d)))
   // For the day pop-up's attendance list
   const lessonsByDate: Record<string, DayLesson[]> = {}
   for (const [d, ls] of byDay) {
@@ -267,8 +272,13 @@ export async function LessonCalendar(props: {
                 </AddDayButton>
               }
             >
+              {holidayFor(p.anchor) && (
+                <div className="alert alert-info" style={{ marginBottom: rows.length ? 12 : 0 }}>
+                  <strong>{holidayFor(p.anchor)!.name}</strong> — a holiday, so no regular lessons today.
+                </div>
+              )}
               {rows.length === 0 ? (
-                <EmptyState title={hoursOn(p.anchor).length ? 'Nothing booked' : 'Not a teaching day'}>
+                holidayFor(p.anchor) ? null : <EmptyState title={hoursOn(p.anchor).length ? 'Nothing booked' : 'Not a teaching day'}>
                   {hoursOn(p.anchor).length ? 'No lessons on this day.' : 'You don’t have teaching hours on this day. Add some under Schedule → Teaching hours.'}
                 </EmptyState>
               ) : (
@@ -419,7 +429,8 @@ export async function LessonCalendar(props: {
                   </Link>
                 ))}
 
-                {off && busyCount === 0 && <p className="small muted">Not a teaching day</p>}
+                {holidayFor(d) && <div className="event holiday">{holidayFor(d)!.name} · no lessons</div>}
+                {off && !holidayFor(d) && busyCount === 0 && <p className="small muted">Not a teaching day</p>}
                 {!off && busyCount + dayFree.length === 0 && <p className="small muted">Fully booked</p>}
               </section>
             )
@@ -448,10 +459,11 @@ export async function LessonCalendar(props: {
               <AddDayButton
                 key={d}
                 date={d}
-                className={`month-cell ${outside ? 'outside' : ''} ${d === today ? 'today' : ''} ${hoursOn(d).length === 0 ? 'off' : ''}`}
+                className={`month-cell ${outside ? 'outside' : ''} ${d === today ? 'today' : ''} ${hoursOn(d).length === 0 ? 'off' : ''} ${holidayFor(d) ? 'is-holiday' : ''}`}
                 label={`${fmtDate(d, 'EEEE d MMMM')}: ${dayLessons.length} lesson${dayLessons.length === 1 ? '' : 's'}${dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}` : ''}. Add a lesson or event`}
               >
                 <div className="month-date">{fmtDate(d, 'd')}</div>
+                {holidayFor(d) && <div className="month-chip holiday">{holidayFor(d)!.name}</div>}
                 {dayEvents.map((ev) => (
                   <div key={ev.id} className="month-chip happening">
                     {ev.starts && <strong>{ev.starts.slice(0, 5)}</strong>} {ev.title}

@@ -8,7 +8,7 @@
 import { refreshBillTo, studentsOfGuardian } from '@/lib/invoice-contacts'
 import { revalidatePath } from 'next/cache'
 import { db, must, requireTeacher } from '@/lib/db'
-import { all, bool, handle, required, str, FormError, type ActionState } from '@/lib/forms'
+import { handle, required, str, FormError, type ActionState } from '@/lib/forms'
 
 /** Read the contact form into a row (shared by create + update). */
 function readGuardian(fd: FormData) {
@@ -24,33 +24,6 @@ function readGuardian(fd: FormData) {
     address: str(fd, 'address'),
     notes: str(fd, 'notes'),
   }
-}
-
-/** Student ids ticked in a Picker (multiple) — uuid-checked. */
-function studentIds(fd: FormData): string[] {
-  const ids = all(fd, 'student_ids')
-  if (ids.some((v) => !/^[0-9a-f-]{36}$/i.test(v))) throw new FormError('Invalid reference.')
-  return ids
-}
-
-/** Write student_guardians rows for one contact and several students. */
-async function writeLinks(teacherId: string, guardianId: string, ids: string[], fd: FormData) {
-  if (ids.length === 0) return
-  must(
-    await db()
-      .from('student_guardians')
-      .upsert(
-        ids.map((student_id) => ({
-          teacher_id: teacherId,
-          student_id,
-          guardian_id: guardianId,
-          relationship: str(fd, 'relationship'),
-          is_primary: bool(fd, 'is_primary'),
-          receives_emails: true,
-        })),
-      )
-      .select('student_id'),
-  )
 }
 
 // ---- Update ------------------------------------------------------------------------
@@ -73,18 +46,6 @@ export async function deleteGuardian(id: string): Promise<ActionState> {
   must(await db().from('guardians').delete().eq('id', id).eq('teacher_id', teacher.id).select('id'))
   revalidatePath('/students', 'layout')
   return { ok: 'Contact deleted.' }
-}
-
-// ---- Link to more students ---------------------------------------------------------
-export async function linkStudents(guardianId: string, _: ActionState, fd: FormData): Promise<ActionState> {
-  return handle(async () => {
-    const teacher = await requireTeacher()
-    const ids = studentIds(fd)
-    if (ids.length === 0) throw new FormError('Tick at least one student to link.')
-    await writeLinks(teacher.id, guardianId, ids, fd)
-    revalidatePath('/students', 'layout')
-    return { ok: ids.length === 1 ? 'Student linked.' : `${ids.length} students linked.` }
-  })
 }
 
 // ---- Unlink one student ---------------------------------------------------------------

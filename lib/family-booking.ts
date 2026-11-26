@@ -23,6 +23,7 @@ import 'server-only'
 import { db, must } from './db'
 import { addDaysISO, fmtTz, isoWeekday, rangeBoundsUtc, todayISO, zonedToUtc } from './dates'
 import { clock, freeGaps, isCancelled, minutesOf, type Span } from './lessons'
+import { holidayOn, holidaysBetween } from './holidays'
 
 export const NOTICE_HOURS = 24
 const DAYS_AHEAD = 14 // two weeks — longer, and families message the teacher (Hannah's call)
@@ -64,10 +65,12 @@ export async function freeStartTimes(teacher: TeacherBits, durationMinutes: numb
   const today = todayISO(teacher.timezone)
   const last = addDaysISO(today, DAYS_AHEAD)
   const { hours, busy } = await busyByDate(teacher, today, last, excludeLessonId)
+  const holidays = await holidaysBetween(teacher.id, today, last)
   const earliest = now.getTime() + NOTICE_HOURS * 3600_000
   const out: FreeDay[] = []
   for (let d = today; d <= last; d = addDaysISO(d, 1)) {
-    const dayHours = hours.filter((h) => h.day_of_week === isoWeekday(d))
+    // No free time on holidays / term breaks
+    const dayHours = holidayOn(d, holidays) ? [] : hours.filter((h) => h.day_of_week === isoWeekday(d))
     if (!dayHours.length) continue
     const times: string[] = []
     for (const g of freeGaps(dayHours, busy.get(d) ?? [], durationMinutes)) {

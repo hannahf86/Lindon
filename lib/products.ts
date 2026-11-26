@@ -16,20 +16,6 @@ import type { Product, Teacher } from './database.types'
 import type { PickerOption } from '@/components/pickers'
 
 // ---- Stock wording ------------------------------------------------------------------
-export type StockState = 'untracked' | 'ok' | 'low' | 'out'
-
-export function stockState(p: Pick<Product, 'track_stock' | 'stock' | 'low_stock_at'>): StockState {
-  if (!p.track_stock) return 'untracked'
-  if (p.stock <= 0) return 'out'
-  if (p.low_stock_at !== null && p.stock <= p.low_stock_at) return 'low'
-  return 'ok'
-}
-
-export function stockText(p: Pick<Product, 'track_stock' | 'stock' | 'low_stock_at'>): string {
-  if (!p.track_stock) return 'Stock not tracked'
-  if (p.stock < 0) return `${Math.abs(p.stock)} oversold`
-  return p.stock === 0 ? 'Out of stock' : `${p.stock} in stock`
-}
 
 // ---- Picker options -------------------------------------------------------------------
 export async function productOptions(teacher: Teacher): Promise<PickerOption[]> {

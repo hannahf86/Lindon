@@ -107,11 +107,6 @@ export function canSeePupil(ctx: FamilyContext, teacherId: string, studentId: st
   return !!linkForTeacher(ctx, teacherId)?.studentIds.includes(studentId)
 }
 
-/** All (teacherId, studentId) pairs visible — handy for "everything upcoming" queries. */
-export function visiblePupils(ctx: FamilyContext): { teacherId: string; studentId: string }[] {
-  return ctx.links.flatMap((l) => l.studentIds.map((studentId) => ({ teacherId: l.teacher.id, studentId })))
-}
-
 /** Teacher's display name for family-facing pages. */
 export function teacherName(t: FamilyTeacher): string {
   return t.display_name || t.business_name || 'Your teacher'
