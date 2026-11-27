@@ -7,7 +7,7 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { db, must, requireTeacher } from '@/lib/db'
-import { bool, date, handle, num, oneOf, ref, required, str, FormError, type ActionState } from '@/lib/forms'
+import { bool, date, handle, int, num, oneOf, ref, required, str, FormError, type ActionState } from '@/lib/forms'
 import { money } from '@/lib/format'
 import { addDaysISO, fmtDate, monthBounds, todayISO } from '@/lib/dates'
 import { sendInvoice } from '@/lib/invoice-email'
@@ -231,6 +231,36 @@ export async function applyCreditsAction(invoiceId: string): Promise<ActionState
     return count
       ? { ok: `Applied ${count} make-up credit${count === 1 ? '' : 's'} (${money(total, teacher.currency)}).` }
       : { error: 'No credits could be applied — the invoice total is lower than the credit waiting.' }
+  })
+}
+
+// ---- Add lesson credits straight onto this invoice (billing in advance) ----------------------
+// e.g. moving from an old system: lessons already paid for there. Makes one
+// credit per lesson (so each shows as its own line) and takes them off now.
+export async function addCreditToInvoice(invoiceId: string, _: ActionState, fd: FormData): Promise<ActionState> {
+  return handle(async () => {
+    const teacher = await requireTeacher()
+    if (!usesCredits(teacher)) throw new FormError('Lesson credits are for teachers who bill in advance (Settings → Invoicing).')
+    const inv = await editableInvoice(teacher, invoiceId)
+    if (!inv.student_id) throw new FormError('This invoice isn’t linked to a pupil.')
+    const lessons = int(fd, 'lessons', 'Number of lessons', { min: 1, max: 20, fallback: 1 })
+    const amount = num(fd, 'amount', 'Credit per lesson', { min: 0.01 })
+    const note = str(fd, 'note') || 'Lesson credit'
+    must(
+      await db()
+        .from('lesson_credits')
+        .insert(Array.from({ length: lessons }, () => ({ teacher_id: teacher.id, student_id: inv.student_id!, amount, reason: 'manual' as const, note })))
+        .select('id'),
+    )
+    const { count, total } = await applyCredits(teacher, invoiceId, inv.student_id)
+    refresh(invoiceId, inv.student_id)
+    revalidatePath(`/students/${inv.student_id}`)
+    const left = lessons - Math.min(count, lessons)
+    return {
+      ok:
+        `${count} credit${count === 1 ? '' : 's'} taken off (${money(total, teacher.currency)}).` +
+        (left > 0 ? ` ${left} didn’t fit on this invoice and will come off the next one.` : ''),
+    }
   })
 }
 

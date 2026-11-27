@@ -16,9 +16,10 @@ import { availableCredits } from '@/lib/credits'
 import { pendingDeposits, pendingExamFees, pendingHire } from '@/lib/addons'
 import { has, usesCredits } from '@/lib/features'
 import { ActionForm, ConfirmButton, SubmitButton } from '@/components/forms'
-import { Card, PageHeader, StatusBadge, TextArea, TextField } from '@/components/ui'
+import { Card, MoneyField, PageHeader, StatusBadge, TextArea, TextField } from '@/components/ui'
+import { currencySymbol } from '@/lib/lessons'
 import { InvoiceItems } from './invoice-items'
-import { applyCreditsAction, deleteInvoice, emailInvoice, markPaid, markSent, reopenInvoice, updateInvoice, voidInvoice } from '../actions'
+import { addCreditToInvoice, applyCreditsAction, deleteInvoice, emailInvoice, markPaid, markSent, reopenInvoice, updateInvoice, voidInvoice } from '../actions'
 
 export const metadata: Metadata = { title: 'Invoice' }
 
@@ -55,6 +56,9 @@ export default async function InvoicePage({ params, searchParams }: PageProps<'/
   // Unused make-up credits (offered while the invoice can still be edited)
   const waitingCredits = editable && inv.student_id && usesCredits(teacher) ? await availableCredits(teacher.id, inv.student_id) : []
   const student = inv.students
+  // Usual lesson price on this invoice (pre-fills the credit amount)
+  const lessonPrices = items.filter((it) => it.kind === 'lesson').map((it) => Number(it.unit_price))
+  const lessonPrice = lessonPrices.length ? lessonPrices.sort((a, b) => lessonPrices.filter((v) => v === b).length - lessonPrices.filter((v) => v === a).length)[0] : 0
 
   return (
     <>
@@ -125,6 +129,29 @@ export default async function InvoicePage({ params, searchParams }: PageProps<'/
             hire={editable && inv.student_id && has(teacher, 'library') ? await pendingHire(teacher, inv.student_id, inv.issue_date) : undefined}
             deposits={editable && inv.student_id && has(teacher, 'library') ? await pendingDeposits(teacher, inv.student_id) : undefined}
           />
+
+          {/* ---- Lesson credit (billing in advance): e.g. lessons already paid for elsewhere ---- */}
+          {editable && inv.student_id && usesCredits(teacher) && (
+            <Card title="Add a lesson credit">
+              <ActionForm action={addCreditToInvoice.bind(null, id)} resetOnSuccess>
+                <p className="small muted" style={{ margin: 0 }}>
+                  Takes lessons off this invoice — handy when moving from another system and {student?.first_name ?? 'they'} has already paid for some.
+                </p>
+                <div className="row" style={{ alignItems: 'flex-end' }}>
+                  <div style={{ width: 130 }}>
+                    <TextField label="Lessons" name="lessons" type="number" min={1} max={20} defaultValue="1" />
+                  </div>
+                  <div style={{ width: 160 }}>
+                    <MoneyField label="Credit per lesson" name="amount" symbol={currencySymbol(c)} defaultValue={lessonPrice ? lessonPrice.toFixed(2) : ''} placeholder="0.00" required />
+                  </div>
+                </div>
+                <TextField label="Reason (shows on the invoice)" name="note" placeholder="e.g. Paid on the old system" />
+                <div className="form-actions">
+                  <SubmitButton pendingText="Adding…">Take off this invoice</SubmitButton>
+                </div>
+              </ActionForm>
+            </Card>
+          )}
 
         </div>
 
