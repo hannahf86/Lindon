@@ -6,7 +6,7 @@
 // Viewing never creates a conversation; replying does (via the action).
 // Each of the teacher's messages has a "👍 Seen" button, so the family can
 // acknowledge it (a cancellation, say) without writing back.
-// Messages are a permanent record — there's no edit or delete.
+// Messages can't be edited or deleted; they're kept for 5 years (lib/message-retention).
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -121,7 +121,7 @@ export default async function FamilyMessagesPage({ searchParams }: PageProps<'/f
             <SubmitButton pendingText="Sending…">Send message</SubmitButton>
           </div>
           <p className="small muted" style={{ margin: 0 }}>
-            Messages are kept as a permanent record and can’t be edited or deleted afterwards. {tName} will get an email to let them know you’ve
+            Messages can’t be edited or deleted afterwards, and are kept for five years. {tName} will get an email to let them know you’ve
             written, and you’ll get one when they reply.
           </p>
         </ActionForm>

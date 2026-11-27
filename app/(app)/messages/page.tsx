@@ -161,7 +161,7 @@ export default async function InboxPage() {
       </Card>
 
       <p className="small muted" style={{ marginTop: 12 }}>
-        Messages are kept as a permanent record — they can’t be edited or deleted.
+        Messages can’t be edited or deleted. They’re kept for five years, then cleared out automatically.
       </p>
     </>
   )

@@ -141,6 +141,11 @@ function JoinForm({ token, invite }: { token: string; invite: NonNullable<Awaite
           </div>
         </Card>
 
+        <p className="small muted" style={{ margin: 0 }}>
+          By creating an account you agree to our <Link href="/policies/terms" target="_blank">terms of use</Link>. See how we look after your information in our{' '}
+          <Link href="/policies/privacy" target="_blank">privacy policy</Link> and how we keep children safe in our{' '}
+          <Link href="/policies/safeguarding" target="_blank">child protection policy</Link>.
+        </p>
         <div className="form-actions">
           <SubmitButton pendingText="Setting up…">Create my account</SubmitButton>
         </div>

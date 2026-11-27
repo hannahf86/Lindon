@@ -8,6 +8,7 @@
 //                   footer note · money & time · invoice branding colours
 //   Communication   lesson reminders · exam reminders · message alerts
 //   Features        the optional parts of Lindon, on or off
+//   Policies        privacy & data protection, child protection, terms (public pages)
 //
 // Each tab is its own form and saves only its own fields (the action is told
 // which tab via a hidden "section" field). Currency and timezone are typed
@@ -25,6 +26,7 @@ import { Card, PageHeader, TextArea, TextField, Toggle } from '@/components/ui'
 import { ChargingFields, FeatureToggles } from '@/components/feature-fields'
 import { TeachingHoursEditor } from '@/components/teaching-hours'
 import { TagInput } from '@/components/pickers'
+import { POLICIES } from '@/lib/policies'
 import { CopyField } from '@/components/copy-field'
 import { calendarFeedUrl } from '@/lib/calendar-feed'
 import { makeCalendarLink, removeCalendarLink, removeLogo, updateSettings, uploadLogo } from './actions'
@@ -36,6 +38,7 @@ const TABS = [
   { key: 'invoicing', label: 'Invoicing' },
   { key: 'communication', label: 'Communication' },
   { key: 'features', label: 'Features' },
+  { key: 'policies', label: 'Policies' },
 ] as const
 type Tab = (typeof TABS)[number]['key']
 
@@ -92,6 +95,7 @@ export default async function SettingsPage({ searchParams }: PageProps<'/setting
       {tab === 'invoicing' && <InvoicingTab teacher={t} />}
       {tab === 'communication' && <CommunicationTab teacher={t} />}
       {tab === 'features' && <FeaturesTab teacher={t} />}
+      {tab === 'policies' && <PoliciesTab />}
     </>
   )
 }
@@ -381,5 +385,29 @@ function FeaturesTab({ teacher: t }: { teacher: T }) {
         <FeatureToggles teacher={t} withReminders={false} />
       </Card>
     </TabForm>
+  )
+}
+
+// ---- Policies: the public pages families can read too -----------------------------------------
+function PoliciesTab() {
+  return (
+    <Card title="Policies">
+      <p className="small muted" style={{ marginTop: 0 }}>
+        These pages are public, so families can read them too — they’re linked from the sign-in page, the family area and the family welcome page.
+      </p>
+      <ul className="list">
+        {POLICIES.map((p) => (
+          <li key={p.href} className="spread">
+            <span>
+              <strong>{p.label}</strong>
+              <div className="small muted">{p.blurb}</div>
+            </span>
+            <Link href={p.href} className="btn btn-secondary btn-sm" target="_blank">
+              Read
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Card>
   )
 }

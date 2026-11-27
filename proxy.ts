@@ -10,7 +10,8 @@ import { auth } from '@/auth'
 
 // /api/calendar: calendar apps can't sign in; the long random token in the URL is the key
 // /join: the family welcome page — the token in the emailed link is the key
-const PUBLIC_PATHS = ['/login', '/signup', '/join', '/api/auth', '/api/cron', '/api/calendar']
+// /policies: privacy, safeguarding and terms pages anyone can read
+const PUBLIC_PATHS = ['/login', '/signup', '/join', '/policies', '/api/auth', '/api/cron', '/api/calendar']
 
 export default auth((req) => {
   const { pathname } = req.nextUrl

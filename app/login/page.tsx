@@ -8,6 +8,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { AuthError } from 'next-auth'
 import Link from 'next/link'
+import { POLICIES } from '@/lib/policies'
 import { auth, signIn } from '@/auth'
 import { LogoMark } from '@/components/logo'
 
@@ -128,6 +129,15 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
           <p className="small muted" style={{ marginTop: 18 }}>
             New to Lindon? <Link href="/signup">Create an account</Link>
           </p>
+
+          {/* ---- Policies (public pages) ---- */}
+          <nav className="auth-policies" aria-label="Policies">
+            {POLICIES.map((p) => (
+              <Link key={p.href} href={p.href}>
+                {p.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       </section>
     </div>

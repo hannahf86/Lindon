@@ -14,6 +14,7 @@ import { has } from '@/lib/features'
 import { LogoMark } from '@/components/logo'
 import { FamilyNav } from '@/components/family-nav'
 import { MobileMenu } from '@/components/mobile-menu'
+import { POLICIES } from '@/lib/policies'
 import { familyUnread, messagingLinks } from './_lib/family-data'
 
 export const metadata: Metadata = { title: { default: 'Family', template: '%s · Lindon' } }
@@ -34,6 +35,8 @@ const FAMILY_CSS = `
 .fam-account { color: #fff; font-weight: 800; }
 .fam-account:hover { color: #fff; }
 .fam-who span { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.fam-footer { max-width: 1180px; margin: 0 auto; padding: 0 24px 40px; display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 0.85rem; }
+.fam-footer a { color: var(--text-muted); }
 .fam-main { max-width: 1180px; margin: 0 auto; padding: 36px 24px 72px; }
 /* Family home: roomier layout */
 .fam-home .page-head { margin-bottom: 24px; }
@@ -98,6 +101,14 @@ export default async function FamilyLayout({ children }: LayoutProps<'/family'>)
 
       {/* ---- Page content ---- */}
       <main className="fam-main">{children}</main>
+      {/* ---- Policies ---- */}
+      <footer className="fam-footer no-print">
+        {POLICIES.map((p) => (
+          <Link key={p.href} href={p.href}>
+            {p.label}
+          </Link>
+        ))}
+      </footer>
     </>
   )
 }

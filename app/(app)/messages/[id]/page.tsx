@@ -152,7 +152,7 @@ export default async function ConversationPage({ params }: PageProps<'/messages/
               </label>
               <textarea id="f-body" name="body" className="textarea" rows={4} maxLength={5000} required />
               <span className="field-hint">
-                Messages are kept as a permanent record — they can’t be edited or deleted.{' '}
+                Messages can’t be edited or deleted. They’re kept for five years, then cleared out automatically.{' '}
                 {status.live
                   ? `${first} will also get an email to say there’s a new message.`
                   : hasEmail
