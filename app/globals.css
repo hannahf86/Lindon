@@ -754,3 +754,9 @@ form:not(:has(input[name='share_who'][value='some']:checked)) .share-some-only {
 .sort-head:hover { color: var(--primary, #5b3f8c); text-decoration: underline; }
 .sort-head.is-current { color: var(--primary, #5b3f8c); }
 @media (max-width: 640px) { .filter-label { min-width: 0; width: 100%; } }
+/* Import: column matching (students/import/importer.tsx) */
+.import-grid > .import-wide { grid-column: 1 / -1; order: -1; }
+.import-step { font-size: 1.05rem; margin: 22px 0 6px; }
+.import-match { max-height: 520px; }
+.import-select { min-width: 240px; padding-top: 8px; padding-bottom: 8px; }
+.import-samples { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

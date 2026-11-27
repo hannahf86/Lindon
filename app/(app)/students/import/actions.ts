@@ -2,10 +2,11 @@
 // =============================================================================
 // students/import/actions.ts — check a CSV of students, then add them
 //
-// checkImport(text)  read the file and say, row by row, what will happen:
-//                    added, skipped because they're already on Lindon, or
-//                    skipped because something needs fixing
-// runImport(text)    the same checks, then add every good row in one go:
+// checkImport(text, keys?)  read the file and say what each column will be
+//                    used for, and row by row what will happen: added,
+//                    skipped because they're already on Lindon, or left out
+//                    (no name). keys = the teacher's column choices, if any
+// runImport(text, keys?)  the same checks, then add every pupil in one go:
 //                    students, then parents (brothers and sisters share one
 //                    parent by email, including parents already on file),
 //                    then the links between them
@@ -14,20 +15,25 @@
 // =============================================================================
 import { revalidatePath } from 'next/cache'
 import { db, must, requireTeacher } from '@/lib/db'
-import { readImport, type ImportParent, type ImportRow } from '@/lib/student-import'
+import { matchTargets, readImport, type ImportColumn, type ImportParent, type ImportRow, type TargetGroup } from '@/lib/student-import'
 
 const MAX_TEXT = 900_000 // stays under the 1 MB server action limit
 
 export type CheckedRow = { line: number; name: string; parent: string; outcome: 'add' | 'duplicate' | 'problem'; note: string; warnings: string[] }
-export type ImportCheck = { ok: false; error: string } | { ok: true; rows: CheckedRow[]; adding: number; unknownHeadings: string[] }
+export type ImportCheck =
+  | { ok: false; error: string }
+  | { ok: true; rows: CheckedRow[]; adding: number; unknownHeadings: string[]; columns: ImportColumn[]; targets: TargetGroup[]; problem: string | null }
 
-type Ready = { rows: ImportRow[]; checked: CheckedRow[]; unknownHeadings: string[] }
+type Ready = { rows: ImportRow[]; checked: CheckedRow[]; unknownHeadings: string[]; columns: ImportColumn[]; parentCount: number; problem: string | null }
 
 /** Read + check the file against the students already on Lindon. */
-async function prepare(teacherId: string, text: string): Promise<Ready | { error: string }> {
+async function prepare(teacherId: string, text: string, keys?: string[]): Promise<Ready | { error: string }> {
   if (text.length > MAX_TEXT) return { error: 'That file is too big — split it into smaller files of a few hundred students.' }
-  const result = readImport(text)
-  if (result.error) return { error: result.error }
+  const result = readImport(text, keys)
+  // No columns at all = the file itself is the problem; otherwise show the
+  // matching screen so the teacher can fix it (e.g. choose the name column)
+  if (result.error && !result.columns.length) return { error: result.error }
+  if (result.error) return { rows: [], checked: [], unknownHeadings: [], columns: result.columns, parentCount: result.parentCount, problem: result.error }
 
   const existing = must(await db().from('students').select('first_name, last_name').eq('teacher_id', teacherId))
   const key = (f: string, l: string) => `${f.trim().toLowerCase()}|${l.trim().toLowerCase()}`
@@ -46,25 +52,34 @@ async function prepare(teacherId: string, text: string): Promise<Ready | { error
       .join(' · ')
     return { line: r.line, name: r.name, parent, outcome: 'add', note, warnings: r.warnings }
   })
-  return { rows, checked, unknownHeadings: result.unknownHeadings }
+  return { rows, checked, unknownHeadings: result.unknownHeadings, columns: result.columns, parentCount: result.parentCount, problem: null }
 }
 
-export async function checkImport(text: string): Promise<ImportCheck> {
+export async function checkImport(text: string, keys?: string[]): Promise<ImportCheck> {
   try {
     const teacher = await requireTeacher()
-    const ready = await prepare(teacher.id, text)
+    const ready = await prepare(teacher.id, text, keys)
     if ('error' in ready) return { ok: false, error: ready.error }
-    return { ok: true, rows: ready.checked, adding: ready.rows.length, unknownHeadings: ready.unknownHeadings }
+    return {
+      ok: true,
+      rows: ready.checked,
+      adding: ready.rows.length,
+      unknownHeadings: ready.unknownHeadings,
+      columns: ready.columns,
+      targets: matchTargets(ready.parentCount),
+      problem: ready.problem,
+    }
   } catch (e) {
     return { ok: false, error: `The file couldn’t be checked (${(e as Error).message}).` }
   }
 }
 
-export async function runImport(text: string): Promise<{ ok: true; added: number } | { ok: false; error: string }> {
+export async function runImport(text: string, keys?: string[]): Promise<{ ok: true; added: number } | { ok: false; error: string }> {
   try {
     const teacher = await requireTeacher()
-    const ready = await prepare(teacher.id, text)
+    const ready = await prepare(teacher.id, text, keys)
     if ('error' in ready) return { ok: false, error: ready.error }
+    if (ready.problem) return { ok: false, error: ready.problem }
     if (ready.rows.length === 0) return { ok: false, error: 'There’s nobody new to add from that file.' }
 
     // 1. Students (returned in the order sent)

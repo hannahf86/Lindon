@@ -61,7 +61,7 @@ const PARENT_FIELDS = {
   relationship: ['relationship', 'relation'],
 } as const
 type ParentField = keyof typeof PARENT_FIELDS
-const PARENT_HEADING = /^(?:parent|guardian|carer|contact|family contact)s?(?: contact)?(?: (\d))?(?: (.*))?$/
+const PARENT_HEADING = /^(?:parent|guardian|carer|contact|family contact|family)s?(?: contact)?(?: (\d))?(?: (.*))?$/
 
 /** The template teachers can download and fill in. */
 export const TEMPLATE_HEADINGS = [
@@ -154,7 +154,8 @@ function mapHeadings(headings: string[]): Mapped[] {
     }
     // Parent column?
     const m = n.match(PARENT_HEADING)
-    if (m) {
+    // A bare "Family" column often lists the brothers and sisters, not a parent
+    if (m && !(n.startsWith('family') && !m[2])) {
       const num = Number(m[1] ?? 1)
       const rest = (m[2] ?? '').trim()
       const field = findIn(PARENT_FIELDS, rest)
@@ -170,6 +171,77 @@ function mapHeadings(headings: string[]): Mapped[] {
     return null
   })
 }
+
+// ---- Column matching (the teacher can change Lindon's guesses) -------------------------------
+// Each column gets a key: "s:first_name" (pupil field), "p1:email" (parent 1
+// field), "keep" (copy into the pupil's notes) or "skip" (don't import).
+const STUDENT_LABELS: Record<StudentCol, string> = {
+  first_name: 'First name',
+  last_name: 'Surname',
+  full_name: 'Full name (first and surname together)',
+  date_of_birth: 'Date of birth',
+  adult: 'Adult? (yes / no)',
+  child: 'Child? (yes / no)',
+  type: 'Adult or child (words, e.g. “Adult student”)',
+  age: 'Age',
+  year_group: 'School year',
+  email: 'Email',
+  mobile: 'Mobile',
+  phone: 'Phone',
+  work_phone: 'Work phone',
+  address: 'Address',
+  instruments: 'Instruments',
+  level: 'Level / grade',
+  status: 'Status (Active / Paused / Past)',
+  start_date: 'Start date',
+  notes: 'Notes',
+  relationship: 'Parent’s relationship (Mum, Dad…)',
+}
+const PARENT_LABELS: Record<ParentField, string> = {
+  first_name: 'first name',
+  last_name: 'surname',
+  name: 'full name',
+  email: 'email',
+  mobile: 'mobile',
+  phone: 'phone',
+  work_phone: 'work phone',
+  address: 'address',
+  notes: 'note',
+  relationship: 'relationship',
+}
+export type TargetGroup = { label: string; options: { key: string; label: string }[] }
+
+/** The choices for each column, grouped (Pupil · Parent 1 · Parent 2 … · Other). */
+export function matchTargets(parentCount: number): TargetGroup[] {
+  const groups: TargetGroup[] = [{ label: 'Pupil', options: (Object.keys(STUDENT_LABELS) as StudentCol[]).map((c) => ({ key: `s:${c}`, label: STUDENT_LABELS[c] })) }]
+  for (let n = 1; n <= Math.max(2, parentCount); n++)
+    groups.push({ label: `Parent ${n}`, options: (Object.keys(PARENT_LABELS) as ParentField[]).map((f) => ({ key: `p${n}:${f}`, label: `Parent ${n} ${PARENT_LABELS[f]}` })) })
+  groups.push({
+    label: 'Other',
+    options: [
+      { key: 'keep', label: 'Keep in the pupil’s notes' },
+      { key: 'skip', label: 'Don’t import' },
+    ],
+  })
+  return groups
+}
+
+function toKey(m: Mapped): string {
+  if (m === null) return 'keep'
+  if (m.kind === 'skip') return 'skip'
+  return m.kind === 'student' ? `s:${m.col}` : `p${m.n}:${m.field}`
+}
+
+function fromKey(k: string): Mapped {
+  if (k === 'skip') return { kind: 'skip' }
+  const st = k.match(/^s:(\w+)$/)
+  if (st && st[1] in STUDENT_COLUMNS) return { kind: 'student', col: st[1] as StudentCol }
+  const pa = k.match(/^p(\d):(\w+)$/)
+  if (pa && pa[2] in PARENT_FIELDS) return { kind: 'parent', n: Number(pa[1]), field: pa[2] as ParentField }
+  return null // "keep" (and anything unrecognised): into the notes
+}
+
+export type ImportColumn = { heading: string; key: string; samples: string[] }
 
 // ---- Values -----------------------------------------------------------------------------------
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
@@ -272,17 +344,34 @@ export type ImportRow = {
   basis: string // how we decided adult or child, e.g. "age 12", "Student type: Adult"
   problem: string | null // set when the row can't be added (no name)
 }
-export type ImportResult = { rows: ImportRow[]; unknownHeadings: string[]; error: string | null }
+export type ImportResult = { rows: ImportRow[]; unknownHeadings: string[]; columns: ImportColumn[]; parentCount: number; error: string | null }
 
-export function readImport(text: string): ImportResult {
+/**
+ * keys: the teacher's column choices (one per heading, from the matching
+ * screen). Left out, Lindon guesses from the headings.
+ */
+export function readImport(text: string, keys?: string[]): ImportResult {
   const all = parseCsv(text)
-  if (all.length < 2) return { rows: [], unknownHeadings: [], error: 'That file has no students in it — it needs a row of headings, then one student per row.' }
+  if (all.length < 2) return { rows: [], unknownHeadings: [], columns: [], parentCount: 0, error: 'That file has no students in it — it needs a row of headings, then one student per row.' }
   const [headings, ...data] = all
-  if (data.length > MAX_IMPORT_ROWS) return { rows: [], unknownHeadings: [], error: `That’s ${data.length} rows — please import ${MAX_IMPORT_ROWS} or fewer at a time.` }
-  const mapped = mapHeadings(headings)
+  if (data.length > MAX_IMPORT_ROWS) return { rows: [], unknownHeadings: [], columns: [], parentCount: 0, error: `That’s ${data.length} rows — please import ${MAX_IMPORT_ROWS} or fewer at a time.` }
+  const mapped = keys && keys.length === headings.length ? keys.map(fromKey) : mapHeadings(headings)
+  // What each column is matched to, with a few example values, for the matching screen
+  const columns: ImportColumn[] = headings.map((h, i) => ({
+    heading: h.trim() || `Column ${i + 1}`,
+    key: toKey(mapped[i]),
+    samples: [...new Set(data.map((r) => (r[i] ?? '').trim()).filter(Boolean))].slice(0, 3),
+  }))
+  const parentCount = Math.max(0, ...mapped.map((m) => (m?.kind === 'parent' ? m.n : 0)))
   const has = (c: StudentCol) => mapped.some((m) => m?.kind === 'student' && m.col === c)
   if (!has('first_name') && !has('full_name'))
-    return { rows: [], unknownHeadings: [], error: 'We couldn’t find a “First name” (or “Name”) column. Check the first row of the file has headings — or start from the template.' }
+    return {
+      rows: [],
+      unknownHeadings: [],
+      columns,
+      parentCount,
+      error: keys ? 'Choose which column has the pupil’s first name (or full name).' : 'We couldn’t find a “First name” (or “Name”) column — choose it below.',
+    }
   const unknownHeadings = headings.filter((h, i) => mapped[i] === null && h.trim() !== '')
   const parentNumbers = [...new Set(mapped.flatMap((m) => (m?.kind === 'parent' ? [m.n] : [])))].sort()
 
@@ -416,7 +505,7 @@ export function readImport(text: string): ImportResult {
       },
     }
   })
-  return { rows, unknownHeadings, error: null }
+  return { rows, unknownHeadings, columns, parentCount, error: null }
 }
 
 // ---- Adult or child ---------------------------------------------------------------------------

@@ -9,6 +9,9 @@
 //               an instrument, and "No parent linked"
 //   Sort        pills, or click a column heading (click again to reverse).
 //               Sorting by surname puts the Surname column first.
+//   Columns     First name · Surname · Main contact · Contact email. The main
+//               contact is a child's main parent, or an adult pupil themselves.
+//               Paused / Past pupils get a small status badge by their name.
 // Each row ends with a "⋯" menu: view, edit, remove.
 // "Import" brings pupils over from a CSV (students/import).
 // =============================================================================
@@ -28,10 +31,9 @@ const STATUSES = ['active', 'paused', 'left', 'all'] as const
 const STATUS_LABELS: Record<(typeof STATUSES)[number], string> = { active: 'Active', paused: 'Paused', left: 'Past', all: 'All' }
 const AGES = ['all', 'children', 'adults', 'no-parent'] as const
 const AGE_LABELS: Record<(typeof AGES)[number], string> = { all: 'Everyone', children: 'Children', adults: 'Adults', 'no-parent': 'No parent linked' }
-const SORTS = ['first', 'last', 'instrument', 'level', 'status', 'newest'] as const
+const SORTS = ['first', 'last', 'contact', 'newest'] as const
 type Sort = (typeof SORTS)[number]
-const SORT_LABELS: Record<Sort, string> = { first: 'First name', last: 'Surname', instrument: 'Instrument', level: 'Level', status: 'Status', newest: 'Newest' }
-const STATUS_ORDER: Record<string, number> = { active: 0, paused: 1, left: 2 }
+const SORT_LABELS: Record<Sort, string> = { first: 'First name', last: 'Surname', contact: 'Main contact', newest: 'Newest' }
 
 type Params = { q: string; status: string; age: string; instrument: string; sort: Sort; dir: 'asc' | 'desc' }
 
@@ -54,7 +56,7 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
   const all = must(
     await db()
       .from('students')
-      .select('id, first_name, last_name, instruments, level, status, date_of_birth, is_minor, email, phone, notes, created_at, student_guardians(guardians(first_name, last_name, email))')
+      .select('id, first_name, last_name, instruments, level, status, date_of_birth, is_minor, email, phone, notes, created_at, student_guardians(is_primary, guardians(first_name, last_name, email))')
       .eq('teacher_id', teacher.id),
   )
 
@@ -67,8 +69,12 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
   const rows = inStatus
     .map((s) => {
       const minor = isMinor(s)
-      const parents = s.student_guardians.map((l) => l.guardians).filter((g): g is NonNullable<typeof g> => Boolean(g))
-      return { ...s, minor, parents }
+      // Main parent first
+      const links = [...s.student_guardians].sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
+      const parents = links.map((l) => l.guardians).filter((g): g is NonNullable<typeof g> => Boolean(g))
+      // Main contact: a child's main parent; an adult pupil themselves
+      const contact = minor ? (parents[0] ? { name: fullName(parents[0]), email: parents[0].email } : null) : { name: fullName(s), email: s.email }
+      return { ...s, minor, parents, contact }
     })
     .filter((s) => {
       if (p.age === 'children' && !s.minor) return false
@@ -89,9 +95,7 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
       ? text(a.last_name).localeCompare(text(b.last_name)) || text(a.first_name).localeCompare(text(b.first_name))
       : text(a.first_name).localeCompare(text(b.first_name)) || text(a.last_name).localeCompare(text(b.last_name))
   const key = (s: (typeof rows)[number]): string | number => {
-    if (p.sort === 'instrument') return text(s.instruments[0])
-    if (p.sort === 'level') return text(s.level)
-    if (p.sort === 'status') return STATUS_ORDER[s.status] ?? 9
+    if (p.sort === 'contact') return text(s.contact?.name)
     if (p.sort === 'newest') return -new Date(s.created_at).getTime()
     return p.sort === 'last' ? text(s.last_name) : text(s.first_name)
   }
@@ -264,10 +268,8 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
                       {sortHead('last', 'Surname')}
                     </>
                   )}
-                  {sortHead('instrument', 'Instruments')}
-                  {sortHead('level', 'Level')}
-                  <th>Contact</th>
-                  {sortHead('status', 'Status')}
+                  {sortHead('contact', 'Main contact')}
+                  <th>Contact email</th>
                   <th>
                     <span className="sr-only">Actions</span>
                   </th>
@@ -275,7 +277,6 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
               </thead>
               <tbody>
                 {rows.map((s) => {
-                  const parentNames = s.parents.map((g) => fullName(g)).filter(Boolean)
                   const first = (
                     <Link className="rowlink" href={`/students/${s.id}`}>
                       {s.first_name}
@@ -294,32 +295,29 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
                         <>
                           <td>{last}</td>
                           <td>
-                            {first} <AgeBadge minor={s.minor} />
+                            {first} <AgeBadge minor={s.minor} status={s.status} />
                           </td>
                         </>
                       ) : (
                         <>
                           <td>{first}</td>
                           <td>
-                            {last} <AgeBadge minor={s.minor} />
+                            {last} <AgeBadge minor={s.minor} status={s.status} />
                           </td>
                         </>
                       )}
-                      <td>{s.instruments.join(', ') || <span className="muted">—</span>}</td>
-                      <td>{s.level || <span className="muted">—</span>}</td>
-                      <td className="small">
-                        {s.minor ? (
-                          parentNames.length ? (
-                            parentNames.join(', ')
-                          ) : (
-                            <span style={{ color: 'var(--coral-ink)', fontWeight: 700 }}>No parent linked</span>
-                          )
+                      <td>
+                        {s.contact ? (
+                          <>
+                            {s.contact.name}
+                            {!s.minor && <span className="small muted"> (adult pupil)</span>}
+                          </>
                         ) : (
-                          s.email || <span className="muted">No email</span>
+                          <span style={{ color: 'var(--coral-ink)', fontWeight: 700 }}>No parent linked</span>
                         )}
                       </td>
-                      <td>
-                        <StatusBadge status={s.status} />
+                      <td className="small">
+                        {s.contact?.email ? <a href={`mailto:${s.contact.email}`}>{s.contact.email}</a> : <span className="muted">No email</span>}
                       </td>
                       {/* ---- Row menu: view · edit · remove ---- */}
                       <td className="row-actions">
@@ -352,6 +350,17 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
 }
 
 // ---- Child / Adult badge -----------------------------------------------------------------------
-function AgeBadge({ minor }: { minor: boolean }) {
-  return minor ? <Badge tone="butter">Child</Badge> : <Badge tone="purple">Adult</Badge>
+// (plus Paused / Past, so they stand out when looking at everyone)
+function AgeBadge({ minor, status }: { minor: boolean; status: string }) {
+  return (
+    <>
+      {minor ? <Badge tone="butter">Child</Badge> : <Badge tone="purple">Adult</Badge>}
+      {status !== 'active' && (
+        <>
+          {' '}
+          <StatusBadge status={status} />
+        </>
+      )}
+    </>
+  )
 }
