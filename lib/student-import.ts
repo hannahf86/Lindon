@@ -1,43 +1,58 @@
 // =============================================================================
 // lib/student-import.ts — turn a CSV file into students (and their parents)
 //
-// Used by Students → Import from a spreadsheet. Pure functions, no database:
+// Used by Students → Import from CSV. Pure functions, no database:
 //   parseCsv(text)        CSV text → rows of cells (quotes, commas inside
 //                         quotes, CRLF, a UTF-8 BOM, ; separators from Excel)
 //   readImport(text)      rows → students checked one by one: each comes back
 //                         either ready to add or with the reason it can't be
 // Column headings are matched loosely ("First name", "first_name", "Forename"
-// all work), so exports from other systems mostly just work. Dates can be
-// 2014-03-21 or 21/03/2014 (UK order).
+// all work), so exports from other systems mostly just work — including
+// numbered parent contacts like My Music Staff's "Parent Contact 1 Email",
+// "Parent Contact 2 Mobile Phone". Dates can be 2014-03-21 or 21/03/2014.
 // =============================================================================
 import { ageFrom, splitList } from './format'
 
 export const MAX_IMPORT_ROWS = 500
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-// ---- The columns we understand, and the headings that mean them ---------------------------
-export const IMPORT_COLUMNS = {
+// ---- Pupil columns, and the headings that mean them ------------------------------------------
+// Phones: a mobile is used first, then a home phone, then a work phone.
+const STUDENT_COLUMNS = {
   first_name: ['first name', 'firstname', 'forename', 'given name', 'student first name', 'pupil first name'],
-  last_name: ['last name', 'lastname', 'surname', 'family name', 'student last name', 'student surname', 'pupil surname'],
+  last_name: ['last name', 'lastname', 'surname', 'family name', 'student last name', 'student surname', 'pupil surname', 'pupil last name'],
   full_name: ['name', 'full name', 'student', 'student name', 'pupil', 'pupil name'],
-  date_of_birth: ['date of birth', 'dob', 'birthday', 'birth date'],
-  adult: ['adult', 'adult pupil', 'is adult', 'over 18'],
-  email: ['email', 'e-mail', 'student email', 'pupil email', 'email address'],
-  phone: ['phone', 'mobile', 'telephone', 'student phone', 'pupil phone', 'phone number'],
-  address: ['address', 'home address'],
-  instruments: ['instrument', 'instruments', 'subject'],
-  level: ['level', 'grade', 'standard'],
-  status: ['status'],
-  start_date: ['start date', 'started', 'joined'],
-  notes: ['notes', 'note', 'comments'],
-  parent_first_name: ['parent first name', 'guardian first name', 'parent forename', 'contact first name'],
-  parent_last_name: ['parent last name', 'parent surname', 'guardian last name', 'guardian surname', 'contact last name'],
-  parent_name: ['parent', 'parent name', 'guardian', 'guardian name', 'contact name', 'parent full name'],
-  parent_email: ['parent email', 'guardian email', 'contact email', 'parent e-mail'],
-  parent_phone: ['parent phone', 'parent mobile', 'guardian phone', 'guardian mobile', 'contact phone'],
+  date_of_birth: ['date of birth', 'dob', 'birthday', 'birth date', 'birthdate'],
+  adult: ['adult', 'adult pupil', 'is adult', 'over 18', 'student type', 'age group', 'adult or child'],
+  email: ['email', 'e mail', 'student email', 'pupil email', 'email address'],
+  mobile: ['mobile', 'mobile phone', 'cell', 'cell phone', 'student mobile', 'pupil mobile'],
+  phone: ['phone', 'home phone', 'telephone', 'student phone', 'pupil phone', 'phone number'],
+  work_phone: ['work phone'],
+  address: ['address', 'home address', 'student address'],
+  instruments: ['instrument', 'instruments', 'subject', 'subjects'],
+  level: ['level', 'grade', 'standard', 'skill level'],
+  status: ['status', 'student status'],
+  start_date: ['start date', 'started', 'joined', 'student since', 'date joined'],
+  notes: ['notes', 'note', 'comments', 'student notes'],
   relationship: ['relationship', 'parent relationship', 'relation'],
 } as const
-type Column = keyof typeof IMPORT_COLUMNS
+type StudentCol = keyof typeof STUDENT_COLUMNS
+
+// ---- Parent columns: "Parent email", "Guardian 2 mobile", "Parent Contact 1 First Name" …
+const PARENT_FIELDS = {
+  first_name: ['first name', 'firstname', 'forename', 'given name'],
+  last_name: ['last name', 'lastname', 'surname', 'family name'],
+  name: ['', 'name', 'full name', 'names'],
+  email: ['email', 'e mail', 'email address'],
+  mobile: ['mobile', 'mobile phone', 'cell', 'cell phone'],
+  phone: ['phone', 'home phone', 'telephone', 'phone number'],
+  work_phone: ['work phone'],
+  address: ['address'],
+  notes: ['note', 'notes'],
+  relationship: ['relationship', 'relation'],
+} as const
+type ParentField = keyof typeof PARENT_FIELDS
+const PARENT_HEADING = /^(?:parent|guardian|carer|contact|family contact)s?(?: contact)?(?: (\d))?(?: (.*))?$/
 
 /** The template teachers can download and fill in. */
 export const TEMPLATE_HEADINGS = [
@@ -105,21 +120,43 @@ export function parseCsv(text: string): string[][] {
 const norm = (h: string) =>
   h
     .toLowerCase()
-    .replace(/[_\-./()]+/g, ' ')
+    .replace(/[_\-./()#:]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 
-/** Which column each heading is (or null when we don't use it). */
-function mapHeadings(headings: string[]): (Column | null)[] {
-  const taken = new Set<Column>()
-  return headings.map((h) => {
+// ---- Headings → what each column is --------------------------------------------------------
+type Mapped = { kind: 'student'; col: StudentCol } | { kind: 'parent'; n: number; field: ParentField } | { kind: 'skip' } | null
+
+function findIn<K extends string>(table: Record<K, readonly string[]>, s: string): K | null {
+  for (const [key, names] of Object.entries(table) as [K, readonly string[]][]) if (names.includes(s) || s === norm(key)) return key
+  return null
+}
+
+function mapHeadings(headings: string[]): Mapped[] {
+  const taken = new Set<string>()
+  return headings.map((h): Mapped => {
     const n = norm(h)
-    for (const [col, names] of Object.entries(IMPORT_COLUMNS) as [Column, readonly string[]][]) {
-      if (taken.has(col)) continue
-      if (n === norm(col) || names.includes(n)) {
-        taken.add(col)
-        return col
+    if (!n) return null
+    // Pupil column? (first heading of each kind wins)
+    const col = findIn(STUDENT_COLUMNS, n)
+    if (col && !taken.has(col)) {
+      taken.add(col)
+      return { kind: 'student', col }
+    }
+    // Parent column?
+    const m = n.match(PARENT_HEADING)
+    if (m) {
+      const num = Number(m[1] ?? 1)
+      const rest = (m[2] ?? '').trim()
+      const field = findIn(PARENT_FIELDS, rest)
+      if (field) {
+        const key = `p${num}:${field}`
+        if (taken.has(key)) return null
+        taken.add(key)
+        return { kind: 'parent', n: num, field }
       }
+      // e.g. "Parent Contact 1 Home Texting Allowed" — understood, just not needed
+      return { kind: 'skip' }
     }
     return null
   })
@@ -147,8 +184,8 @@ const yes = (v: string) => /^(y|yes|true|1|adult)$/i.test(v.trim())
 
 function readStatus(v: string): 'active' | 'paused' | 'left' | 'bad' {
   const s = v.trim().toLowerCase()
-  if (!s || s === 'active' || s === 'current') return 'active'
-  if (s === 'paused' || s === 'on hold') return 'paused'
+  if (!s || s === 'active' || s === 'current' || s === 'trial' || s === 'lead') return 'active'
+  if (s === 'paused' || s === 'on hold' || s === 'waiting' || s === 'waiting list') return 'paused'
   if (['past', 'left', 'inactive', 'former', 'archived'].includes(s)) return 'left'
   return 'bad'
 }
@@ -176,12 +213,12 @@ export type ImportStudent = {
   start_date: string | null
   notes: string
 }
-export type ImportParent = { first_name: string; last_name: string; email: string; phone: string; relationship: string }
+export type ImportParent = { first_name: string; last_name: string; email: string; phone: string; address: string; notes: string; relationship: string }
 export type ImportRow = {
   line: number // line in the file (1 = headings)
   name: string
   student: ImportStudent | null
-  parent: ImportParent | null
+  parents: ImportParent[]
   problem: string | null // set when the row can't be added
 }
 export type ImportResult = { rows: ImportRow[]; unknownHeadings: string[]; error: string | null }
@@ -191,21 +228,23 @@ export function readImport(text: string): ImportResult {
   if (all.length < 2) return { rows: [], unknownHeadings: [], error: 'That file has no students in it — it needs a row of headings, then one student per row.' }
   const [headings, ...data] = all
   if (data.length > MAX_IMPORT_ROWS) return { rows: [], unknownHeadings: [], error: `That’s ${data.length} rows — please import ${MAX_IMPORT_ROWS} or fewer at a time.` }
-  const cols = mapHeadings(headings)
-  if (!cols.includes('first_name') && !cols.includes('full_name'))
+  const mapped = mapHeadings(headings)
+  const has = (c: StudentCol) => mapped.some((m) => m?.kind === 'student' && m.col === c)
+  if (!has('first_name') && !has('full_name'))
     return { rows: [], unknownHeadings: [], error: 'We couldn’t find a “First name” (or “Name”) column. Check the first row of the file has headings — or start from the template.' }
-  const unknownHeadings = headings.filter((h, i) => cols[i] === null && h.trim() !== '')
+  const unknownHeadings = headings.filter((h, i) => mapped[i] === null && h.trim() !== '')
+  const parentNumbers = [...new Set(mapped.flatMap((m) => (m?.kind === 'parent' ? [m.n] : [])))].sort()
 
   const rows = data.map((cells, i): ImportRow => {
-    const get = (c: Column) => {
-      const idx = cols.indexOf(c)
-      return idx === -1 ? '' : (cells[idx] ?? '').trim()
-    }
+    const cell = (idx: number) => (idx === -1 ? '' : (cells[idx] ?? '').trim())
+    const get = (c: StudentCol) => cell(mapped.findIndex((m) => m?.kind === 'student' && m.col === c))
+    const getP = (n: number, f: ParentField) => cell(mapped.findIndex((m) => m?.kind === 'parent' && m.n === n && m.field === f))
+
     let first = get('first_name')
     let last = get('last_name')
     if (!first && get('full_name')) [first, last] = splitName(get('full_name'))
     const name = [first, last].filter(Boolean).join(' ') || '(no name)'
-    const fail = (problem: string): ImportRow => ({ line: i + 2, name, student: null, parent: null, problem })
+    const fail = (problem: string): ImportRow => ({ line: i + 2, name, student: null, parents: [], problem })
 
     if (!first) return fail('No first name.')
     const dob = readDate(get('date_of_birth'))
@@ -219,37 +258,58 @@ export function readImport(text: string): ImportResult {
     const email = get('email').toLowerCase()
     if (email && !EMAIL_RE.test(email)) return fail(`“${email}” doesn’t look like an email address.`)
 
-    // Child or adult: date of birth decides; otherwise the Adult column; otherwise
-    // a row with a parent is a child and one without is an adult
-    let pFirst = get('parent_first_name')
-    let pLast = get('parent_last_name')
-    if (!pFirst && get('parent_name')) [pFirst, pLast] = splitName(get('parent_name'))
-    const pEmail = get('parent_email').toLowerCase()
-    const pPhone = get('parent_phone')
-    const hasParent = Boolean(pFirst || pLast || pEmail || pPhone)
-    const is_minor = age !== null ? age < 18 : get('adult') ? !yes(get('adult')) : hasParent
-
-    let parent: ImportParent | null = null
-    if (is_minor) {
-      if (!hasParent) return fail('Under 18 but no parent or guardian — add one (reminders and invoices for children go to them), or put Yes in the Adult column.')
-      if (!pFirst) return fail('The parent or guardian needs a first name.')
-      if (!pEmail && !pPhone) return fail(`Add an email or phone number for ${pFirst}.`)
+    // ---- Parents (parent 1, parent 2 …) ----
+    const parents: ImportParent[] = []
+    for (const n of parentNumbers) {
+      let pFirst = getP(n, 'first_name')
+      let pLast = getP(n, 'last_name')
+      // A single name column; "Smith, Ann; Smith, Rob" lists two people — take the first
+      if (!pFirst && !pLast && getP(n, 'name')) [pFirst, pLast] = splitName(getP(n, 'name').split(';')[0])
+      const pEmail = getP(n, 'email').toLowerCase()
+      const pPhone = getP(n, 'mobile') || getP(n, 'phone') || getP(n, 'work_phone')
+      if (!pFirst && !pLast && !pEmail && !pPhone) continue
       if (pEmail && !EMAIL_RE.test(pEmail)) return fail(`Parent email “${pEmail}” doesn’t look like an email address.`)
-      parent = { first_name: pFirst, last_name: pLast, email: pEmail, phone: pPhone, relationship: get('relationship') }
+      parents.push({
+        first_name: pFirst || pLast || 'Parent',
+        last_name: pFirst ? pLast : '',
+        email: pEmail,
+        phone: pPhone,
+        address: getP(n, 'address'),
+        notes: getP(n, 'notes'),
+        relationship: getP(n, 'relationship') || (n === parentNumbers[0] ? get('relationship') : ''),
+      })
+    }
+    // Some systems keep the family's email/phone on the pupil row: if no parent
+    // has contact details but the row does, they go to the first parent
+    const rowPhone = get('mobile') || get('phone') || get('work_phone')
+    if (parents.length && !parents.some((p) => p.email || p.phone) && (email || rowPhone)) {
+      parents[0].email = email
+      parents[0].phone = rowPhone
+    }
+    // Only parents we can actually reach are kept
+    const reachable = parents.filter((p) => p.email || p.phone)
+
+    // Child or adult: date of birth decides; otherwise an Adult / Student type
+    // column; otherwise a pupil with a parent is a child and one without is an adult
+    const is_minor = age !== null ? age < 18 : get('adult') ? !yes(get('adult')) : parents.length > 0
+
+    if (is_minor && reachable.length === 0) {
+      if (parents.length) return fail(`Add an email or phone number for ${parents[0].first_name}.`)
+      return fail('Under 18 but no parent or guardian — add one (reminders and invoices for children go to them), or put Yes in the Adult column.')
     }
 
     return {
       line: i + 2,
       name,
       problem: null,
-      parent,
+      parents: is_minor ? reachable : [],
       student: {
         first_name: first,
         last_name: last,
         date_of_birth: dob,
         is_minor,
         email,
-        phone: get('phone'),
+        phone: rowPhone,
         address: get('address'),
         instruments: splitList(get('instruments')),
         level: get('level'),

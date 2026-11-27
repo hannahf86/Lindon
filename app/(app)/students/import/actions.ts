@@ -14,7 +14,7 @@
 // =============================================================================
 import { revalidatePath } from 'next/cache'
 import { db, must, requireTeacher } from '@/lib/db'
-import { readImport, type ImportRow } from '@/lib/student-import'
+import { readImport, type ImportParent, type ImportRow } from '@/lib/student-import'
 
 const MAX_TEXT = 900_000 // stays under the 1 MB server action limit
 
@@ -35,7 +35,7 @@ async function prepare(teacherId: string, text: string): Promise<Ready | { error
 
   const rows: ImportRow[] = []
   const checked = result.rows.map((r): CheckedRow => {
-    const parent = r.parent ? [r.parent.first_name, r.parent.last_name].filter(Boolean).join(' ') : ''
+    const parent = r.parents.map((p) => [p.first_name, p.last_name].filter(Boolean).join(' ')).join(', ')
     if (r.problem || !r.student) return { line: r.line, name: r.name, parent, outcome: 'problem', note: r.problem ?? 'Can’t be read.' }
     const k = key(r.student.first_name, r.student.last_name)
     if (seen.has(k)) return { line: r.line, name: r.name, parent, outcome: 'duplicate', note: 'Already on Lindon (or twice in this file) — skipped.' }
@@ -76,9 +76,9 @@ export async function runImport(text: string): Promise<{ ok: true; added: number
     )
 
     // 2. Parents: one per email (reusing any already on file); no email → one per name + phone
-    const parentKey = (p: NonNullable<ImportRow['parent']>) => (p.email ? `e:${p.email}` : `n:${p.first_name.toLowerCase()}|${p.last_name.toLowerCase()}|${p.phone}`)
-    const parents = new Map<string, NonNullable<ImportRow['parent']>>()
-    for (const r of ready.rows) if (r.parent && !parents.has(parentKey(r.parent))) parents.set(parentKey(r.parent), r.parent)
+    const parentKey = (p: ImportParent) => (p.email ? `e:${p.email}` : `n:${p.first_name.toLowerCase()}|${p.last_name.toLowerCase()}|${p.phone}`)
+    const parents = new Map<string, ImportParent>()
+    for (const r of ready.rows) for (const p of r.parents) if (!parents.has(parentKey(p))) parents.set(parentKey(p), p)
 
     const ids = new Map<string, string>()
     const emails = [...parents.values()].map((p) => p.email).filter(Boolean)
@@ -94,18 +94,23 @@ export async function runImport(text: string): Promise<{ ok: true; added: number
       const added = must(
         await db()
           .from('guardians')
-          .insert(toAdd.map(([, p]) => ({ teacher_id: teacher.id, first_name: p.first_name, last_name: p.last_name, email: p.email, phone: p.phone })))
+          .insert(toAdd.map(([, p]) => ({ teacher_id: teacher.id, first_name: p.first_name, last_name: p.last_name, email: p.email, phone: p.phone, address: p.address, notes: p.notes })))
           .select('id'),
       )
       toAdd.forEach(([k], i) => ids.set(k, added[i].id))
     }
 
     // 3. Links
-    const links = ready.rows.flatMap((r, i) =>
-      r.parent
-        ? [{ teacher_id: teacher.id, student_id: students[i].id, guardian_id: ids.get(parentKey(r.parent))!, relationship: r.parent.relationship, is_primary: true, receives_emails: true }]
-        : [],
-    )
+    // (the first parent is the main contact; the same parent listed twice for one pupil is linked once)
+    const links = ready.rows.flatMap((r, i) => {
+      const done = new Set<string>()
+      return r.parents.flatMap((p, j) => {
+        const guardian_id = ids.get(parentKey(p))!
+        if (done.has(guardian_id)) return []
+        done.add(guardian_id)
+        return [{ teacher_id: teacher.id, student_id: students[i].id, guardian_id, relationship: p.relationship, is_primary: j === 0, receives_emails: true }]
+      })
+    })
     if (links.length) must(await db().from('student_guardians').insert(links).select('student_id'))
 
     revalidatePath('/students')
