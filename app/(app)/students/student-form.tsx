@@ -127,6 +127,13 @@ export function StudentForm(props: {
       <Card title="Notes & preferences">
         <div className="form">
           <Toggle name="reminders_enabled" label="Send lesson reminder emails" defaultChecked={s?.reminders_enabled ?? true} />
+          {/* Per-student override of the overall auto-invoicing switch (Invoices page) */}
+          <Toggle
+            name="auto_invoice"
+            label="Include in auto-invoicing"
+            defaultChecked={s?.auto_invoice ?? true}
+            hint="When auto-invoicing is on, this student's monthly invoice is emailed automatically. Turn this off to check and send theirs yourself — it'll be left as a draft, with no automatic reminders."
+          />
           <TextArea label="Private notes" name="notes" defaultValue={s?.notes} hint="Only you can see these." />
         </div>
       </Card>

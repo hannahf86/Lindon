@@ -118,6 +118,8 @@ export type Student = Timestamps & {
   status: StudentStatus
   start_date: string | null
   reminders_enabled: boolean
+  /** false = never email this student's invoices automatically (overrides teachers.auto_invoice) */
+  auto_invoice: boolean
   notes: string
 }
 

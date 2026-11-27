@@ -510,11 +510,12 @@ export default async function StudentPage({ params, searchParams }: PageProps<'/
           )}
 
           {/* ---- Notes ---- */}
-          {(s.notes || s.start_date) && (
+          {(s.notes || s.start_date || !s.reminders_enabled || !s.auto_invoice) && (
             <Card title="Notes">
               {s.start_date && <p className="small muted">Started {fmtDate(s.start_date)}</p>}
               {s.notes && <p style={{ whiteSpace: 'pre-line' }}>{s.notes}</p>}
-              {!s.reminders_enabled && <Badge tone="butter">Reminders off</Badge>}
+              {!s.reminders_enabled && <Badge tone="butter">Reminders off</Badge>}{' '}
+              {!s.auto_invoice && <Badge tone="butter">Auto-invoicing off</Badge>}
             </Card>
           )}
 

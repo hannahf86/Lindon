@@ -5,7 +5,9 @@
 // invoice for every active pupil via createMonthlyInvoices(): this month's
 // lessons for teachers billing in advance, last month's for those billing in
 // arrears (lib/invoices.ts → billingMonth). Teachers with auto-invoicing on get them emailed
-// straight away; otherwise they stay as drafts to check and send.
+// straight away; otherwise they stay as drafts to check and send. A student
+// with their own auto-invoicing switched off (students.auto_invoice) always
+// stays as a draft, even when the teacher's overall setting is on.
 // last_invoice_run is set before sending, so a month is never run twice even
 // if an email fails — failed ones stay as drafts for the teacher.
 // =============================================================================
@@ -43,9 +45,14 @@ export async function runAutoInvoices(): Promise<AutoInvoiceSummary> {
       summary.drafted += run.created.length
       if (!teacher.auto_invoice) continue
 
+      // Students switched out of auto-invoicing keep their invoice as a draft
+      const optedOut = new Set(
+        must(await db().from('students').select('id').eq('teacher_id', teacher.id).eq('auto_invoice', false)).map((s) => s.id),
+      )
       for (const c of run.created) {
         const { data: inv } = await db().from('invoices').select('*').eq('id', c.invoiceId).eq('teacher_id', teacher.id).single()
         if (!inv) continue
+        if (inv.student_id && optedOut.has(inv.student_id)) continue
         const sent = await sendInvoice(teacher, inv)
         if (sent.ok) summary.emailed++
         else summary.errors.push(`${c.number}: ${sent.error}`)

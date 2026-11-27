@@ -32,6 +32,7 @@ function readStudent(fd: FormData) {
     status: oneOf(fd, 'status', STATUSES, 'active'),
     start_date: date(fd, 'start_date'),
     reminders_enabled: bool(fd, 'reminders_enabled'),
+    auto_invoice: bool(fd, 'auto_invoice'),
     notes: str(fd, 'notes'),
   }
 }

@@ -6,7 +6,8 @@
 // unpaid" email as the Send reminder button). Only from 9am in the teacher's
 // timezone. invoices.auto_reminder_sent_at is set once it has gone out, so
 // it's never sent twice; a failed send is retried next hour.
-// Teachers with auto-invoicing off send reminders themselves.
+// Teachers with auto-invoicing off send reminders themselves, and so do
+// teachers for any student whose own auto-invoicing is switched off.
 // =============================================================================
 import 'server-only'
 import { db, must } from './db'
@@ -37,7 +38,12 @@ export async function sendOverdueInvoiceReminders(now = new Date()): Promise<Inv
         .not('due_date', 'is', null)
         .lte('due_date', cutoff),
     )
+    // Students switched out of auto-invoicing: no automatic reminders either
+    const optedOut = new Set(
+      must(await db().from('students').select('id').eq('teacher_id', teacher.id).eq('auto_invoice', false)).map((s) => s.id),
+    )
     for (const inv of overdue) {
+      if (inv.student_id && optedOut.has(inv.student_id)) continue
       const res = await sendInvoice(teacher, inv, { reminder: true })
       if (!res.ok) {
         summary.failed++
