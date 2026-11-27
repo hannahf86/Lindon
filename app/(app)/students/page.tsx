@@ -1,7 +1,7 @@
 // =============================================================================
 // students/page.tsx — student list: search, filters, sorting
 //
-// Everything lives in the URL (?q=&status=&age=&instrument=&sort=&dir=), so
+// Everything lives in the URL (?q=&status=&age=&instrument=&sort=&dir=&per=&page=), so
 // a filtered list can be bookmarked and the back button works.
 //   Search      name, surname, email, phone, instrument, level, notes and
 //               parents' names / emails
@@ -9,6 +9,8 @@
 //               an instrument, and "No parent linked"
 //   Sort        pills, or click a column heading (click again to reverse).
 //               Sorting by surname puts the Surname column first.
+//   Pages       10, 25 or 50 pupils a page (25 to start). Changing a search,
+//               filter or sort goes back to page 1.
 //   Columns     First name · Surname · Main contact · Contact email. The main
 //               contact is a child's main parent, or an adult pupil themselves.
 //               Paused / Past pupils get a small status badge by their name.
@@ -35,7 +37,8 @@ const SORTS = ['first', 'last', 'contact', 'newest'] as const
 type Sort = (typeof SORTS)[number]
 const SORT_LABELS: Record<Sort, string> = { first: 'First name', last: 'Surname', contact: 'Main contact', newest: 'Newest' }
 
-type Params = { q: string; status: string; age: string; instrument: string; sort: Sort; dir: 'asc' | 'desc' }
+const PER_PAGE = [10, 25, 50] as const
+type Params = { q: string; status: string; age: string; instrument: string; sort: Sort; dir: 'asc' | 'desc'; per: number; page: number }
 
 export default async function StudentsPage({ searchParams }: PageProps<'/students'>) {
   const teacher = await requireTeacher()
@@ -48,6 +51,8 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
     instrument: pick('instrument'),
     sort: SORTS.find((s) => s === pick('sort')) ?? 'first',
     dir: pick('dir') === 'desc' ? 'desc' : 'asc',
+    per: PER_PAGE.find((n) => String(n) === pick('per')) ?? 25,
+    page: Math.max(1, Math.floor(Number(pick('page'))) || 1),
   }
   const imported = Number(pick('imported')) || 0
 
@@ -107,9 +112,15 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
     return (p.dir === 'desc' ? -c : c) || byName(a, b)
   })
 
+  // ---- This page ----
+  const pages = Math.max(1, Math.ceil(rows.length / p.per))
+  const page = Math.min(p.page, pages)
+  const shown = rows.slice((page - 1) * p.per, page * p.per)
+
   // ---- Links that keep the other choices ----
   const href = (change: Partial<Params>) => {
-    const next = { ...p, ...change }
+    // Anything but a page change starts again from page 1
+    const next = { ...p, page: 1, ...change }
     const qs = new URLSearchParams()
     if (next.q) qs.set('q', next.q)
     if (next.status !== 'active') qs.set('status', next.status)
@@ -117,6 +128,8 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
     if (next.instrument) qs.set('instrument', next.instrument)
     if (next.sort !== 'first') qs.set('sort', next.sort)
     if (next.dir !== 'asc') qs.set('dir', next.dir)
+    if (next.per !== 25) qs.set('per', String(next.per))
+    if (next.page > 1) qs.set('page', String(next.page))
     const s = qs.toString()
     return s ? `/students?${s}` : '/students'
   }
@@ -166,6 +179,7 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
         {p.instrument && <input type="hidden" name="instrument" value={p.instrument} />}
         {p.sort !== 'first' && <input type="hidden" name="sort" value={p.sort} />}
         {p.dir !== 'asc' && <input type="hidden" name="dir" value={p.dir} />}
+        {p.per !== 25 && <input type="hidden" name="per" value={p.per} />}
         <input
           className="input"
           type="search"
@@ -276,7 +290,7 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
                 </tr>
               </thead>
               <tbody>
-                {rows.map((s) => {
+                {shown.map((s) => {
                   const first = (
                     <Link className="rowlink" href={`/students/${s.id}`}>
                       {s.first_name}
@@ -344,9 +358,69 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
             </table>
           </div>
         )}
+
+        {/* ---- Pages + how many per page ---- */}
+        {rows.length > 0 && (
+          <div className="pager">
+            <span className="small muted">
+              {rows.length > p.per ? `Showing ${(page - 1) * p.per + 1}–${Math.min(page * p.per, rows.length)} of ${rows.length}` : `${rows.length} pupil${rows.length === 1 ? '' : 's'}`}
+            </span>
+            {pages > 1 && (
+              <nav className="pager-pages" aria-label="Pages">
+                {page > 1 ? (
+                  <Link className="pager-btn" href={href({ page: page - 1 })} rel="prev">
+                    ‹ Previous
+                  </Link>
+                ) : (
+                  <span className="pager-btn is-off">‹ Previous</span>
+                )}
+                {pageList(page, pages).map((n, i) =>
+                  n === 0 ? (
+                    <span key={`gap${i}`} className="pager-gap">
+                      …
+                    </span>
+                  ) : (
+                    <Link key={n} className="pager-btn" href={href({ page: n })} aria-current={n === page ? 'page' : undefined}>
+                      {n}
+                    </Link>
+                  ),
+                )}
+                {page < pages ? (
+                  <Link className="pager-btn" href={href({ page: page + 1 })} rel="next">
+                    Next ›
+                  </Link>
+                ) : (
+                  <span className="pager-btn is-off">Next ›</span>
+                )}
+              </nav>
+            )}
+            <span className="row" style={{ gap: 8 }}>
+              <span className="small muted">Per page</span>
+              <nav className="tabs tabs-sm" aria-label="Pupils per page">
+                {PER_PAGE.map((n) => (
+                  <Link key={n} href={href({ per: n })} aria-current={n === p.per ? 'page' : undefined}>
+                    {n}
+                  </Link>
+                ))}
+              </nav>
+            </span>
+          </div>
+        )}
       </Card>
     </>
   )
+}
+
+// ---- Page numbers: first, last, and two either side of the current one (0 = "…") ----
+function pageList(page: number, pages: number): number[] {
+  const want = new Set([1, pages, page - 2, page - 1, page, page + 1, page + 2].filter((n) => n >= 1 && n <= pages))
+  const sorted = [...want].sort((a, b) => a - b)
+  const out: number[] = []
+  sorted.forEach((n, i) => {
+    if (i > 0 && n - sorted[i - 1] > 1) out.push(0)
+    out.push(n)
+  })
+  return out
 }
 
 // ---- Child / Adult badge -----------------------------------------------------------------------

@@ -760,3 +760,12 @@ form:not(:has(input[name='share_who'][value='some']:checked)) .share-some-only {
 .import-match { max-height: 520px; }
 .import-select { min-width: 240px; padding-top: 8px; padding-bottom: 8px; }
 .import-samples { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Students list: pages (students/page.tsx) */
+.pager { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
+.pager-pages { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.pager-btn { min-width: 36px; padding: 6px 10px; border-radius: 10px; text-align: center; font-weight: 800; text-decoration: none; color: var(--ink); border: 2px solid var(--line); background: #fff; }
+.pager-btn:hover { border-color: var(--primary); color: var(--primary); }
+.pager-btn[aria-current='page'] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.pager-btn.is-off { color: var(--text-muted); opacity: 0.5; }
+.pager-gap { padding: 0 4px; color: var(--text-muted); }
