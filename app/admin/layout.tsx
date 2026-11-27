@@ -36,6 +36,7 @@ export default async function AdminLayout({ children }: LayoutProps<'/admin'>) {
         </Link>
         <nav className="policy-nav" aria-label="Admin">
           <Link href="/admin">Access requests</Link>
+          <Link href="/admin/feedback">Feedback</Link>
         </nav>
         <form action={doSignOut} style={{ marginLeft: 'auto' }}>
           <span className="small" style={{ color: 'var(--sidebar-text-muted)', marginRight: 12 }}>

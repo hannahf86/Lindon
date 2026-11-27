@@ -12,11 +12,14 @@ import { auth } from '@/auth'
 // /join: the family welcome page — the token in the emailed link is the key
 // /policies: privacy, safeguarding and terms pages anyone can read
 // /manifest.webmanifest: the install-as-an-app details (browsers fetch it without cookies)
-const PUBLIC_PATHS = ['/manifest.webmanifest', '/login', '/signup', '/join', '/policies', '/api/auth', '/api/cron', '/api/calendar']
+// /home, /contact: the public website (signed-out visitors to / see /home)
+const PUBLIC_PATHS = ['/home', '/contact', '/manifest.webmanifest', '/login', '/signup', '/join', '/policies', '/api/auth', '/api/cron', '/api/calendar']
 
 export default auth((req) => {
   const { pathname } = req.nextUrl
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
+  // Signed out at the front door: show the website (the address stays "/")
+  if (!req.auth && pathname === '/') return NextResponse.rewrite(new URL('/home', req.nextUrl.origin))
   if (!req.auth && !isPublic) {
     const url = new URL('/login', req.nextUrl.origin)
     if (pathname !== '/') url.searchParams.set('callbackUrl', pathname)

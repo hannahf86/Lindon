@@ -384,6 +384,20 @@ export type AccessRequest = {
   decided_by: string | null
 }
 
+// 0028_feedback — messages from the public Contact page
+export type Feedback = {
+  id: string
+  kind: 'suggestion' | 'bug' | 'question' | 'other'
+  name: string
+  email: string
+  message: string
+  signed_in_as: string
+  page: string
+  user_agent: string
+  created_at: string
+  handled_at: string | null
+}
+
 export type FamilyAccess = {
   id: string
   teacher_id: string
@@ -474,6 +488,7 @@ export type Database = {
       }
       products: Table<Product, 'teacher_id' | 'name'>
       access_requests: Table<AccessRequest, 'email'>
+      feedback: Table<Feedback, 'message'>
       user_passwords: Table<UserPassword, 'user_id' | 'hash'>
       teaching_hours: Table<TeachingHours, 'teacher_id' | 'day_of_week' | 'starts' | 'ends'>
       events: Table<CalendarEvent, 'teacher_id' | 'title' | 'event_date'>

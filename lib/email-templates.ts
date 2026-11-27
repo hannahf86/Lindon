@@ -274,3 +274,26 @@ export function accessApprovedEmail(opts: { name: string; url: string }): Email 
     }),
   }
 }
+
+// ---- Contact page (suggestions, bug reports) ---------------------------------
+const FEEDBACK_KINDS: Record<string, string> = { suggestion: 'Suggestion', bug: 'Bug report', question: 'Question', other: 'Message' }
+
+export function feedbackEmail(opts: { kind: string; name: string; email: string; message: string; signedInAs: string; page: string; url: string }): Email {
+  const kind = FEEDBACK_KINDS[opts.kind] ?? 'Message'
+  const subject = `${kind} from ${opts.name || opts.email || 'the Lindon website'}`
+  const rows: [string, string][] = [
+    ['From', opts.name || '—'],
+    ['Email', opts.email || '—'],
+    ['Signed in as', opts.signedInAs || 'not signed in'],
+    ...(opts.page ? ([['Page', opts.page]] as [string, string][]) : []),
+  ]
+  return {
+    subject,
+    text: `${kind}\n\n${opts.message}\n\n${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\nAll messages: ${opts.url}`,
+    html: layout({
+      studio: 'Lindon',
+      heading: kind,
+      bodyHtml: `<p style="white-space:pre-wrap;margin:0 0 18px">${esc(opts.message)}</p>` + detailTable(rows) + button(opts.url, 'See all messages'),
+    }),
+  }
+}

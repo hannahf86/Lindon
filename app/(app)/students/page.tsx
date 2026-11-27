@@ -1,13 +1,13 @@
 // =============================================================================
 // students/page.tsx — student list: search, filters, sorting
 //
-// Everything lives in the URL (?q=&status=&age=&instrument=&sort=&dir=&per=&page=), so
+// Everything lives in the URL (?q=&status=&instrument=&sort=&dir=&per=&page=), so
 // a filtered list can be bookmarked and the back button works.
 //   Search      name, surname, email, phone, instrument, level, notes and
 //               parents' names / emails
-//   Filters     status (Active · Paused · Past · All), Children / Adults,
-//               an instrument, and "No parent linked"
-//   Sort        pills, or click a column heading (click again to reverse).
+//   Filters     status pills (Active · Paused · Past · All); an instrument
+//               dropdown (approved exception, Hannah's call 2026-11-27)
+//   Sort        a dropdown, or click a column heading (click again to reverse).
 //               Sorting by surname puts the Surname column first.
 //   Pages       10, 25 or 50 pupils a page (25 to start). Changing a search,
 //               filter or sort goes back to page 1.
@@ -24,6 +24,7 @@ import { fullName, isMinor } from '@/lib/format'
 import { Badge, Card, EmptyState, PageHeader, StatusBadge } from '@/components/ui'
 import { ConfirmButton } from '@/components/forms'
 import { RowMenu } from '@/components/row-menu'
+import { LinkSelect } from '@/components/link-select'
 import { deleteStudent } from './actions'
 
 export const metadata: Metadata = { title: 'Students' }
@@ -31,14 +32,12 @@ export const metadata: Metadata = { title: 'Students' }
 const STATUSES = ['active', 'paused', 'left', 'all'] as const
 // Stored status 'left' is shown to teachers as "Past"
 const STATUS_LABELS: Record<(typeof STATUSES)[number], string> = { active: 'Active', paused: 'Paused', left: 'Past', all: 'All' }
-const AGES = ['all', 'children', 'adults', 'no-parent'] as const
-const AGE_LABELS: Record<(typeof AGES)[number], string> = { all: 'Everyone', children: 'Children', adults: 'Adults', 'no-parent': 'No parent linked' }
 const SORTS = ['first', 'last', 'contact', 'newest'] as const
 type Sort = (typeof SORTS)[number]
 const SORT_LABELS: Record<Sort, string> = { first: 'First name', last: 'Surname', contact: 'Main contact', newest: 'Newest' }
 
 const PER_PAGE = [10, 25, 50] as const
-type Params = { q: string; status: string; age: string; instrument: string; sort: Sort; dir: 'asc' | 'desc'; per: number; page: number }
+type Params = { q: string; status: string; instrument: string; sort: Sort; dir: 'asc' | 'desc'; per: number; page: number }
 
 export default async function StudentsPage({ searchParams }: PageProps<'/students'>) {
   const teacher = await requireTeacher()
@@ -47,7 +46,6 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
   const p: Params = {
     q: pick('q'),
     status: STATUSES.find((f) => f === pick('status')) ?? 'active',
-    age: AGES.find((f) => f === pick('age')) ?? 'all',
     instrument: pick('instrument'),
     sort: SORTS.find((s) => s === pick('sort')) ?? 'first',
     dir: pick('dir') === 'desc' ? 'desc' : 'asc',
@@ -82,9 +80,6 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
       return { ...s, minor, parents, contact }
     })
     .filter((s) => {
-      if (p.age === 'children' && !s.minor) return false
-      if (p.age === 'adults' && s.minor) return false
-      if (p.age === 'no-parent' && !(s.minor && s.parents.length === 0)) return false
       if (p.instrument && !s.instruments.some((i) => i.trim().toLowerCase() === p.instrument.toLowerCase())) return false
       if (!terms.length) return true
       const hay = [s.first_name, s.last_name, s.email, s.phone, s.level, s.notes, ...s.instruments, ...s.parents.flatMap((g) => [g.first_name, g.last_name, g.email])]
@@ -124,7 +119,6 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
     const qs = new URLSearchParams()
     if (next.q) qs.set('q', next.q)
     if (next.status !== 'active') qs.set('status', next.status)
-    if (next.age !== 'all') qs.set('age', next.age)
     if (next.instrument) qs.set('instrument', next.instrument)
     if (next.sort !== 'first') qs.set('sort', next.sort)
     if (next.dir !== 'asc') qs.set('dir', next.dir)
@@ -146,7 +140,7 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
     )
   }
   const surnameFirst = p.sort === 'last'
-  const filtered = p.q || p.age !== 'all' || p.instrument
+  const filtered = p.q || p.instrument
 
   return (
     <>
@@ -175,7 +169,6 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
       {/* ---- Search ---- */}
       <form className="student-search" action="/students">
         {p.status !== 'active' && <input type="hidden" name="status" value={p.status} />}
-        {p.age !== 'all' && <input type="hidden" name="age" value={p.age} />}
         {p.instrument && <input type="hidden" name="instrument" value={p.instrument} />}
         {p.sort !== 'first' && <input type="hidden" name="sort" value={p.sort} />}
         {p.dir !== 'asc' && <input type="hidden" name="dir" value={p.dir} />}
@@ -192,7 +185,7 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
           Search
         </button>
         {filtered && (
-          <Link href={href({ q: '', age: 'all', instrument: '' })} className="btn btn-ghost">
+          <Link href={href({ q: '', instrument: '' })} className="btn btn-ghost">
             Clear
           </Link>
         )}
@@ -211,39 +204,15 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
           </nav>
         </div>
         <div className="filter-row">
-          <span className="filter-label">Who</span>
-          <nav className="tabs tabs-sm" aria-label="Filter by age">
-            {AGES.map((f) => (
-              <Link key={f} href={href({ age: f })} aria-current={f === p.age ? 'page' : undefined}>
-                {AGE_LABELS[f]}
-              </Link>
-            ))}
-          </nav>
-        </div>
-        {instruments.length > 1 && (
-          <div className="filter-row">
-            <span className="filter-label">Instrument</span>
-            <nav className="tabs tabs-sm" aria-label="Filter by instrument">
-              <Link href={href({ instrument: '' })} aria-current={!p.instrument ? 'page' : undefined}>
-                All
-              </Link>
-              {instruments.map((i) => (
-                <Link key={i} href={href({ instrument: i })} aria-current={p.instrument.toLowerCase() === i.toLowerCase() ? 'page' : undefined}>
-                  {i}
-                </Link>
-              ))}
-            </nav>
-          </div>
-        )}
-        <div className="filter-row">
-          <span className="filter-label">Sort by</span>
-          <nav className="tabs tabs-sm" aria-label="Sort by">
-            {SORTS.map((s) => (
-              <Link key={s} href={href({ sort: s, dir: 'asc' })} aria-current={s === p.sort ? 'page' : undefined}>
-                {SORT_LABELS[s]}
-              </Link>
-            ))}
-          </nav>
+          {instruments.length > 1 && (
+            <LinkSelect
+              id="filter-instrument"
+              label="Instrument"
+              value={href({ instrument: instruments.find((i) => i.toLowerCase() === p.instrument.toLowerCase()) ?? '' })}
+              options={[{ href: href({ instrument: '' }), label: 'All instruments' }, ...instruments.map((i) => ({ href: href({ instrument: i }), label: i }))]}
+            />
+          )}
+          <LinkSelect id="filter-sort" label="Sort by" value={href({})} options={SORTS.map((x) => ({ href: href({ sort: x, dir: x === p.sort ? p.dir : 'asc' }), label: SORT_LABELS[x] }))} />
         </div>
       </div>
 
@@ -254,7 +223,7 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
             title={filtered ? 'No matches' : 'No students here yet'}
             action={
               filtered ? (
-                <Link href={href({ q: '', age: 'all', instrument: '' })} className="btn btn-secondary">
+                <Link href={href({ q: '', instrument: '' })} className="btn btn-secondary">
                   Clear search and filters
                 </Link>
               ) : (

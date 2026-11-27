@@ -2,6 +2,7 @@
 // =============================================================================
 // app/admin/actions.ts — approve or decline a teacher's access request
 // Admins only (lib/access.ts → isAdmin). Approving emails them a sign-in link.
+// Also: mark Contact-page feedback as dealt with.
 // =============================================================================
 import { revalidatePath } from 'next/cache'
 import { auth } from '@/auth'
@@ -36,5 +37,19 @@ export async function decideRequest(id: string, decision: 'approved' | 'declined
     return err
       ? { ok: `Approved ${req.email}, but the email didn't send (${err}). Tell them to sign in at ${appUrl('/login')}.` }
       : { ok: `Approved — ${req.email} has been emailed a link to sign in.` }
+  })
+}
+
+// ---- Feedback: mark dealt with / not ----------------------------------------------------------
+export async function markFeedback(id: string, handled: boolean): Promise<ActionState> {
+  return handle(async () => {
+    await requireAdmin()
+    const { error } = await db()
+      .from('feedback')
+      .update({ handled_at: handled ? new Date().toISOString() : null })
+      .eq('id', id)
+    if (error) throw new FormError('That message couldn’t be updated.')
+    revalidatePath('/admin/feedback')
+    return { ok: handled ? 'Marked as dealt with.' : 'Moved back to New.' }
   })
 }
