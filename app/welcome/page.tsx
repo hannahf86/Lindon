@@ -20,6 +20,7 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { db, must, requireTeacher } from '@/lib/db'
+import { isAdmin } from '@/lib/access'
 import { hasPassword, MIN_PASSWORD_LENGTH } from '@/lib/passwords'
 import { currencySymbol, dayName, duration, fullName, hhmm, money } from '@/lib/format'
 import { todayISO } from '@/lib/dates'
@@ -39,6 +40,8 @@ const STEPS = ['You & your studio', 'Charging & payment', 'Reminders & features'
 
 export default async function WelcomePage({ searchParams }: PageProps<'/welcome'>) {
   const teacher = await requireTeacher()
+  // Admin-only logins don't set up a studio — they use the admin area
+  if (!teacher.onboarded_at && isAdmin(teacher.email)) redirect('/admin')
   if (teacher.onboarded_at) redirect('/settings')
   const sp = await searchParams
   const raw = Number(typeof sp.step === 'string' ? sp.step : 1)

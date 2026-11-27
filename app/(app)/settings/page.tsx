@@ -9,6 +9,7 @@
 //   Communication   lesson reminders · exam reminders · message alerts
 //   Features        the optional parts of Lindon, on or off
 //   Policies        privacy & data protection, child protection, terms (public pages)
+//   Account         delete your Lindon account for good
 //
 // Each tab is its own form and saves only its own fields (the action is told
 // which tab via a hidden "section" field). Currency and timezone are typed
@@ -29,7 +30,7 @@ import { TagInput } from '@/components/pickers'
 import { POLICIES } from '@/lib/policies'
 import { CopyField } from '@/components/copy-field'
 import { calendarFeedUrl } from '@/lib/calendar-feed'
-import { makeCalendarLink, removeCalendarLink, removeLogo, updateSettings, uploadLogo } from './actions'
+import { deleteAccount, makeCalendarLink, removeCalendarLink, removeLogo, updateSettings, uploadLogo } from './actions'
 
 export const metadata: Metadata = { title: 'Settings' }
 
@@ -39,6 +40,7 @@ const TABS = [
   { key: 'communication', label: 'Communication' },
   { key: 'features', label: 'Features' },
   { key: 'policies', label: 'Policies' },
+  { key: 'account', label: 'Account' },
 ] as const
 type Tab = (typeof TABS)[number]['key']
 
@@ -68,7 +70,7 @@ export default async function SettingsPage({ searchParams }: PageProps<'/setting
       {admin && (
         <div className={`alert ${pendingRequests ? 'alert-info' : 'alert-ok'} spread`} style={{ marginBottom: 20 }}>
           <span>{pendingRequests ? `${pendingRequests} teacher${pendingRequests === 1 ? ' is' : 's are'} waiting to join Lindon.` : 'No teachers waiting to join.'}</span>
-          <Link className="btn btn-sm" href="/settings/access">
+          <Link className="btn btn-sm" href="/admin">
             Access requests
           </Link>
         </div>
@@ -96,6 +98,7 @@ export default async function SettingsPage({ searchParams }: PageProps<'/setting
       {tab === 'communication' && <CommunicationTab teacher={t} />}
       {tab === 'features' && <FeaturesTab teacher={t} />}
       {tab === 'policies' && <PoliciesTab />}
+      {tab === 'account' && <AccountTab signedInAs={signedInAs} />}
     </>
   )
 }
@@ -408,6 +411,32 @@ function PoliciesTab() {
           </li>
         ))}
       </ul>
+    </Card>
+  )
+}
+
+// ---- Account: delete everything, for good ---------------------------------------------------
+function AccountTab({ signedInAs }: { signedInAs: string }) {
+  return (
+    <Card title="Delete your account">
+      <p style={{ marginTop: 0 }}>
+        This permanently deletes the Lindon account for <strong>{signedInAs}</strong> and everything in your studio: students, contacts, lessons,
+        invoices, messages, events, loans, shared files and family logins. Families will no longer be able to sign in to see any of it.
+      </p>
+      <p className="small muted">
+        It can’t be undone. If you might want your records, download any invoice PDFs you need first. To use Lindon again later you’d need to
+        request a new account.
+      </p>
+      <ActionForm action={deleteAccount}>
+        <div className="form-grid">
+          <TextField label="Type DELETE to confirm" name="confirm" autoComplete="off" required />
+        </div>
+        <div className="form-actions">
+          <SubmitButton className="btn btn-danger" pendingText="Deleting…">
+            Delete my account
+          </SubmitButton>
+        </div>
+      </ActionForm>
     </Card>
   )
 }

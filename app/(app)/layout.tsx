@@ -8,6 +8,7 @@
 // =============================================================================
 import { redirect } from 'next/navigation'
 import { requireTeacher } from '@/lib/db'
+import { isAdmin } from '@/lib/access'
 import { signOut } from '@/auth'
 import { teacherUnreadCount } from '@/lib/messages'
 import { has } from '@/lib/features'
@@ -15,7 +16,8 @@ import { Sidebar } from '@/components/sidebar'
 
 export default async function AppLayout({ children }: LayoutProps<'/'>) {
   const teacher = await requireTeacher()
-  if (!teacher.onboarded_at) redirect('/welcome')
+  // An admin who never set up a studio goes to the admin area, not the welcome steps
+  if (!teacher.onboarded_at) redirect(isAdmin(teacher.email) ? '/admin' : '/welcome')
   const unread = has(teacher, 'messaging') ? await teacherUnreadCount(teacher.id) : 0
   // Sidebar shows an extra only when it's really usable (e.g. messages need family logins)
   const features = teacher.features.filter((k) => has(teacher, k as Parameters<typeof has>[1]))

@@ -36,7 +36,7 @@ export async function requestAccess(_: ActionState, fd: FormData): Promise<Actio
     if (error) throw new Error(error.message)
 
     const admins = adminEmails()
-    if (admins.length) await sendSystemEmail(admins, accessRequestedEmail({ name, email, studio, teaches, url: appUrl('/settings/access') }))
+    if (admins.length) await sendSystemEmail(admins, accessRequestedEmail({ name, email, studio, teaches, url: appUrl('/admin') }))
     return { ok: "Thanks! Your request is in. We'll email you at " + email + ' as soon as your account is ready.' }
   })
 }

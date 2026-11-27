@@ -12,7 +12,7 @@ import { cache } from 'react'
 import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { db } from './admin'
-import { canBeTeacher, hasFamilyAccess } from './access'
+import { canBeTeacher, hasFamilyAccess, isAdmin } from './access'
 import type { Teacher } from './database.types'
 
 export { db, type Db } from './admin'
@@ -34,6 +34,8 @@ export const requireTeacher = cache(async (): Promise<Teacher> => {
   // their own area — they must never be turned into teacher accounts.
   const email = session.user?.email ?? ''
   if (await hasFamilyAccess(email)) redirect('/family')
+  // Admin-only logins don't get a studio: they go to the admin area
+  if (isAdmin(email)) redirect('/admin')
   if (!(await canBeTeacher(email))) redirect('/login?error=AccessDenied')
 
   // First sign-in as a teacher: create the studio profile, pre-filled from

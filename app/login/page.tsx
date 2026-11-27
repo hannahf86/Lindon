@@ -30,6 +30,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
 
   const sp = await searchParams
   const error = typeof sp.error === 'string' ? (ERRORS[sp.error] ?? 'Something went wrong signing in. Please try again.') : null
+  const deleted = sp.deleted === '1'
   const callbackUrl = typeof sp.callbackUrl === 'string' && sp.callbackUrl.startsWith('/') ? sp.callbackUrl : '/'
 
   // ---- The two ways in (each runs on the server) ----
@@ -81,6 +82,11 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
       <section className="auth-panel">
         <div className="auth-card">
           <h2 style={{ fontSize: '1.75rem', marginBottom: 8 }}>Sign in</h2>
+          {deleted && !error && (
+            <div className="alert alert-ok" role="status" style={{ margin: '16px 0' }}>
+              Your account and studio have been deleted.
+            </div>
+          )}
           {error && (
             <div className="alert alert-error" role="alert" style={{ margin: '16px 0' }}>
               {error}

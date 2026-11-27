@@ -1,6 +1,6 @@
 'use server'
 // =============================================================================
-// settings/access/actions.ts — approve or decline a teacher's access request
+// app/admin/actions.ts — approve or decline a teacher's access request
 // Admins only (lib/access.ts → isAdmin). Approving emails them a sign-in link.
 // =============================================================================
 import { revalidatePath } from 'next/cache'
@@ -29,7 +29,7 @@ export async function decideRequest(id: string, decision: 'approved' | 'declined
       .select('email, name')
       .single()
     if (error || !req) throw new FormError('That request no longer exists.')
-    revalidatePath('/settings/access')
+    revalidatePath('/admin')
     revalidatePath('/settings')
     if (decision === 'declined') return { ok: `Declined ${req.email}.` }
     const err = await sendSystemEmail([req.email], accessApprovedEmail({ name: req.name, url: appUrl('/login') }))

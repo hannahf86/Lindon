@@ -5,6 +5,7 @@
 // (the signed-in teacher's own `teachers` row — never anyone else's).
 // =============================================================================
 import { revalidatePath } from 'next/cache'
+import { auth, signOut } from '@/auth'
 import { db, must, requireTeacher } from '@/lib/db'
 import { bool, handle, int, str, FormError, type ActionState } from '@/lib/forms'
 import { splitList } from '@/lib/format'
@@ -150,4 +151,39 @@ export async function removeLogo(): Promise<ActionState> {
 async function removeLogoFile(url: string | null | undefined) {
   const path = url?.split('/storage/v1/object/public/logos/')[1]
   if (path) await db().storage.from('logos').remove([decodeURIComponent(path)])
+}
+
+// ---- Delete account -------------------------------------------------------------------------
+/**
+ * Delete the teacher's whole Lindon account, for good. They type DELETE to
+ * confirm. Removes their logo and shared files from storage, their access
+ * request (so signing in again needs a new one), then the login itself —
+ * the database cascades from there to the studio and everything in it:
+ * students, contacts, lessons, invoices, messages, family logins, files.
+ * Families' own logins stay but no longer reach anything.
+ */
+export async function deleteAccount(_: ActionState, fd: FormData): Promise<ActionState> {
+  const result = await handle(async () => {
+    const teacher = await requireTeacher()
+    if (str(fd, 'confirm').toUpperCase() !== 'DELETE') throw new FormError('Type DELETE in the box to confirm.')
+    const session = await auth()
+    const signInEmail = (session?.user?.email ?? '').toLowerCase()
+
+    // Storage (best effort — the rows go either way)
+    await removeLogoFile(teacher.logo_url)
+    const { data: files } = await db().from('shared_files').select('path').eq('teacher_id', teacher.id)
+    const paths = (files ?? []).map((f) => f.path)
+    if (paths.length) await db().storage.from('sheets').remove(paths)
+
+    if (signInEmail) await db().from('access_requests').delete().eq('email', signInEmail)
+
+    // The login (next_auth.users) — cascades to the teacher row and all their data
+    const nextAuth = db().schema('next_auth' as never) as unknown as ReturnType<typeof db>
+    const { error } = await nextAuth.from('users' as never).delete().eq('id' as never, teacher.id as never)
+    if (error) throw new FormError(`Your account couldn’t be deleted (${error.message}). Nothing has been removed from your studio.`)
+    return { ok: 'deleted' }
+  })
+  if (result?.ok !== 'deleted') return result
+  await signOut({ redirectTo: '/login?deleted=1' })
+  return null
 }

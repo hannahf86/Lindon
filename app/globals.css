@@ -728,3 +728,6 @@ form:not(:has(input[name='share_who'][value='some']:checked)) .share-some-only {
 .policy-alert { background: var(--coral-wash); border-left: 6px solid var(--accent-rose); border-radius: 14px; padding: 14px 18px; margin: 16px 0; }
 .auth-policies { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.82rem; margin-top: 18px; }
 .auth-policies a { color: var(--text-muted); }
+
+/* Admin area (app/admin) */
+.admin-main { max-width: 1100px; margin: 0 auto; padding: 32px 20px 72px; }

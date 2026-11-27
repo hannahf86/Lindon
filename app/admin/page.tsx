@@ -1,11 +1,9 @@
 // =============================================================================
-// settings/access/page.tsx — Access requests (admins only)
+// app/admin/page.tsx — Access requests (admins only; app/admin/layout.tsx checks)
 // New teachers asking to join while Lindon is invite-only. Pending first.
 // =============================================================================
 import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
 import { auth } from '@/auth'
-import { requireTeacher } from '@/lib/db'
 import { db } from '@/lib/admin'
 import { isAdmin } from '@/lib/access'
 import { fmtTz } from '@/lib/dates'
@@ -16,13 +14,13 @@ import { decideRequest } from './actions'
 export const metadata: Metadata = { title: 'Access requests' }
 
 export default async function AccessRequestsPage() {
-  const [teacher, session] = await Promise.all([requireTeacher(), auth()])
-  if (!isAdmin(session?.user?.email)) notFound()
+  const session = await auth()
+  if (!isAdmin(session?.user?.email)) return null
   const { data } = await db().from('access_requests').select('*').order('created_at', { ascending: false }).limit(200)
   const rows = data ?? []
   const pending = rows.filter((r) => r.status === 'pending')
   const decided = rows.filter((r) => r.status !== 'pending')
-  const tz = teacher.timezone
+  const tz = 'Europe/London'
 
   const list = (items: typeof rows, actions: boolean) => (
     <div className="table-wrap">
@@ -69,7 +67,7 @@ export default async function AccessRequestsPage() {
 
   return (
     <>
-      <PageHeader title="Access requests" back={{ href: '/settings', label: 'Settings' }} subtitle="Teachers asking to join Lindon while it's invite-only." />
+      <PageHeader title="Access requests" subtitle="Teachers asking to join Lindon while it's invite-only." />
       {/* ---- Waiting for a decision ---- */}
       <Card title={`Waiting (${pending.length})`}>
         {pending.length ? list(pending, true) : <EmptyState title="No new requests">New teachers appear here when they use “Create an account”.</EmptyState>}
