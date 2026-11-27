@@ -29,6 +29,7 @@ import { TeachingHoursEditor } from '@/components/teaching-hours'
 import { TagInput } from '@/components/pickers'
 import { POLICIES } from '@/lib/policies'
 import { CopyField } from '@/components/copy-field'
+import { InstallButton } from '@/components/install-app'
 import { calendarFeedUrl } from '@/lib/calendar-feed'
 import { deleteAccount, makeCalendarLink, removeCalendarLink, removeLogo, updateSettings, uploadLogo } from './actions'
 
@@ -82,6 +83,12 @@ export default async function SettingsPage({ searchParams }: PageProps<'/setting
         <Link className="btn btn-sm" href="/account">
           Password &amp; sign-in
         </Link>
+      </div>
+
+      {/* ---- Desktop / phone shortcut (install as an app) ---- */}
+      <div className="alert alert-info spread" style={{ marginBottom: 20 }}>
+        <span>Add Lindon to your desktop or phone so it opens like an app.</span>
+        <InstallButton />
       </div>
 
       {/* ---- Tabs ---- */}
