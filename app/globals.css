@@ -731,3 +731,12 @@ form:not(:has(input[name='share_who'][value='some']:checked)) .share-some-only {
 
 /* Admin area (app/admin) */
 .admin-main { max-width: 1100px; margin: 0 auto; padding: 32px 20px 72px; }
+
+/* Import students (students/import) */
+.import-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 20px; align-items: start; }
+.import-steps { padding-left: 20px; margin: 0 0 18px; line-height: 1.6; }
+.import-steps li { margin-bottom: 10px; }
+.import-table { max-height: 460px; overflow: auto; }
+.import-skip td { background: var(--line-soft); }
+.text-danger { color: var(--coral-ink); }
+@media (max-width: 900px) { .import-grid { grid-template-columns: 1fr; } }

@@ -1,6 +1,7 @@
 // =============================================================================
 // students/page.tsx — student list with search + status filter
 // Each row ends with a "⋯" menu: view, edit, remove.
+// "Import" brings pupils over from a CSV (students/import).
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -22,6 +23,7 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
   const sp = await searchParams
   const q = typeof sp.q === 'string' ? sp.q.trim() : ''
   const status = FILTERS.find((f) => f === sp.status) ?? 'active'
+  const imported = typeof sp.imported === 'string' ? Number(sp.imported) || 0 : 0
 
   let query = db()
     .from('students')
@@ -44,11 +46,23 @@ export default async function StudentsPage({ searchParams }: PageProps<'/student
         title="Students"
         subtitle={`${students.length} ${status === 'all' ? '' : FILTER_LABELS[status].toLowerCase()} student${students.length === 1 ? '' : 's'}`}
         actions={
-          <Link href="/students/new" className="btn">
-            + Add student
-          </Link>
+          <span className="row" style={{ gap: 8 }}>
+            <Link href="/students/import" className="btn btn-secondary">
+              Import from CSV
+            </Link>
+            <Link href="/students/new" className="btn">
+              + Add student
+            </Link>
+          </span>
         }
       />
+
+      {/* ---- Just imported ---- */}
+      {imported > 0 && (
+        <div className="alert alert-ok" role="status" style={{ marginBottom: 16 }}>
+          {imported} pupil{imported === 1 ? '' : 's'} imported. Book their regular lessons from each pupil’s page.
+        </div>
+      )}
 
       {/* ---- Filters ---- */}
       <div className="spread" style={{ marginBottom: 16 }}>
