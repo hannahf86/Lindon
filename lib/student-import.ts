@@ -4,8 +4,11 @@
 // Used by Students → Import from CSV. Pure functions, no database:
 //   parseCsv(text)        CSV text → rows of cells (quotes, commas inside
 //                         quotes, CRLF, a UTF-8 BOM, ; separators from Excel)
-//   readImport(text)      rows → students checked one by one: each comes back
-//                         either ready to add or with the reason it can't be
+//   readImport(text)      rows → students checked one by one. Everything that
+//                         can be imported is: unreadable dates are left blank,
+//                         unknown statuses become Active, and anything without a
+//                         place in Lindon (extra columns, bad emails, parents with
+//                         no contact details) is kept in the pupil's notes
 // Column headings are matched loosely ("First name", "first_name", "Forename"
 // all work), so exports from other systems mostly just work — including
 // numbered parent contacts like My Music Staff's "Parent Contact 1 Email",
@@ -22,8 +25,14 @@ const STUDENT_COLUMNS = {
   first_name: ['first name', 'firstname', 'forename', 'given name', 'student first name', 'pupil first name'],
   last_name: ['last name', 'lastname', 'surname', 'family name', 'student last name', 'student surname', 'pupil surname', 'pupil last name'],
   full_name: ['name', 'full name', 'student', 'student name', 'pupil', 'pupil name'],
-  date_of_birth: ['date of birth', 'dob', 'birthday', 'birth date', 'birthdate'],
-  adult: ['adult', 'adult pupil', 'is adult', 'over 18', 'student type', 'age group', 'adult or child'],
+  date_of_birth: ['date of birth', 'dob', 'd o b', 'birthday', 'birth date', 'birthdate', 'born', 'date born', 'student birthday', 'student dob'],
+  // Adult or child: a yes/no column either way round, a "type" column with
+  // words in it, an age, or a school year group
+  adult: ['adult', 'adult pupil', 'adult student', 'is adult', 'over 18', 'over 18s', '18 or over', 'adult learner'],
+  child: ['child', 'minor', 'is child', 'is minor', 'under 18', 'under 18s', 'junior', 'child pupil', 'child student'],
+  type: ['student type', 'pupil type', 'type', 'age group', 'adult or child', 'child or adult', 'category', 'student category', 'lesson category', 'group', 'group tags', 'tags', 'age category'],
+  age: ['age', 'current age', 'age now', 'student age', 'pupil age'],
+  year_group: ['year group', 'school year', 'year', 'school year group', 'class', 'school class'],
   email: ['email', 'e mail', 'student email', 'pupil email', 'email address'],
   mobile: ['mobile', 'mobile phone', 'cell', 'cell phone', 'student mobile', 'pupil mobile'],
   phone: ['phone', 'home phone', 'telephone', 'student phone', 'pupil phone', 'phone number'],
@@ -163,24 +172,64 @@ function mapHeadings(headings: string[]): Mapped[] {
 }
 
 // ---- Values -----------------------------------------------------------------------------------
-/** 2014-03-21, 21/03/2014, 21-03-2014 or 21.03.14 → 2014-03-21 (null if blank, 'bad' if unreadable). */
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+
+/**
+ * Read a date the way people (and other systems) write them → 2014-03-21.
+ *   2014-03-21 · 21/03/2014 · 21-03-14 · 21.03.2014   (UK order: day first)
+ *   03/21/2014                                        (US order, when the day can't be a month)
+ *   21 March 2014 · 21st Mar 2014 · March 21, 2014 · Mar 2014 (→ the 1st)
+ *   41720                                             (Excel's number for a date)
+ * null if blank, 'bad' if unreadable.
+ */
 export function readDate(v: string): string | null | 'bad' {
-  const s = v.trim()
+  const s = v.trim().replace(/\s+/g, ' ')
   if (!s) return null
-  let y: number, m: number, d: number
-  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)
-  const uk = s.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2}|\d{4})$/)
+  let y = 0,
+    m = 0,
+    d = 1
+  const iso = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/)
+  const num = s.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2}|\d{4})(?:\s.*)?$/)
+  const dayMonth = s.match(/^(\d{1,2})(?:st|nd|rd|th)?[ \-]([a-z]+)\.?,?[ \-](\d{2}|\d{4})$/i)
+  const monthDay = s.match(/^([a-z]+)\.? (\d{1,2})(?:st|nd|rd|th)?,? (\d{4})$/i)
+  const monthYear = s.match(/^([a-z]+)\.? (\d{4})$/i)
+  const month = (w: string) => MONTHS.indexOf(w.slice(0, 3).toLowerCase()) + 1
   if (iso) [y, m, d] = [Number(iso[1]), Number(iso[2]), Number(iso[3])]
-  else if (uk) {
-    ;[d, m, y] = [Number(uk[1]), Number(uk[2]), Number(uk[3])]
-    if (y < 100) y += y > new Date().getFullYear() % 100 ? 1900 : 2000
+  else if (num) {
+    let [a, b] = [Number(num[1]), Number(num[2])]
+    if (b > 12 && a <= 12) [a, b] = [b, a] // US order: month first
+    ;[d, m, y] = [a, b, Number(num[3])]
+  } else if (dayMonth) [d, m, y] = [Number(dayMonth[1]), month(dayMonth[2]), Number(dayMonth[3])]
+  else if (monthDay) [m, d, y] = [month(monthDay[1]), Number(monthDay[2]), Number(monthDay[3])]
+  else if (monthYear) [m, y] = [month(monthYear[1]), Number(monthYear[2])]
+  else if (/^\d{4,5}(\.0+)?$/.test(s) && Number(s) > 3000 && Number(s) < 80000) {
+    // Excel stores dates as days since 30 Dec 1899
+    const dt = new Date(Date.UTC(1899, 11, 30) + Math.round(Number(s)) * 86400000)
+    ;[y, m, d] = [dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate()]
   } else return 'bad'
+  if (y < 100) y += y > new Date().getFullYear() % 100 ? 1900 : 2000
+  if (!m) return 'bad'
   const dt = new Date(Date.UTC(y, m - 1, d))
   if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return 'bad'
   return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 }
 
-const yes = (v: string) => /^(y|yes|true|1|adult)$/i.test(v.trim())
+const YES = /^(y|yes|true|1|x|✓|✔)$/i
+const NO = /^(n|no|false|0)$/i
+
+/** Words that say adult or child: "Adult", "Children's lessons", "Under 18", "Junior"… */
+function ageWords(v: string): 'adult' | 'child' | null {
+  const s = v.toLowerCase()
+  if (/\b(adults?|grown ?ups?|over ?18s?|18 ?\+|18 or over|mature)\b/.test(s)) return 'adult'
+  if (/\b(child|children|childrens|kids?|junior|juniors|minors?|under ?18s?|teens?|teenagers?|youth|young|primary|secondary|pupil premium)\b/.test(s)) return 'child'
+  return null
+}
+
+/** "Year 7", "Y10", "Reception", "Nursery", "7" (in a year-group column) → a child */
+function isSchoolYear(v: string): boolean {
+  const s = v.trim().toLowerCase()
+  return /^(reception|nursery|pre ?school|foundation|eyfs|ks[1-4])$/.test(s) || /^(y|yr|year|p|s)? ?([1-9]|1[0-3])$/.test(s)
+}
 
 function readStatus(v: string): 'active' | 'paused' | 'left' | 'bad' {
   const s = v.trim().toLowerCase()
@@ -219,7 +268,9 @@ export type ImportRow = {
   name: string
   student: ImportStudent | null
   parents: ImportParent[]
-  problem: string | null // set when the row can't be added
+  warnings: string[] // added, but something wasn't quite right (shown on the check screen)
+  basis: string // how we decided adult or child, e.g. "age 12", "Student type: Adult"
+  problem: string | null // set when the row can't be added (no name)
 }
 export type ImportResult = { rows: ImportRow[]; unknownHeadings: string[]; error: string | null }
 
@@ -235,28 +286,54 @@ export function readImport(text: string): ImportResult {
   const unknownHeadings = headings.filter((h, i) => mapped[i] === null && h.trim() !== '')
   const parentNumbers = [...new Set(mapped.flatMap((m) => (m?.kind === 'parent' ? [m.n] : [])))].sort()
 
+  // Import what we can: only a row with no name is left out. Anything that
+  // can't go in its proper place is kept in the pupil's notes, and the check
+  // screen says what happened ("warnings").
   const rows = data.map((cells, i): ImportRow => {
     const cell = (idx: number) => (idx === -1 ? '' : (cells[idx] ?? '').trim())
     const get = (c: StudentCol) => cell(mapped.findIndex((m) => m?.kind === 'student' && m.col === c))
     const getP = (n: number, f: ParentField) => cell(mapped.findIndex((m) => m?.kind === 'parent' && m.n === n && m.field === f))
+    const warnings: string[] = []
+    const kept: string[] = [] // "Heading: value" lines for the notes
 
     let first = get('first_name')
     let last = get('last_name')
     if (!first && get('full_name')) [first, last] = splitName(get('full_name'))
     const name = [first, last].filter(Boolean).join(' ') || '(no name)'
-    const fail = (problem: string): ImportRow => ({ line: i + 2, name, student: null, parents: [], problem })
+    if (!first) return { line: i + 2, name, student: null, parents: [], warnings, basis: '', problem: 'No name — left out.' }
 
-    if (!first) return fail('No first name.')
-    const dob = readDate(get('date_of_birth'))
-    if (dob === 'bad') return fail(`Date of birth “${get('date_of_birth')}” isn’t a date we can read — use 21/03/2014.`)
-    const age = ageFrom(dob)
-    if (age !== null && (age < 0 || age > 120)) return fail('Date of birth looks wrong.')
-    const start = readDate(get('start_date'))
-    if (start === 'bad') return fail(`Start date “${get('start_date')}” isn’t a date we can read — use 01/09/2026.`)
-    const status = readStatus(get('status'))
-    if (status === 'bad') return fail(`Status “${get('status')}” should be Active, Paused or Past.`)
-    const email = get('email').toLowerCase()
-    if (email && !EMAIL_RE.test(email)) return fail(`“${email}” doesn’t look like an email address.`)
+    // ---- Dates, status and email: unreadable → left blank, kept in notes ----
+    let dob = readDate(get('date_of_birth'))
+    if (dob === 'bad') {
+      warnings.push('date of birth unreadable, left blank')
+      kept.push(`Date of birth: ${get('date_of_birth')}`)
+      dob = null
+    }
+    let age = ageFrom(dob)
+    if (age !== null && (age < 0 || age > 120)) {
+      warnings.push('date of birth looked wrong, left blank')
+      kept.push(`Date of birth: ${get('date_of_birth')}`)
+      dob = null
+      age = null
+    }
+    let start = readDate(get('start_date'))
+    if (start === 'bad') {
+      warnings.push('start date unreadable, left blank')
+      kept.push(`Start date: ${get('start_date')}`)
+      start = null
+    }
+    let status = readStatus(get('status'))
+    if (status === 'bad') {
+      warnings.push(`status “${get('status')}” added as Active`)
+      kept.push(`Status: ${get('status')}`)
+      status = 'active'
+    }
+    let email = get('email').toLowerCase()
+    if (email && !EMAIL_RE.test(email)) {
+      warnings.push('email didn’t look right, kept in notes')
+      kept.push(`Email: ${get('email')}`)
+      email = ''
+    }
 
     // ---- Parents (parent 1, parent 2 …) ----
     const parents: ImportParent[] = []
@@ -265,10 +342,14 @@ export function readImport(text: string): ImportResult {
       let pLast = getP(n, 'last_name')
       // A single name column; "Smith, Ann; Smith, Rob" lists two people — take the first
       if (!pFirst && !pLast && getP(n, 'name')) [pFirst, pLast] = splitName(getP(n, 'name').split(';')[0])
-      const pEmail = getP(n, 'email').toLowerCase()
+      let pEmail = getP(n, 'email').toLowerCase()
       const pPhone = getP(n, 'mobile') || getP(n, 'phone') || getP(n, 'work_phone')
       if (!pFirst && !pLast && !pEmail && !pPhone) continue
-      if (pEmail && !EMAIL_RE.test(pEmail)) return fail(`Parent email “${pEmail}” doesn’t look like an email address.`)
+      if (pEmail && !EMAIL_RE.test(pEmail)) {
+        warnings.push('a parent email didn’t look right, kept in notes')
+        kept.push(`Parent email: ${getP(n, 'email')}`)
+        pEmail = ''
+      }
       parents.push({
         first_name: pFirst || pLast || 'Parent',
         last_name: pFirst ? pLast : '',
@@ -286,22 +367,38 @@ export function readImport(text: string): ImportResult {
       parents[0].email = email
       parents[0].phone = rowPhone
     }
-    // Only parents we can actually reach are kept
+    // Parents we can reach are linked; a name with no email or phone goes in the notes
     const reachable = parents.filter((p) => p.email || p.phone)
+    for (const p of parents.filter((x) => !x.email && !x.phone)) kept.push(`Parent: ${[p.first_name, p.last_name].filter(Boolean).join(' ')} (no email or phone in the file)`)
 
-    // Child or adult: date of birth decides; otherwise an Adult / Student type
-    // column; otherwise a pupil with a parent is a child and one without is an adult
-    const is_minor = age !== null ? age < 18 : get('adult') ? !yes(get('adult')) : parents.length > 0
+    // ---- Child or adult, from the best clue in the row (and say which) ----
+    const { is_minor, basis } = childOrAdult({
+      age,
+      ageCol: get('age'),
+      adultCol: get('adult'),
+      childCol: get('child'),
+      typeCol: get('type'),
+      yearCol: get('year_group'),
+      hasParent: parents.length > 0,
+    })
+    if (is_minor && reachable.length === 0) warnings.push('needs a parent’s email or phone before reminders and invoices can go out')
+    if (!is_minor && reachable.length) for (const p of reachable) kept.push(`Contact: ${[p.first_name, p.last_name].filter(Boolean).join(' ')} ${[p.email, p.phone].filter(Boolean).join(' ')}`.trim())
 
-    if (is_minor && reachable.length === 0) {
-      if (parents.length) return fail(`Add an email or phone number for ${parents[0].first_name}.`)
-      return fail('Under 18 but no parent or guardian — add one (reminders and invoices for children go to them), or put Yes in the Adult column.')
-    }
+    // ---- Columns Lindon has no place for → notes ----
+    // (type/tags and year-group columns are kept too: they're only used as clues)
+    headings.forEach((h, idx) => {
+      const m = mapped[idx]
+      const clueOnly = m?.kind === 'student' && (m.col === 'type' || m.col === 'year_group' || m.col === 'age')
+      if ((m === null || clueOnly) && cell(idx)) kept.push(`${h.trim()}: ${cell(idx)}`)
+    })
 
+    const notes = [get('notes'), kept.length ? `From your import:\n${kept.join('\n')}` : ''].filter(Boolean).join('\n\n')
     return {
       line: i + 2,
       name,
       problem: null,
+      basis,
+      warnings,
       parents: is_minor ? reachable : [],
       student: {
         first_name: first,
@@ -315,11 +412,41 @@ export function readImport(text: string): ImportResult {
         level: get('level'),
         status,
         start_date: start,
-        notes: get('notes'),
+        notes,
       },
     }
   })
   return { rows, unknownHeadings, error: null }
+}
+
+// ---- Adult or child ---------------------------------------------------------------------------
+/**
+ * Decide adult or child from the best clue, in this order:
+ *   1. date of birth  2. an Age column  3. an Adult or Child yes/no column
+ *   4. words in a type/category/tags column ("Adult", "Children's lessons")
+ *   5. a school year group ("Year 7", "Reception")
+ *   6. otherwise: a parent listed → child; no parent → adult
+ */
+function childOrAdult(c: { age: number | null; ageCol: string; adultCol: string; childCol: string; typeCol: string; yearCol: string; hasParent: boolean }): { is_minor: boolean; basis: string } {
+  if (c.age !== null) return { is_minor: c.age < 18, basis: `age ${c.age}` }
+  const ageNum = c.ageCol.match(/^(\d{1,3})/)
+  if (ageNum && Number(ageNum[1]) <= 120) return { is_minor: Number(ageNum[1]) < 18, basis: `age ${Number(ageNum[1])}` }
+  if (c.adultCol) {
+    if (YES.test(c.adultCol)) return { is_minor: false, basis: 'Adult column' }
+    if (NO.test(c.adultCol)) return { is_minor: true, basis: 'Adult column' }
+    const w = ageWords(c.adultCol)
+    if (w) return { is_minor: w === 'child', basis: `Adult column: ${c.adultCol}` }
+  }
+  if (c.childCol) {
+    if (YES.test(c.childCol)) return { is_minor: true, basis: 'Child column' }
+    if (NO.test(c.childCol)) return { is_minor: false, basis: 'Child column' }
+    const w = ageWords(c.childCol)
+    if (w) return { is_minor: w === 'child', basis: `Child column: ${c.childCol}` }
+  }
+  const w = c.typeCol ? ageWords(c.typeCol) : null
+  if (w) return { is_minor: w === 'child', basis: `“${c.typeCol.length > 30 ? c.typeCol.slice(0, 30) + '…' : c.typeCol}”` }
+  if (c.yearCol && isSchoolYear(c.yearCol)) return { is_minor: true, basis: `school year ${c.yearCol}` }
+  return c.hasParent ? { is_minor: true, basis: 'has a parent listed' } : { is_minor: false, basis: 'no parent listed' }
 }
 
 /** The template as CSV text. */

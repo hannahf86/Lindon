@@ -18,7 +18,7 @@ import { readImport, type ImportParent, type ImportRow } from '@/lib/student-imp
 
 const MAX_TEXT = 900_000 // stays under the 1 MB server action limit
 
-export type CheckedRow = { line: number; name: string; parent: string; outcome: 'add' | 'duplicate' | 'problem'; note: string }
+export type CheckedRow = { line: number; name: string; parent: string; outcome: 'add' | 'duplicate' | 'problem'; note: string; warnings: string[] }
 export type ImportCheck = { ok: false; error: string } | { ok: true; rows: CheckedRow[]; adding: number; unknownHeadings: string[] }
 
 type Ready = { rows: ImportRow[]; checked: CheckedRow[]; unknownHeadings: string[] }
@@ -36,15 +36,15 @@ async function prepare(teacherId: string, text: string): Promise<Ready | { error
   const rows: ImportRow[] = []
   const checked = result.rows.map((r): CheckedRow => {
     const parent = r.parents.map((p) => [p.first_name, p.last_name].filter(Boolean).join(' ')).join(', ')
-    if (r.problem || !r.student) return { line: r.line, name: r.name, parent, outcome: 'problem', note: r.problem ?? 'Can’t be read.' }
+    if (r.problem || !r.student) return { line: r.line, name: r.name, parent, outcome: 'problem', note: r.problem ?? 'Can’t be read.', warnings: [] }
     const k = key(r.student.first_name, r.student.last_name)
-    if (seen.has(k)) return { line: r.line, name: r.name, parent, outcome: 'duplicate', note: 'Already on Lindon (or twice in this file) — skipped.' }
+    if (seen.has(k)) return { line: r.line, name: r.name, parent, outcome: 'duplicate', note: 'Already on Lindon (or twice in this file) — skipped.', warnings: [] }
     seen.add(k)
     rows.push(r)
-    const note = [r.student.is_minor ? 'Child' : 'Adult', r.student.instruments.join(', '), r.student.status === 'active' ? '' : r.student.status === 'left' ? 'Past' : 'Paused']
+    const note = [`${r.student.is_minor ? 'Child' : 'Adult'} (${r.basis})`, r.student.instruments.join(', '), r.student.status === 'active' ? '' : r.student.status === 'left' ? 'Past' : 'Paused']
       .filter(Boolean)
       .join(' · ')
-    return { line: r.line, name: r.name, parent, outcome: 'add', note }
+    return { line: r.line, name: r.name, parent, outcome: 'add', note, warnings: r.warnings }
   })
   return { rows, checked, unknownHeadings: result.unknownHeadings }
 }

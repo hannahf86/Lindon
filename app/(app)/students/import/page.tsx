@@ -29,8 +29,8 @@ export default async function ImportStudentsPage() {
               <strong>One pupil per row</strong>, with headings in the first row. Only <em>First name</em> is required — the rest is optional.
             </li>
             <li>
-              <strong>Children need a parent or guardian</strong> with an email or phone number. Pupils with no parent are added as adults, or put
-              Yes in the <em>Adult</em> column.
+              <strong>Everything that can be imported, is.</strong> Columns Lindon has no place for, and anything it can’t read (like an odd date),
+              are kept in each pupil’s notes. Children with no parent contact are still added — you’ll be told who needs one.
             </li>
             <li>
               <strong>Check, then import.</strong> You’ll see every row before anything is added. Pupils already on Lindon are skipped.

@@ -56,7 +56,7 @@ export function StudentImporter() {
   }
 
   const counts = check
-    ? { add: check.adding, duplicate: check.rows.filter((r) => r.outcome === 'duplicate').length, problem: check.rows.filter((r) => r.outcome === 'problem').length }
+    ? { warn: check.rows.filter((r) => r.warnings.length > 0).length, add: check.adding, duplicate: check.rows.filter((r) => r.outcome === 'duplicate').length, problem: check.rows.filter((r) => r.outcome === 'problem').length }
     : null
 
   return (
@@ -78,11 +78,12 @@ export function StudentImporter() {
               {counts.add} pupil{counts.add === 1 ? '' : 's'} to add
             </strong>
             {counts.duplicate > 0 && <span className="muted"> · {counts.duplicate} already on Lindon</span>}
-            {counts.problem > 0 && <span className="text-danger"> · {counts.problem} need fixing</span>}
+            {counts.warn > 0 && <span className="import-warn"> · {counts.warn} with something to check afterwards</span>}
+            {counts.problem > 0 && <span className="text-danger"> · {counts.problem} left out (no name)</span>}
           </p>
           {check.unknownHeadings.length > 0 && (
             <p className="small muted" style={{ marginTop: 0 }}>
-              Not imported (columns Lindon doesn’t use): {check.unknownHeadings.join(', ')}
+              Kept in each pupil’s notes (no matching Lindon field): {check.unknownHeadings.join(', ')}
             </p>
           )}
           <div className="table-wrap import-table">
@@ -105,7 +106,10 @@ export function StudentImporter() {
                     <td className="small">{r.parent || <span className="muted">—</span>}</td>
                     <td className="small">
                       {r.outcome === 'add' ? (
-                        <span>✓ {r.note}</span>
+                        <>
+                          <span>✓ {r.note}</span>
+                          {r.warnings.length > 0 && <div className="import-warn">Added, but {r.warnings.join('; ')}.</div>}
+                        </>
                       ) : r.outcome === 'duplicate' ? (
                         <span className="muted">{r.note}</span>
                       ) : (
@@ -117,9 +121,10 @@ export function StudentImporter() {
               </tbody>
             </table>
           </div>
-          {counts.problem > 0 && (
-            <p className="small muted">Rows that need fixing are left out. Fix them in your file and import it again — pupils already added will be skipped.</p>
-          )}
+          <p className="small muted">
+            Anything that doesn’t fit a Lindon field — extra columns, dates or emails we couldn’t read — is kept in each pupil’s notes, so nothing
+            from your file is lost.
+          </p>
           <div className="form-actions">
             <button type="button" className="btn" onClick={onImport} disabled={busy !== '' || counts.add === 0}>
               {busy === 'importing' ? 'Importing…' : `Import ${counts.add} pupil${counts.add === 1 ? '' : 's'}`}
