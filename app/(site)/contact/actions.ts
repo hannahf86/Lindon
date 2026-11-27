@@ -3,7 +3,8 @@
 // (site)/contact/actions.ts — send a suggestion, bug report or question
 //
 // Anyone can use it (signed in or not). Saved to the feedback table and
-// emailed to the Lindon admins, with "reply" going straight to the sender.
+// emailed to CONTACT_EMAIL (the Lindon mailbox) — or the admins if that isn't
+// set — with "reply" going straight to the sender.
 // Light spam protection: a hidden "website" field that people never fill in
 // (bots do), and a minimum few seconds between opening the page and sending.
 // =============================================================================
@@ -14,6 +15,7 @@ import { FormError, handle, str, type ActionState } from '@/lib/forms'
 import { feedbackEmail } from '@/lib/email-templates'
 import { appUrl } from '@/lib/messages'
 import { sendSystemEmail } from '@/lib/system-email'
+import { contactInbox } from '@/lib/site'
 
 const KINDS = ['suggestion', 'bug', 'question', 'other'] as const
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -40,8 +42,9 @@ export async function sendFeedback(_: ActionState, fd: FormData): Promise<Action
     const { error } = await db().from('feedback').insert({ kind, name, email, message, signed_in_as: signedInAs, page, user_agent: userAgent })
     if (error) throw new FormError('Sorry — your message couldn’t be sent just now. Please try again in a minute.')
 
-    const admins = adminEmails()
-    if (admins.length) await sendSystemEmail(admins, feedbackEmail({ kind, name, email, message, signedInAs, page, url: appUrl('/admin/feedback') }), email)
+    const inbox = contactInbox()
+    const to = inbox ? [inbox] : adminEmails()
+    if (to.length) await sendSystemEmail(to, feedbackEmail({ kind, name, email, message, signedInAs, page, url: appUrl('/admin/feedback') }), email)
 
     return {
       ok:

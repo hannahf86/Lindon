@@ -5,11 +5,12 @@
 // =============================================================================
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { PUBLIC_CONTACT_EMAIL } from '@/lib/site'
 
 export const metadata: Metadata = { title: 'Privacy & data protection' }
 
 const UPDATED = '27 November 2026'
-const CONTACT = 'lindon@jorvikweb.dev'
+const CONTACT = PUBLIC_CONTACT_EMAIL // lib/site.ts (CONTACT_EMAIL)
 
 export default function PrivacyPage() {
   return (
